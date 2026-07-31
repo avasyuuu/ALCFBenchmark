@@ -1,0 +1,28 @@
+{
+  "_comment": [
+    "Vendor peak dense FLOP/s PER DEVICE, used only to compute MFU.",
+    "IMPORTANT: verify every number against the vendor spec sheet before you",
+    "publish anything derived from it, and record where you got it in _source.",
+    "On Aurora the device is a TILE (ZE_FLAT_DEVICE_HIERARCHY=FLAT), so these",
+    "must be per-tile values -- roughly half the per-GPU figure. Leave a value",
+    "as null and MFU is omitted from the results rather than computed wrong.",
+    "Do not count sparsity-boosted 2:1 numbers; use dense figures only."
+  ],
+  "Data Center GPU Max": {
+    "_source": "UNVERIFIED - fill in from Intel spec sheet, halve per-GPU to per-tile",
+    "_note": "Max 1550 = 2 tiles per GPU; these keys must be per-tile",
+    "bf16": null,
+    "fp16": null,
+    "fp32": null
+  },
+  "A100": {
+    "_source": "UNVERIFIED - check NVIDIA A100 datasheet for your SXM/PCIe variant",
+    "bf16": null,
+    "fp16": null,
+    "fp32": null
+  },
+  "cpu": {
+    "_source": "UNVERIFIED - Crux AMD EPYC, cores x FMA width x 2 x clock",
+    "fp32": null
+  }
+}
