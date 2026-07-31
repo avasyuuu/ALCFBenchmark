@@ -51,7 +51,9 @@ def parse_args():
 
     # Scaling
     p.add_argument("--scaling", default="strong", choices=["strong", "weak"])
-    p.add_argument("--global-batch-size", type=int, default=1024, help="strong scaling: total across all ranks")
+    # 1536 divides evenly by 12, 24, 48, 96 ranks (1-8 Aurora nodes at 12
+    # ranks/node), so a full scaling sweep runs without changing the batch.
+    p.add_argument("--global-batch-size", type=int, default=1536, help="strong scaling: total across all ranks")
     p.add_argument("--local-batch-size", type=int, default=128, help="weak scaling: per rank")
 
     # Training

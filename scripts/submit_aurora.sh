@@ -68,7 +68,7 @@ mpiexec -n "${NTOTRANKS}" -ppn "${RANKS_PER_NODE}" --depth="${OMP_NUM_THREADS}" 
         --platform aurora \
         --model resnet20 \
         --scaling strong \
-        --global-batch-size 1024 \
+        --global-batch-size 1536 \
         --epochs 20 \
         --precision bf16 \
         --target-accuracy 0.90 \
