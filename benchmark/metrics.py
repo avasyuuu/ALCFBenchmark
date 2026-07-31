@@ -7,8 +7,10 @@ different schema versions must not be silently compared.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import secrets
 import statistics
 import subprocess
 import time
@@ -103,6 +105,55 @@ def pbs_environment() -> dict:
         "pbs_nodes": sorted(set(nodes)),
         "pbs_node_count": len(set(nodes)),
     }
+
+
+_SALT_FILE = Path.home() / ".alcf_bench_salt"
+
+
+def _anon_salt() -> str:
+    """Per-machine random salt, created once and reused.
+
+    Salted rather than plain hashing because Aurora node names follow a known,
+    enumerable scheme (x4001c0s0b0n0...) -- an unsalted hash could be reversed
+    by brute force in seconds. Persisting the salt keeps hashes stable across
+    runs, so you can still ask "did I land on the same node twice?" without
+    publishing which node it was.
+    """
+    if _SALT_FILE.exists():
+        return _SALT_FILE.read_text().strip()
+    salt = secrets.token_hex(16)
+    _SALT_FILE.write_text(salt)
+    try:
+        _SALT_FILE.chmod(0o600)
+    except OSError:
+        pass  # Windows and some filesystems don't support POSIX modes
+    return salt
+
+
+def _anon_id(value: str, salt: str) -> str:
+    return "anon-" + hashlib.sha256((salt + value).encode()).hexdigest()[:10]
+
+
+def anonymize_environment(env: dict) -> dict:
+    """Strip facility-identifying detail so results can be published.
+
+    Removed: job id (traces to your allocation) and real hostnames.
+    Kept: node COUNT, queue, and all software versions -- these are
+    methodologically essential and not sensitive.
+
+    Note this cannot scrub --note text, which is yours to write. Don't put a
+    project name in it if you intend to publish.
+    """
+    salt = _anon_salt()
+    out = dict(env)
+    if out.get("hostname"):
+        out["hostname"] = _anon_id(out["hostname"], salt)
+    if out.get("pbs_nodes"):
+        out["pbs_nodes"] = [_anon_id(n, salt) for n in out["pbs_nodes"]]
+    if "pbs_jobid" in out:
+        out["pbs_jobid"] = "redacted"
+    out["anonymized"] = True
+    return out
 
 
 @dataclass

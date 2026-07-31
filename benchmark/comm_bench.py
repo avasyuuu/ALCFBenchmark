@@ -22,7 +22,7 @@ from pathlib import Path
 
 import torch
 
-from .metrics import pbs_environment
+from .metrics import anonymize_environment, pbs_environment
 from .platform import detect_platform, get_rank_info, init_distributed
 
 SIZES_MB = [0.001, 0.01, 0.1, 1, 4, 16, 64, 256]
@@ -34,6 +34,7 @@ def main():
     p.add_argument("--iters", type=int, default=20)
     p.add_argument("--warmup", type=int, default=5)
     p.add_argument("--results-dir", default="./results")
+    p.add_argument("--anonymize", action="store_true", help="hash hostnames, redact job id")
     args = p.parse_args()
 
     rank, world_size, local_rank = get_rank_info()
@@ -92,7 +93,11 @@ def main():
             "backend": platform.dist_backend,
             "world_size": world_size,
             "device": platform.device_name(),
-            "environment": pbs_environment(),
+            "environment": (
+                anonymize_environment(pbs_environment())
+                if args.anonymize
+                else pbs_environment()
+            ),
             "results": results,
         }
         path = out / f"comm_{platform.name}_ws{world_size}.json"

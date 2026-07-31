@@ -1,5 +1,20 @@
 # ALCF Machine Benchmark
 
+> **Disclaimer.** This is an independent student project carried out during an
+> internship. It is **not** an official Argonne National Laboratory or ALCF
+> product, is not endorsed by Argonne, Intel, NVIDIA, or any other vendor, and
+> has not been reviewed by any of them.
+>
+> Any performance numbers here come from a small, deliberately simple workload
+> on a shared production system, run with default software settings and no
+> vendor tuning. They measure *this benchmark under these conditions* — not the
+> peak capability of any machine, and not a fair vendor-versus-vendor
+> comparison. Results are also affected by other users' jobs, node health, and
+> software versions on the day of the run.
+>
+> **Do not cite these as official facility performance figures.** For those,
+> see ALCF's own documentation and published results.
+
 A portable neural-network benchmark for comparing ALCF machines — Aurora, Polaris,
 Sophia, Crux, and (later) the Cerebras and Graphcore AI Testbed systems — on
 time-to-accuracy, throughput, scaling efficiency, and cost in node-hours.
@@ -104,6 +119,41 @@ Not used here, and not something you write — ALCF ships it. It sets
 `ZE_AFFINITY_MASK` per rank for compiled MPI codes, but ALCF advises against
 combining it with the `frameworks` module, which already exposes one device per
 tile. `AuroraPlatform` binds rank → `xpu:local_rank` directly instead.
+
+## Publishing results
+
+Results JSON records the PBS job id and real node hostnames, which are facility
+detail rather than science. `--anonymize` replaces them with salted hashes and
+redacts the job id:
+
+```bash
+python -m benchmark.train --anonymize ...
+```
+
+The salt is generated once, stored at `~/.alcf_bench_salt`, and reused — so
+hashes stay stable across runs (you can still tell whether two runs shared a
+node) while remaining irreversible to anyone else. It is salted rather than
+plain-hashed because Aurora hostnames follow a known enumerable scheme and an
+unsalted hash would be trivially reversible.
+
+Kept deliberately: node count, queue, and all software versions. Those are
+methodologically necessary and not sensitive.
+
+**`--anonymize` cannot scrub `--note` text.** That's free-form and yours to
+write; keep project names out of it if you intend to publish.
+
+Two things it also does not do:
+
+- **Your project name should never enter git at all.** Leave
+  `-A CHANGEME_PROJECT` in the submit script and override it at submit time,
+  since command-line flags beat `#PBS` directives:
+  `qsub -A YOUR_PROJECT scripts/submit_aurora.sh`
+- **Get your mentor's approval** before publishing cross-machine performance
+  comparisons. That's the actual gate; the repo setting is just a toggle.
+
+Note that making a repo public exposes its **entire history**, not just current
+files — so keep sensitive values out from the first commit rather than deleting
+them later.
 
 ## Porting to another machine
 

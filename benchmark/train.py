@@ -29,6 +29,7 @@ from .metrics import (
     RunRecord,
     StepTimer,
     Stopwatch,
+    anonymize_environment,
     git_commit,
     load_peak_flops,
     pbs_environment,
@@ -81,6 +82,12 @@ def parse_args():
     # Platform tuning
     p.add_argument("--no-ipex-optimize", action="store_true", help="skip vendor graph optimizer")
     p.add_argument("--note", action="append", default=[], help="free-text note recorded in the result")
+    p.add_argument(
+        "--anonymize",
+        action="store_true",
+        help="hash hostnames and redact the job id, so results can be published. "
+        "Does NOT scrub --note text -- that is yours to keep clean.",
+    )
     return p.parse_args()
 
 
@@ -190,15 +197,21 @@ def main():
     criterion = nn.CrossEntropyLoss()
     platform.reset_peak_memory()
 
+    # Read the scheduler context once — pbs_environment() re-reads $PBS_NODEFILE
+    # off Lustre on every call.
+    pbs_env = pbs_environment()
+    node_count = pbs_env["pbs_node_count"] or 1
+    env_blob = {**platform.environment(), **pbs_env, "git_commit": git_commit()}
+
     record = RunRecord(
         machine=platform.name,
         workload=workload,
         config={
             "model": args.model,
             "scaling": args.scaling,
-            "nodes": pbs_environment()["pbs_node_count"] or 1,
+            "nodes": node_count,
             "world_size": world_size,
-            "ranks_per_node": world_size // max(1, pbs_environment()["pbs_node_count"] or 1),
+            "ranks_per_node": world_size // node_count,
             "global_batch_size": global_batch,
             "local_batch_size": local_batch,
             "precision": args.precision,
@@ -211,7 +224,9 @@ def main():
             "dataloader_workers": args.workers,
             "ipex_optimize": not args.no_ipex_optimize,
         },
-        environment={**platform.environment(), **pbs_environment(), "git_commit": git_commit()},
+        environment=(
+            anonymize_environment(env_blob) if args.anonymize else env_blob
+        ),
         notes=list(args.note),
     )
 
