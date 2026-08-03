@@ -27,7 +27,12 @@ cd "${PBS_O_WORKDIR}"
 # `frameworks` provides PyTorch + IPEX + oneCCL bindings. It also sets
 # ZE_FLAT_DEVICE_HIERARCHY=FLAT, which exposes each TILE as its own device --
 # so a node has 12 devices, not 6.
+# Lmod's bash init reads $ZSH_EVAL_CONTEXT (to detect zsh), which is unset under
+# bash -- fatal under `set -u`. Relax it for the module load only; -e and
+# pipefail stay active for everything else.
+set +u
 module load frameworks
+set -u
 
 # Deliberately NOT using gpu_tile_compact.sh. That script sets ZE_AFFINITY_MASK
 # per rank for compiled MPI codes, but ALCF advises against combining it with
