@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#PBS -A CHANGEME_PROJECT
+#PBS -A datascience_collab
 #PBS -N alcf_bench_resnet
 #PBS -l select=1
 #PBS -l walltime=00:30:00
