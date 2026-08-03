@@ -131,6 +131,13 @@ class AuroraPlatform(Platform):
         self.device = torch.device(f"xpu:{local_rank % torch.xpu.device_count()}")
         torch.xpu.set_device(self.device)
 
+        # PyTorch >= 2.7 ships XCCL as a native XPU collective backend. Older
+        # Aurora stacks needed the separate oneccl_bindings_for_pytorch package,
+        # which registered itself as "ccl" and is absent from the 2025.3
+        # frameworks module. Prefer the built-in wherever it exists.
+        if getattr(torch.distributed, "is_xccl_available", lambda: False)():
+            self.dist_backend = "xccl"
+
     def device_count(self) -> int:
         return torch.xpu.device_count()
 
