@@ -47,6 +47,13 @@ NTOTRANKS=$(( NNODES * RANKS_PER_NODE ))
 export MASTER_ADDR=$(head -n 1 "${PBS_NODEFILE}")
 export MASTER_PORT=29500
 
+# The launcher's world-size variable name varies by MPI build (PALS on Aurora
+# sets PALS_RANKID but not PALS_NRANKS), and a wrong value silently degrades
+# into N independent world_size=1 jobs rather than failing. We already know the
+# true value here, so publish it under the name platform.py checks first.
+# Per-rank RANK cannot be set this way and still comes from PALS_RANKID.
+export WORLD_SIZE="${NTOTRANKS}"
+
 # oneCCL wants to know how many workers per node it is coordinating.
 export CCL_WORKER_COUNT=1
 export FI_CXI_DEFAULT_CQ_SIZE=131072    # Slingshot completion queue; avoids
