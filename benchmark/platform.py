@@ -16,8 +16,20 @@ import torch
 # different ones: torchrun sets RANK/LOCAL_RANK, Aurora's mpiexec (MPICH+PALS)
 # sets PMI_RANK/PALS_LOCAL_RANKID, OpenMPI sets OMPI_*. Try them all rather
 # than hard-coding one launcher.
-_RANK_VARS = ("RANK", "PMI_RANK", "OMPI_COMM_WORLD_RANK", "MV2_COMM_WORLD_RANK")
-_WORLD_VARS = ("WORLD_SIZE", "PMI_SIZE", "OMPI_COMM_WORLD_SIZE", "MV2_COMM_WORLD_SIZE")
+_RANK_VARS = (
+    "RANK",
+    "PALS_RANKID",
+    "PMI_RANK",
+    "OMPI_COMM_WORLD_RANK",
+    "MV2_COMM_WORLD_RANK",
+)
+_WORLD_VARS = (
+    "WORLD_SIZE",
+    "PALS_NRANKS",
+    "PMI_SIZE",
+    "OMPI_COMM_WORLD_SIZE",
+    "MV2_COMM_WORLD_SIZE",
+)
 _LOCAL_VARS = (
     "LOCAL_RANK",
     "PALS_LOCAL_RANKID",
