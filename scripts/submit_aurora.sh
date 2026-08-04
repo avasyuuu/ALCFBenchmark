@@ -21,7 +21,16 @@
 
 set -euo pipefail
 
+# PBS_O_WORKDIR is wherever qsub was invoked, NOT where this script lives, and
+# PBS runs a spool copy so $0 can't be used to find the repo. Submitting from
+# the wrong directory otherwise fails deep inside python as a bare
+# ModuleNotFoundError, so check here where the message can say what to do.
 cd "${PBS_O_WORKDIR}"
+if [[ ! -d benchmark ]]; then
+    echo "error: no benchmark/ package in ${PBS_O_WORKDIR}" >&2
+    echo "       submit from the repo root: cd <repo> && qsub scripts/submit_aurora.sh" >&2
+    exit 1
+fi
 
 # --- environment -------------------------------------------------------------
 # `frameworks` provides PyTorch + IPEX + oneCCL bindings. It also sets
@@ -62,6 +71,14 @@ export FI_CXI_DEFAULT_CQ_SIZE=131072    # Slingshot completion queue; avoids
 # Each rank gets its own slice of the 104 physical cores, leaving the
 # dataloader workers room to run without fighting the training process.
 export OMP_NUM_THREADS=8
+
+# PBS sets TMPDIR to /var/tmp/pbs.<jobid>.<fqdn>/<uuid>/tmp -- 109 characters on
+# Aurora, and AF_UNIX socket paths cap at 108. DataLoader workers pass tensors
+# through a multiprocessing socket created under TMPDIR, so every worker dies
+# with "AF_UNIX path too long" and the job then hangs on an empty queue until
+# walltime. Only shows up under mpiexec inside a real job; never reproduces on a
+# laptop, where TMPDIR is short.
+export TMPDIR=/tmp
 
 echo "=== job ${PBS_JOBID} ==="
 echo "nodes=${NNODES} ranks=${NTOTRANKS} ranks/node=${RANKS_PER_NODE}"
