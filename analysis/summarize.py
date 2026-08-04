@@ -25,6 +25,7 @@ COLUMNS = [
     ("median_step_ms", "Step (ms)"),
     ("p90_step_ms", "p90 (ms)"),
     ("jitter_pct", "Jitter %"),
+    ("tail_ratio", "Max/med"),
     ("best_top1", "Best top-1"),
     ("tta_s", "TTA (s)"),
     ("mfu_pct", "MFU %"),
@@ -54,7 +55,8 @@ def flatten(blob: dict) -> dict:
     cost = blob.get("cost", {})
 
     median = step.get("median_s")
-    stdev = step.get("stdev_s")
+    p90 = step.get("p90_s")
+    slowest = step.get("max_s")
 
     return {
         "run_id": blob.get("run_id"),
@@ -68,10 +70,18 @@ def flatten(blob: dict) -> dict:
         "synthetic": cfg.get("synthetic_data"),
         "samples_per_s": thr.get("samples_per_s"),
         "median_step_ms": median * 1e3 if median else None,
-        "p90_step_ms": step.get("p90_s", 0) * 1e3 if step.get("p90_s") else None,
-        # Jitter as a share of median: the interesting number on a machine
-        # with contention or unstable nodes, which a mean would hide.
-        "jitter_pct": (stdev / median * 100) if median and stdev else None,
+        "p90_step_ms": p90 * 1e3 if p90 else None,
+        # Spread of the normal case, as a share of median. Was stdev/median,
+        # which two identical 12-rank runs scored 43% and 93% on -- stdev is
+        # dominated by a handful of very slow steps (epoch boundaries respawn
+        # the dataloader workers), so it measured how bad the worst step
+        # happened to be, not how steady the machine is. p90 vs median is
+        # bounded by construction and reproduces.
+        "jitter_pct": ((p90 - median) / median * 100) if median and p90 else None,
+        # Stragglers get their own column instead of being smeared into the
+        # one above: every rank waits on the slowest at each all-reduce, so a
+        # rare terrible step is worth seeing, not averaging away.
+        "tail_ratio": (slowest / median) if median and slowest else None,
         "best_top1": acc.get("best_top1"),
         "tta_s": acc.get("time_to_target_s"),
         "mfu_pct": (flops.get("mfu") * 100) if flops.get("mfu") else None,
