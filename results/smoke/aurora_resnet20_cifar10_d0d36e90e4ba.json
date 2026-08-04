@@ -1,0 +1,121 @@
+{
+  "machine": "aurora",
+  "workload": "resnet20_cifar10",
+  "config": {
+    "model": "resnet20",
+    "scaling": "strong",
+    "nodes": 1,
+    "world_size": 12,
+    "ranks_per_node": 12,
+    "global_batch_size": 1536,
+    "local_batch_size": 128,
+    "precision": "bf16",
+    "epochs": 1,
+    "base_lr": 0.1,
+    "warmup_epochs": 5,
+    "seed": 1234,
+    "synthetic_data": false,
+    "target_accuracy": 0.9,
+    "dataloader_workers": 4,
+    "ipex_optimize": true
+  },
+  "environment": {
+    "platform": "aurora",
+    "hostname": "x4219c6s4b0n0",
+    "device_name": "Intel(R) Data Center GPU Max 1550",
+    "torch_version": "2.10.0a0+git449b176",
+    "ipex_version": "2.10.10+gitd0f992f",
+    "xpu_device_count": 12,
+    "ze_flat_device_hierarchy": "FLAT",
+    "ze_affinity_mask": "unset",
+    "pbs_jobid": "8733178.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov",
+    "pbs_queue": "debug",
+    "pbs_nodes": [
+      "x4219c6s4b0n0.hsn.cm.aurora.alcf.anl.gov"
+    ],
+    "pbs_node_count": 1,
+    "git_commit": "d407085"
+  },
+  "run_id": "d0d36e90e4ba",
+  "schema_version": 1,
+  "timestamp_utc": "2026-08-04T16:28:38.011812+00:00",
+  "timing": {
+    "startup_s": 6.103046507050749,
+    "data_setup_s": 0.7675900270114653,
+    "total_train_s": 3.538345521024894,
+    "warmup_steps_excluded": 10
+  },
+  "throughput": {
+    "step_time": {
+      "count": 22,
+      "mean_s": 0.013567374503261155,
+      "median_s": 0.013914183509768918,
+      "min_s": 0.01228271797299385,
+      "max_s": 0.014477693010121584,
+      "p90_s": 0.014226594008505344,
+      "p99_s": 0.014477693010121584,
+      "stdev_s": 0.0007668674146390141
+    },
+    "data_wait": {
+      "count": 22,
+      "mean_s": 0.0007520061335526407,
+      "median_s": 0.0007435560110025108,
+      "min_s": 0.0004917639889754355,
+      "max_s": 0.0011859289952553809,
+      "p90_s": 0.0008955789962783456,
+      "p99_s": 0.0011859289952553809,
+      "stdev_s": 0.00016207234905295963
+    },
+    "compute": {
+      "count": 22,
+      "mean_s": 0.012815368369708514,
+      "median_s": 0.013233070028945804,
+      "min_s": 0.01152406499022618,
+      "max_s": 0.013601002981886268,
+      "p90_s": 0.013465221039950848,
+      "p99_s": 0.013601002981886268,
+      "stdev_s": 0.0007245522387702428
+    },
+    "samples_per_s": 110390.9545911623,
+    "warmup_steps_excluded": 10
+  },
+  "accuracy": {
+    "target": 0.9,
+    "time_to_target_s": null,
+    "epoch_to_target": null,
+    "reached_target": false,
+    "final_top1": 0.1858513206243515,
+    "best_top1": 0.1858513206243515
+  },
+  "memory": {
+    "peak_bytes_per_device": 108685312
+  },
+  "flops": {
+    "fwd_flops_per_sample": 81626368,
+    "train_flops_per_sample": 244879104,
+    "achieved_flops_per_s": 27032438049988.51,
+    "peak_flops_per_s": null,
+    "mfu": null
+  },
+  "cost": {
+    "node_count": 1,
+    "wall_s": 3.538345521024894,
+    "node_seconds": 3.538345521024894,
+    "node_hours": 0.0009828737558402482
+  },
+  "curve": [
+    {
+      "epoch": 1,
+      "step": 32,
+      "elapsed_s": 3.5380638610222377,
+      "lr": 0.24000000000000005,
+      "train_loss": 2.028331756591797,
+      "val_top1": 0.1858513206243515
+    }
+  ],
+  "status": "complete",
+  "notes": [
+    "depth binding",
+    "MFU not computed: no peak FLOP/s configured for this device in configs/peak_flops.json"
+  ]
+}

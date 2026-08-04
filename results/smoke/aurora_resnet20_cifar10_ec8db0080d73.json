@@ -1,0 +1,93 @@
+{
+  "machine": "aurora",
+  "workload": "resnet20_cifar10",
+  "config": {
+    "model": "resnet20",
+    "scaling": "strong",
+    "nodes": 1,
+    "world_size": 1,
+    "ranks_per_node": 1,
+    "global_batch_size": 128,
+    "local_batch_size": 128,
+    "precision": "bf16",
+    "epochs": 1,
+    "base_lr": 0.1,
+    "warmup_epochs": 5,
+    "seed": 1234,
+    "synthetic_data": true,
+    "target_accuracy": 0.9,
+    "dataloader_workers": 4,
+    "ipex_optimize": true
+  },
+  "environment": {
+    "platform": "aurora",
+    "hostname": "x4116c0s5b0n0",
+    "device_name": "Intel(R) Data Center GPU Max 1550",
+    "torch_version": "2.10.0a0+git449b176",
+    "ipex_version": "2.10.10+gitd0f992f",
+    "xpu_device_count": 12,
+    "ze_flat_device_hierarchy": "FLAT",
+    "ze_affinity_mask": "unset",
+    "pbs_jobid": "8733081.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov",
+    "pbs_queue": "debug",
+    "pbs_nodes": [
+      "x4116c0s5b0n0.hsn.cm.aurora.alcf.anl.gov"
+    ],
+    "pbs_node_count": 1,
+    "git_commit": "d407085"
+  },
+  "run_id": "ec8db0080d73",
+  "schema_version": 1,
+  "timestamp_utc": "2026-08-04T15:31:17.127187+00:00",
+  "timing": {
+    "startup_s": 5.320334766060114,
+    "data_setup_s": 0.04074528510682285,
+    "total_train_s": 2.320972512010485,
+    "warmup_steps_excluded": 20
+  },
+  "throughput": {
+    "step_time": {},
+    "data_wait": {},
+    "compute": {},
+    "warmup_steps_excluded": 20
+  },
+  "accuracy": {
+    "target": 0.9,
+    "time_to_target_s": null,
+    "epoch_to_target": null,
+    "reached_target": false,
+    "final_top1": 0.11339999735355377,
+    "best_top1": 0.11339999735355377
+  },
+  "memory": {
+    "peak_bytes_per_device": 108136448
+  },
+  "flops": {
+    "fwd_flops_per_sample": 81626368,
+    "train_flops_per_sample": 244879104,
+    "achieved_flops_per_s": 0.0,
+    "peak_flops_per_s": null,
+    "mfu": null
+  },
+  "cost": {
+    "node_count": 1,
+    "wall_s": 2.320972512010485,
+    "node_seconds": 2.320972512010485,
+    "node_hours": 0.0006447145866695791
+  },
+  "curve": [
+    {
+      "epoch": 1,
+      "step": 5,
+      "elapsed_s": 2.3206475069746375,
+      "lr": 0.02,
+      "train_loss": 2.36859130859375,
+      "val_top1": 0.11339999735355377
+    }
+  ],
+  "status": "complete",
+  "notes": [
+    "MFU not computed: no peak FLOP/s configured for this device in configs/peak_flops.json",
+    "Synthetic data: accuracy is meaningless, throughput only."
+  ]
+}

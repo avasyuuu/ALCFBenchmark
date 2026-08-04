@@ -1,0 +1,273 @@
+{
+  "machine": "aurora",
+  "workload": "resnet20_cifar10",
+  "config": {
+    "model": "resnet20",
+    "scaling": "strong",
+    "nodes": 1,
+    "world_size": 12,
+    "ranks_per_node": 12,
+    "global_batch_size": 1536,
+    "local_batch_size": 128,
+    "precision": "bf16",
+    "epochs": 20,
+    "base_lr": 0.1,
+    "warmup_epochs": 5,
+    "seed": 1234,
+    "synthetic_data": false,
+    "target_accuracy": 0.9,
+    "dataloader_workers": 4,
+    "ipex_optimize": true
+  },
+  "environment": {
+    "platform": "aurora",
+    "hostname": "x4117c4s3b0n0",
+    "device_name": "Intel(R) Data Center GPU Max 1550",
+    "torch_version": "2.10.0a0+git449b176",
+    "ipex_version": "2.10.10+gitd0f992f",
+    "xpu_device_count": 12,
+    "ze_flat_device_hierarchy": "FLAT",
+    "ze_affinity_mask": "unset",
+    "pbs_jobid": "8733240.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov",
+    "pbs_queue": "debug",
+    "pbs_nodes": [
+      "x4117c4s3b0n0.hsn.cm.aurora.alcf.anl.gov"
+    ],
+    "pbs_node_count": 1,
+    "git_commit": "be4d1a7"
+  },
+  "run_id": "65f5b10d8574",
+  "schema_version": 1,
+  "timestamp_utc": "2026-08-04T16:48:42.600152+00:00",
+  "timing": {
+    "startup_s": 6.993743430997711,
+    "data_setup_s": 0.7803689859865699,
+    "total_train_s": 13.545834329008358,
+    "warmup_steps_excluded": 20
+  },
+  "throughput": {
+    "step_time": {
+      "count": 620,
+      "mean_s": 0.01494231694500007,
+      "median_s": 0.01383561700640712,
+      "min_s": 0.012086690025171265,
+      "max_s": 0.05864209998981096,
+      "p90_s": 0.015398385003209114,
+      "p99_s": 0.04719692299840972,
+      "stdev_s": 0.006004284748525729
+    },
+    "data_wait": {
+      "count": 620,
+      "mean_s": 0.0015978861980857479,
+      "median_s": 0.0007290284993359819,
+      "min_s": 7.423499482683837e-05,
+      "max_s": 0.031857858994044363,
+      "p90_s": 0.0010622270056046546,
+      "p99_s": 0.029954656987683848,
+      "stdev_s": 0.004958889397143524
+    },
+    "compute": {
+      "count": 620,
+      "mean_s": 0.013344430746914323,
+      "median_s": 0.013116778485709801,
+      "min_s": 0.01142701698699966,
+      "max_s": 0.02868744300212711,
+      "p90_s": 0.014697930979309604,
+      "p99_s": 0.019074654002906755,
+      "stdev_s": 0.001544137825168213
+    },
+    "samples_per_s": 111017.81722410324,
+    "warmup_steps_excluded": 20
+  },
+  "accuracy": {
+    "target": 0.9,
+    "time_to_target_s": null,
+    "epoch_to_target": null,
+    "reached_target": false,
+    "final_top1": 0.8675059676170349,
+    "best_top1": 0.8675059676170349
+  },
+  "memory": {
+    "peak_bytes_per_device": 108685312
+  },
+  "flops": {
+    "fwd_flops_per_sample": 81626368,
+    "train_flops_per_sample": 244879104,
+    "achieved_flops_per_s": 27185943609874.168,
+    "peak_flops_per_s": null,
+    "mfu": null
+  },
+  "cost": {
+    "node_count": 1,
+    "wall_s": 13.545834329008358,
+    "node_seconds": 13.545834329008358,
+    "node_hours": 0.003762731758057877
+  },
+  "curve": [
+    {
+      "epoch": 1,
+      "step": 32,
+      "elapsed_s": 3.4844270320027135,
+      "lr": 0.24000000000000005,
+      "train_loss": 2.0378578901290894,
+      "val_top1": 0.1507793813943863
+    },
+    {
+      "epoch": 2,
+      "step": 64,
+      "elapsed_s": 4.023268906021258,
+      "lr": 0.4800000000000001,
+      "train_loss": 1.7872584462165833,
+      "val_top1": 0.3256394863128662
+    },
+    {
+      "epoch": 3,
+      "step": 96,
+      "elapsed_s": 4.535879586997908,
+      "lr": 0.7200000000000001,
+      "train_loss": 1.5980093479156494,
+      "val_top1": 0.33213430643081665
+    },
+    {
+      "epoch": 4,
+      "step": 128,
+      "elapsed_s": 5.069782078004209,
+      "lr": 0.9600000000000002,
+      "train_loss": 1.473326526582241,
+      "val_top1": 0.46792566776275635
+    },
+    {
+      "epoch": 5,
+      "step": 160,
+      "elapsed_s": 5.617393444001209,
+      "lr": 1.2000000000000002,
+      "train_loss": 1.342364341020584,
+      "val_top1": 0.41876497864723206
+    },
+    {
+      "epoch": 6,
+      "step": 192,
+      "elapsed_s": 6.14191082099569,
+      "lr": 1.2000000000000002,
+      "train_loss": 1.1597132869064808,
+      "val_top1": 0.4106714725494385
+    },
+    {
+      "epoch": 7,
+      "step": 224,
+      "elapsed_s": 6.669909554999322,
+      "lr": 1.1868885604402837,
+      "train_loss": 1.0423696264624596,
+      "val_top1": 0.5508593320846558
+    },
+    {
+      "epoch": 8,
+      "step": 256,
+      "elapsed_s": 7.212890196999069,
+      "lr": 1.1481272745855606,
+      "train_loss": 0.9167570043355227,
+      "val_top1": 0.5210831165313721
+    },
+    {
+      "epoch": 9,
+      "step": 288,
+      "elapsed_s": 7.749755634024041,
+      "lr": 1.0854101966249687,
+      "train_loss": 0.8461421262472868,
+      "val_top1": 0.4345523715019226
+    },
+    {
+      "epoch": 10,
+      "step": 320,
+      "elapsed_s": 8.293401875998825,
+      "lr": 1.001478363815315,
+      "train_loss": 0.7833498846739531,
+      "val_top1": 0.711230993270874
+    },
+    {
+      "epoch": 11,
+      "step": 352,
+      "elapsed_s": 8.810489595023682,
+      "lr": 0.9000000000000001,
+      "train_loss": 0.6845792680978775,
+      "val_top1": 0.6846522688865662
+    },
+    {
+      "epoch": 12,
+      "step": 384,
+      "elapsed_s": 9.371956378017785,
+      "lr": 0.7854101966249686,
+      "train_loss": 0.6391035132110119,
+      "val_top1": 0.6274980306625366
+    },
+    {
+      "epoch": 13,
+      "step": 416,
+      "elapsed_s": 9.887298613000894,
+      "lr": 0.6627170779605922,
+      "train_loss": 0.5698984451591969,
+      "val_top1": 0.6627697944641113
+    },
+    {
+      "epoch": 14,
+      "step": 448,
+      "elapsed_s": 10.405057462019613,
+      "lr": 0.5372829220394081,
+      "train_loss": 0.5379203883931041,
+      "val_top1": 0.73531174659729
+    },
+    {
+      "epoch": 15,
+      "step": 480,
+      "elapsed_s": 10.914653208019445,
+      "lr": 0.41458980337503165,
+      "train_loss": 0.5058865481987596,
+      "val_top1": 0.7586930394172668
+    },
+    {
+      "epoch": 16,
+      "step": 512,
+      "elapsed_s": 11.431036726018647,
+      "lr": 0.30000000000000016,
+      "train_loss": 0.4337787628173828,
+      "val_top1": 0.78067547082901
+    },
+    {
+      "epoch": 17,
+      "step": 544,
+      "elapsed_s": 11.949430512002436,
+      "lr": 0.1985216361846853,
+      "train_loss": 0.41969919577240944,
+      "val_top1": 0.8067545890808105
+    },
+    {
+      "epoch": 18,
+      "step": 576,
+      "elapsed_s": 12.486797407007543,
+      "lr": 0.11458980337503161,
+      "train_loss": 0.37590236496180296,
+      "val_top1": 0.8500199913978577
+    },
+    {
+      "epoch": 19,
+      "step": 608,
+      "elapsed_s": 13.035232467023889,
+      "lr": 0.05187272541443942,
+      "train_loss": 0.33335536625236273,
+      "val_top1": 0.8654076457023621
+    },
+    {
+      "epoch": 20,
+      "step": 640,
+      "elapsed_s": 13.545701139024459,
+      "lr": 0.013111439559716588,
+      "train_loss": 0.30866263853386045,
+      "val_top1": 0.8675059676170349
+    }
+  ],
+  "status": "complete",
+  "notes": [
+    "aurora 1-node bf16 strong-scaling",
+    "MFU not computed: no peak FLOP/s configured for this device in configs/peak_flops.json"
+  ]
+}
