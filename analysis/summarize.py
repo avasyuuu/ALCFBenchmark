@@ -13,9 +13,11 @@ import argparse
 import csv
 import json
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
 COLUMNS = [
+    ("when", "When"),
     ("machine", "Machine"),
     ("nodes", "Nodes"),
     ("world_size", "Ranks"),
@@ -30,7 +32,21 @@ COLUMNS = [
     ("tta_s", "TTA (s)"),
     ("mfu_pct", "MFU %"),
     ("node_hours", "Node-hrs"),
+    ("note", "Note"),
 ]
+
+NOTE_WIDTH = 28
+
+
+def short_when(timestamp: str | None) -> str | None:
+    """UTC timestamp -> 'MM-DD HH:MM'. Enough to tell runs apart; the full
+    value stays in the JSON."""
+    if not timestamp:
+        return None
+    try:
+        return datetime.fromisoformat(timestamp).strftime("%m-%d %H:%M")
+    except ValueError:
+        return None
 
 
 def load_runs(results_dir: str):
@@ -43,6 +59,9 @@ def load_runs(results_dir: str):
             print(f"  skipping incomplete run: {path.name}")
             continue
         runs.append(flatten(blob))
+    # Chronological, not filename order -- run ids are random hex, so sorting
+    # by path scrambled repeated runs of the same config.
+    runs.sort(key=lambda r: r.get("timestamp_utc") or "")
     return runs
 
 
@@ -58,8 +77,19 @@ def flatten(blob: dict) -> dict:
     p90 = step.get("p90_s")
     slowest = step.get("max_s")
 
+    # --note values come first in the list; anything the run appended for
+    # itself (synthetic-data or missing-MFU warnings) follows. Showing the
+    # first one means a labelled run reads back as its label.
+    notes = blob.get("notes") or []
+    note = notes[0] if notes else None
+    if note and len(note) > NOTE_WIDTH:
+        note = note[: NOTE_WIDTH - 1] + "…"
+
     return {
         "run_id": blob.get("run_id"),
+        "timestamp_utc": blob.get("timestamp_utc"),
+        "when": short_when(blob.get("timestamp_utc")),
+        "note": note,
         "workload": blob.get("workload"),
         "machine": blob.get("machine"),
         "nodes": cfg.get("nodes"),
