@@ -189,7 +189,15 @@ class RunRecord:
         would penalize whichever machine has the slowest JIT rather than the
         slowest hardware — so they are excluded here and reported separately as
         timing.warmup_s.
+
+        A short run (--max-steps below --warmup-steps) would otherwise discard
+        every step and report nothing, so warmup is clamped to half the recorded
+        steps. The clamped value is what gets recorded, so the result says how
+        many steps were actually excluded rather than how many were requested.
         """
+        recorded = len(timer.step)
+        warmup_steps = min(warmup_steps, recorded // 2)
+
         steady = slice(warmup_steps, None)
         self.throughput["step_time"] = _summarize(timer.step[steady])
         self.throughput["data_wait"] = _summarize(timer.data[steady])

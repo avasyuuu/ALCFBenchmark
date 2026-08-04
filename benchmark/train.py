@@ -341,8 +341,9 @@ def main():
 
         path = record.write(args.results_dir)
         log(f"wrote {path}")
+        median_s = record.throughput["step_time"].get("median_s")
         log(
-            f"median step {record.throughput['step_time']['median_s'] * 1e3:.2f} ms | "
+            f"median step {f'{median_s * 1e3:.2f} ms' if median_s else 'n/a'} | "
             f"{record.throughput.get('samples_per_s', 0):.0f} samples/s | "
             f"best top1 {best_acc:.4f} | TTA {time_to_target}"
         )
