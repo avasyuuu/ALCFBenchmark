@@ -6,9 +6,13 @@ venv/
 # Datasets — re-download with `python -m benchmark.prepare`
 data/
 
-# PBS job output
+# PBS job output -- submit_aurora.sh directs these into logs/, but catch
+# stragglers from ad-hoc qsubs too. logs/ itself is kept so PBS has a
+# directory to open its output files in on a fresh clone.
 *.o[0-9]*
 *.e[0-9]*
+logs/*
+!logs/.gitkeep
 
 # Keep results/ tracked (they are the deliverable) but not scratch files
 results/*.tmp

@@ -7,6 +7,13 @@
 #PBS -l place=scatter
 #PBS -q debug
 #PBS -k doe
+# -k d writes stdout/stderr straight to their final path as the job runs (so
+# `tail -f` works on a live job); -o/-e say where. Without these they land in
+# the submission directory and clutter the repo root. logs/ ships with a
+# .gitkeep because PBS opens these files before the script runs -- it will not
+# create the directory, and a missing one aborts the job.
+#PBS -o logs/
+#PBS -e logs/
 
 # ResNet-20 / CIFAR-10 benchmark on Aurora.
 #
