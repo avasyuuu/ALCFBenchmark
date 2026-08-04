@@ -9,10 +9,11 @@
     "Do not count sparsity-boosted 2:1 numbers; use dense figures only."
   ],
   "Data Center GPU Max": {
-    "_source": "UNVERIFIED - fill in from Intel spec sheet, halve per-GPU to per-tile",
+    "_source": "Max 1550 (2-stack): 839 TFLOP/s BF16-FP16 dense, 52 TFLOP/s FP64-FP32 vector, 419 TFLOP/s TF32, per GPU. Halved here for per-tile. CONFIRM on Intel's spec page before publishing -- these came from secondary coverage of Intel's own figures, not the datasheet directly.",
+    "_check": "Reproduces from the architecture: 128 Xe-cores x 4096 bf16 FLOP/clock x 1.6 GHz = 839 TFLOP/s, and the same method gives 128 x 256 x 1.6 GHz = 52 TFLOP/s FP64, matching Intel's published FP64.",
     "_note": "Max 1550 = 2 tiles per GPU; these keys must be per-tile",
-    "bf16": null,
-    "fp16": null,
+    "bf16": 4.195e14,
+    "fp16": 4.195e14,
     "fp32": null
   },
   "A100": {

@@ -333,6 +333,7 @@ def main():
             flops_per_sample,
             record.throughput.get("samples_per_s", 0.0),
             load_peak_flops(args.peak_flops_config, platform.device_name(), args.precision),
+            world_size,
         )
         record.set_cost(record.config["nodes"], total_train_s)
         if args.synthetic_data:

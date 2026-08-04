@@ -208,23 +208,36 @@ class RunRecord:
             self.throughput["samples_per_s"] = samples_per_step / median
         self.throughput["warmup_steps_excluded"] = warmup_steps
 
-    def set_flops(self, flops_per_sample_fwd: int, samples_per_s: float, peak: float | None):
+    def set_flops(
+        self,
+        flops_per_sample_fwd: int,
+        samples_per_s: float,
+        peak_per_device: float | None,
+        world_size: int,
+    ):
         """Achieved FLOP/s and MFU.
 
         Training cost is taken as 3x forward: one forward plus a backward that
         is roughly two forwards' work (input grads + weight grads). This is the
         standard convention, so numbers stay comparable to published MFU.
+
+        samples_per_s is aggregate over every rank, so the peak it is divided by
+        has to be the aggregate peak too. peak_flops.json stores ONE DEVICE, so
+        scale it by world_size -- dividing by the per-device figure would report
+        12x the true MFU on a full Aurora node.
         """
         train_flops_per_sample = 3 * flops_per_sample_fwd
         achieved = train_flops_per_sample * samples_per_s
+        peak_total = peak_per_device * world_size if peak_per_device else None
         self.flops = {
             "fwd_flops_per_sample": flops_per_sample_fwd,
             "train_flops_per_sample": train_flops_per_sample,
             "achieved_flops_per_s": achieved,
-            "peak_flops_per_s": peak,
-            "mfu": (achieved / peak) if peak else None,
+            "peak_flops_per_s_per_device": peak_per_device,
+            "peak_flops_per_s": peak_total,
+            "mfu": (achieved / peak_total) if peak_total else None,
         }
-        if peak is None:
+        if peak_total is None:
             self.notes.append(
                 "MFU not computed: no peak FLOP/s configured for this device "
                 "in configs/peak_flops.json"
