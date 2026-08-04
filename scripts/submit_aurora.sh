@@ -105,10 +105,16 @@ mpiexec -n "${NTOTRANKS}" -ppn "${RANKS_PER_NODE}" --depth="${OMP_NUM_THREADS}" 
         --model resnet20 \
         --scaling strong \
         --global-batch-size 1536 \
-        --epochs 20 \
+        --epochs 100 \
         --precision bf16 \
         --target-accuracy 0.90 \
         --warmup-steps 20 \
         --data-dir ./data \
         --results-dir ./results \
-        --note "aurora ${NNODES}-node bf16 strong-scaling"
+        --note "aurora ${NNODES}-node bf16 strong-scaling 100ep"
+
+# 20 epochs plateaued at ~0.874 and never crossed --target-accuracy, so every
+# result recorded a null time-to-accuracy. ResNet-20 reaches ~0.91 in the
+# literature, it just needs the epochs; at ~0.7 s/epoch on a full node this
+# costs about 70 seconds. Keep the target identical on every machine or the
+# time-to-accuracy column cannot be compared across them.
