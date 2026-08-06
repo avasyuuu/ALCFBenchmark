@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import socket
 from contextlib import nullcontext
+from pathlib import Path
 
 import torch
 
@@ -187,6 +188,68 @@ class AuroraPlatform(Platform):
 
     def optimize(self, model, optimizer, dtype):
         return self.ipex.optimize(model, optimizer=optimizer, dtype=dtype)
+
+    # --- energy ------------------------------------------------------------
+    # Level Zero sysman is present and zesPowerGetEnergyCounter returns
+    # ZE_RESULT_SUCCESS, but writes zeros for every power domain -- energy
+    # telemetry is gated for unprivileged processes. The driver's hwmon nodes
+    # expose the same counters and ARE readable, so read those directly.
+    #
+    #   /sys/class/drm/card<N>/device/hwmon/hwmon*/name -> i915 | i915_gt0 | i915_gt1
+    #                                          energy1_input -> microjoules
+    #
+    # i915 is the whole card; i915_gt<T> is one tile. Tile-level is what we
+    # want: one rank owns one tile, so each rank reads its own and nothing is
+    # counted twice. The card figure additionally covers HBM and uncore, so it
+    # is larger than the two tiles summed.
+    def _energy_path(self):
+        if hasattr(self, "_energy_file"):
+            return self._energy_file
+
+        self._energy_file = None
+        self._energy_scope = "no readable hwmon energy counter"
+        index = self.device.index or 0
+        card, tile = index // 2, index % 2
+        hwmon = Path(f"/sys/class/drm/card{card}/device/hwmon")
+        try:
+            entries = sorted(hwmon.glob("hwmon*"))
+        except OSError:
+            entries = []
+
+        # Prefer this rank's tile; fall back to the whole card, which is still
+        # a real measurement as long as the result says so.
+        for want, scope in (
+            (f"_gt{tile}", f"xpu tile {tile} of card {card} (hwmon energy1_input)"),
+            ("", f"whole card {card}, both tiles + HBM (hwmon energy1_input)"),
+        ):
+            for h in entries:
+                try:
+                    name = (h / "name").read_text().strip()
+                except OSError:
+                    continue
+                matches = name.endswith(want) if want else "_gt" not in name
+                if matches and (h / "energy1_input").exists():
+                    try:
+                        int((h / "energy1_input").read_text())
+                    except (OSError, ValueError):
+                        continue
+                    self._energy_file = h / "energy1_input"
+                    self._energy_scope = scope
+                    return self._energy_file
+        return None
+
+    def energy_joules(self) -> float | None:
+        path = self._energy_path()
+        if path is None:
+            return None
+        try:
+            return int(path.read_text()) / 1e6  # microjoules -> joules
+        except (OSError, ValueError):
+            return None
+
+    def energy_scope(self) -> str:
+        self._energy_path()
+        return self._energy_scope
 
     def profiler_activities(self) -> list:
         from torch.profiler import ProfilerActivity
