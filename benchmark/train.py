@@ -18,6 +18,8 @@ import argparse
 import math
 import os
 import time
+from contextlib import nullcontext
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -41,6 +43,56 @@ PRECISIONS = {
     "bf16": torch.bfloat16,
     "fp16": torch.float16,
 }
+
+
+def make_profiler(args, platform, is_main):
+    """torch.profiler over a few steps on rank 0, or a no-op context.
+
+    Rank 0 only: twelve ranks each writing a trace produces twelve files that
+    say the same thing and a great deal of Lustre traffic. The wait/warmup
+    phases exist because the first steps are JIT compilation -- profiling them
+    measures the compiler, not the model.
+    """
+    if not args.profile or not is_main:
+        return nullcontext()
+
+    from torch.profiler import profile, schedule
+
+    return profile(
+        activities=platform.profiler_activities(),
+        schedule=schedule(
+            wait=args.profile_wait,
+            warmup=args.profile_warmup,
+            active=args.profile_steps,
+            repeat=1,
+        ),
+        record_shapes=True,
+    )
+
+
+def write_profile(prof, platform, args, run_id, log):
+    """Chrome trace for Perfetto, plus the top ops by device time.
+
+    The trace is the useful artifact -- key_averages() totals per operator and
+    so cannot show a gap, which is exactly what you look for when a step is
+    slower than the work in it.
+    """
+    out_dir = Path(args.profile_dir) if args.profile_dir else Path(args.results_dir) / "traces"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    trace_path = out_dir / f"{platform.name}_{run_id}_trace.json"
+    prof.export_chrome_trace(str(trace_path))
+    log(f"wrote {trace_path}  (open at https://ui.perfetto.dev)")
+
+    try:
+        log("top ops by device self time:")
+        print(
+            prof.key_averages().table(
+                sort_by=platform.profiler_sort_key(), row_limit=15
+            ),
+            flush=True,
+        )
+    except Exception as exc:  # sort key varies by torch build; the trace is what matters
+        log(f"profiler summary table unavailable ({exc})")
 
 
 def parse_args():
@@ -82,6 +134,21 @@ def parse_args():
     # Platform tuning
     p.add_argument("--no-ipex-optimize", action="store_true", help="skip vendor graph optimizer")
     p.add_argument("--note", action="append", default=[], help="free-text note recorded in the result")
+    # --- profiling ---
+    p.add_argument(
+        "--profile",
+        action="store_true",
+        help="trace a few steps with torch.profiler on rank 0. Adds overhead -- "
+        "never report throughput from a profiled run.",
+    )
+    p.add_argument("--profile-wait", type=int, default=5, help="steps to skip before profiling")
+    p.add_argument("--profile-warmup", type=int, default=3, help="steps to trace but discard")
+    p.add_argument("--profile-steps", type=int, default=5, help="steps to actually record")
+    p.add_argument(
+        "--profile-dir",
+        default=None,
+        help="where to write the Chrome trace (default: alongside --results-dir)",
+    )
     p.add_argument(
         "--anonymize",
         action="store_true",
@@ -240,76 +307,89 @@ def main():
     platform.synchronize()
     train_start = time.perf_counter()
 
-    for epoch in range(args.epochs):
-        if train_sampler is not None:
-            train_sampler.set_epoch(epoch)  # else every epoch reshuffles identically
+    with make_profiler(args, platform, is_main) as prof:
+        for epoch in range(args.epochs):
+            if train_sampler is not None:
+                train_sampler.set_epoch(epoch)  # else every epoch reshuffles identically
 
-        lr = lr_at_epoch(args, epoch, global_batch)
-        for group in optimizer.param_groups:
-            group["lr"] = lr
+            lr = lr_at_epoch(args, epoch, global_batch)
+            for group in optimizer.param_groups:
+                group["lr"] = lr
 
-        epoch_loss = 0.0
-        batches = 0
-        data_start = time.perf_counter()
-
-        for images, labels in train_loader:
-            step_start = time.perf_counter()
-            data_wait = step_start - data_start
-
-            images = images.to(platform.device, non_blocking=True)
-            labels = labels.to(platform.device, non_blocking=True)
-
-            optimizer.zero_grad(set_to_none=True)
-            with platform.autocast(dtype):
-                loss = criterion(model(images), labels)
-            loss.backward()
-            optimizer.step()
-
-            # Device work is async; without this sync the timer would measure
-            # kernel launch, not kernel execution.
-            platform.synchronize()
-            now = time.perf_counter()
-            timer.record(data_wait, now - step_start, now - step_start + data_wait)
-
-            epoch_loss += loss.item()
-            batches += 1
-            step += 1
+            epoch_loss = 0.0
+            batches = 0
             data_start = time.perf_counter()
+
+            for images, labels in train_loader:
+                step_start = time.perf_counter()
+                data_wait = step_start - data_start
+
+                images = images.to(platform.device, non_blocking=True)
+                labels = labels.to(platform.device, non_blocking=True)
+
+                optimizer.zero_grad(set_to_none=True)
+                with platform.autocast(dtype):
+                    loss = criterion(model(images), labels)
+                loss.backward()
+                optimizer.step()
+
+                # Device work is async; without this sync the timer would measure
+                # kernel launch, not kernel execution.
+                platform.synchronize()
+                now = time.perf_counter()
+                timer.record(data_wait, now - step_start, now - step_start + data_wait)
+
+                epoch_loss += loss.item()
+                batches += 1
+                step += 1
+                data_start = time.perf_counter()
+
+                # Drives the profiler's wait/warmup/active state machine. Must
+                # be called every step, including the ones it is ignoring.
+                if prof is not None:
+                    prof.step()
+
+                if args.max_steps and step >= args.max_steps:
+                    break
+
+            train_loss = epoch_loss / max(1, batches)
+
+            acc = None
+            if (epoch + 1) % args.eval_every == 0 or epoch == args.epochs - 1:
+                acc = evaluate(model, val_loader, platform, dtype, distributed)
+                best_acc = max(best_acc, acc)
+                if time_to_target is None and acc >= args.target_accuracy:
+                    time_to_target = time.perf_counter() - train_start
+                    epoch_to_target = epoch + 1
+
+            elapsed = time.perf_counter() - train_start
+            record.curve.append(
+                {
+                    "epoch": epoch + 1,
+                    "step": step,
+                    "elapsed_s": elapsed,
+                    "lr": lr,
+                    "train_loss": train_loss,
+                    "val_top1": acc,
+                }
+            )
+            log(
+                f"epoch {epoch + 1}/{args.epochs} loss={train_loss:.4f} "
+                f"top1={acc if acc is None else f'{acc:.4f}'} elapsed={elapsed:.1f}s"
+            )
 
             if args.max_steps and step >= args.max_steps:
                 break
 
-        train_loss = epoch_loss / max(1, batches)
-
-        acc = None
-        if (epoch + 1) % args.eval_every == 0 or epoch == args.epochs - 1:
-            acc = evaluate(model, val_loader, platform, dtype, distributed)
-            best_acc = max(best_acc, acc)
-            if time_to_target is None and acc >= args.target_accuracy:
-                time_to_target = time.perf_counter() - train_start
-                epoch_to_target = epoch + 1
-
-        elapsed = time.perf_counter() - train_start
-        record.curve.append(
-            {
-                "epoch": epoch + 1,
-                "step": step,
-                "elapsed_s": elapsed,
-                "lr": lr,
-                "train_loss": train_loss,
-                "val_top1": acc,
-            }
-        )
-        log(
-            f"epoch {epoch + 1}/{args.epochs} loss={train_loss:.4f} "
-            f"top1={acc if acc is None else f'{acc:.4f}'} elapsed={elapsed:.1f}s"
-        )
-
-        if args.max_steps and step >= args.max_steps:
-            break
-
     platform.synchronize()
     total_train_s = time.perf_counter() - train_start
+
+    if prof is not None:
+        write_profile(prof, platform, args, record.run_id, log)
+        record.notes.append(
+            "Profiled run: torch.profiler overhead is in these timings, so "
+            "throughput and MFU here are not comparable to an unprofiled run."
+        )
 
     # --- record -----------------------------------------------------------
     if is_main:

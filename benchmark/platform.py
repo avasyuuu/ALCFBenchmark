@@ -92,6 +92,20 @@ class Platform:
         """Hook for vendor graph optimizers (IPEX on Aurora). No-op by default."""
         return model, optimizer
 
+    # --- profiling ---------------------------------------------------------
+    def profiler_activities(self) -> list:
+        """Activities for torch.profiler. Each backend names its device
+        activity differently (XPU / CUDA), and asking for one the build does
+        not have raises, so every subclass adds its own on top of CPU."""
+        from torch.profiler import ProfilerActivity
+
+        return [ProfilerActivity.CPU]
+
+    def profiler_sort_key(self) -> str:
+        """Column to rank the profiler summary by. Self time on the device
+        where the work actually happened."""
+        return "self_cpu_time_total"
+
     # --- reporting ---------------------------------------------------------
     def device_name(self) -> str:
         return "cpu"
@@ -156,6 +170,18 @@ class AuroraPlatform(Platform):
     def optimize(self, model, optimizer, dtype):
         return self.ipex.optimize(model, optimizer=optimizer, dtype=dtype)
 
+    def profiler_activities(self) -> list:
+        from torch.profiler import ProfilerActivity
+
+        activities = super().profiler_activities()
+        xpu = getattr(ProfilerActivity, "XPU", None)
+        if xpu is not None:
+            activities.append(xpu)
+        return activities
+
+    def profiler_sort_key(self) -> str:
+        return "self_xpu_time_total"
+
     def device_name(self) -> str:
         try:
             return torch.xpu.get_device_name(self.device)
@@ -209,6 +235,14 @@ class CudaPlatform(Platform):
 
     def reset_peak_memory(self) -> None:
         torch.cuda.reset_peak_memory_stats(self.device)
+
+    def profiler_activities(self) -> list:
+        from torch.profiler import ProfilerActivity
+
+        return super().profiler_activities() + [ProfilerActivity.CUDA]
+
+    def profiler_sort_key(self) -> str:
+        return "self_cuda_time_total"
 
     def device_name(self) -> str:
         return torch.cuda.get_device_name(self.device)
