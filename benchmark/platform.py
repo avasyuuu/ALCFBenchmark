@@ -92,6 +92,24 @@ class Platform:
         """Hook for vendor graph optimizers (IPEX on Aurora). No-op by default."""
         return model, optimizer
 
+    # --- energy ------------------------------------------------------------
+    def energy_joules(self) -> float | None:
+        """Cumulative device energy in joules, or None where unsupported.
+
+        A running counter, not a rate: subtract two readings to get the energy
+        of the interval between them. Counters reset when the driver reloads,
+        so only differences are meaningful.
+
+        Sampling watts and integrating would miss what happens between samples,
+        and a training step here is 13 ms -- a counter has no such gap.
+        """
+        return None
+
+    def energy_scope(self) -> str:
+        """What the counter actually covers, recorded alongside the number so
+        an accelerator-only figure is never mistaken for node power."""
+        return "unsupported"
+
     # --- profiling ---------------------------------------------------------
     def profiler_activities(self) -> list:
         """Activities for torch.profiler. Each backend names its device

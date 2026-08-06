@@ -175,6 +175,7 @@ class RunRecord:
     accuracy: dict = field(default_factory=dict)
     memory: dict = field(default_factory=dict)
     flops: dict = field(default_factory=dict)
+    energy: dict = field(default_factory=dict)
     cost: dict = field(default_factory=dict)
     curve: list = field(default_factory=list)
     status: str = "incomplete"
@@ -242,6 +243,40 @@ class RunRecord:
                 "MFU not computed: no peak FLOP/s configured for this device "
                 "in configs/peak_flops.json"
             )
+
+    def set_energy(
+        self,
+        joules: float | None,
+        joules_to_target: float | None,
+        wall_s: float,
+        samples_processed: int,
+        scope: str,
+        devices_counted: int,
+    ):
+        """Energy for the run, and the two ratios worth comparing machines on.
+
+        samples_per_joule is the energy twin of samples/s, and joules_to_target
+        the twin of time-to-accuracy -- the pair that answers "high throughput
+        at low power" rather than just "fast".
+
+        scope and devices_counted are recorded because the number is meaningless
+        without them: an accelerator-only figure excludes CPU, memory, NICs and
+        cooling, and a node draws well more than the sum of its accelerators.
+        """
+        if not joules:
+            self.energy = {"joules": None, "scope": scope}
+            self.notes.append(f"Energy not recorded: {scope}")
+            return
+
+        self.energy = {
+            "joules": joules,
+            "avg_watts": joules / wall_s if wall_s else None,
+            "samples_per_joule": samples_processed / joules if joules else None,
+            "joules_to_target_accuracy": joules_to_target,
+            "scope": scope,
+            "devices_counted": devices_counted,
+            "wall_s": wall_s,
+        }
 
     def set_cost(self, node_count: int, wall_s: float):
         node_seconds = node_count * wall_s

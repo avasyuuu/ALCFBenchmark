@@ -34,6 +34,20 @@ COLUMNS = [
     ("node_hours", "Node-hrs"),
 ]
 
+# Printed as its own table, and only when some run actually has energy data --
+# on machines with no counter it would be a block of dashes.
+ENERGY_COLUMNS = [
+    ("when", "When"),
+    ("machine", "Machine"),
+    ("nodes", "Nodes"),
+    ("ranks", "Ranks"),
+    ("avg_watts", "Avg W"),
+    ("joules", "Joules"),
+    ("samples_per_joule", "Samples/J"),
+    ("joules_to_target", "J to acc"),
+    ("energy_scope", "Scope"),
+]
+
 NOTE_WIDTH = 28
 
 
@@ -72,6 +86,7 @@ def flatten(blob: dict) -> dict:
     acc = blob.get("accuracy", {})
     flops = blob.get("flops", {})
     cost = blob.get("cost", {})
+    energy = blob.get("energy") or {}
 
     median = step.get("median_s")
     p90 = step.get("p90_s")
@@ -116,6 +131,14 @@ def flatten(blob: dict) -> dict:
         "tta_s": acc.get("time_to_target_s"),
         "mfu_pct": (flops.get("mfu") * 100) if flops.get("mfu") else None,
         "node_hours": cost.get("node_hours"),
+        # "ranks" duplicates world_size under the label the energy table uses,
+        # so both tables can share one flattened row.
+        "ranks": cfg.get("world_size"),
+        "joules": energy.get("joules"),
+        "avg_watts": energy.get("avg_watts"),
+        "samples_per_joule": energy.get("samples_per_joule"),
+        "joules_to_target": energy.get("joules_to_target_accuracy"),
+        "energy_scope": energy.get("scope"),
     }
 
 
@@ -201,6 +224,11 @@ def main():
 
     print(f"\n{len(runs)} run(s) from {args.results_dir}")
     print_table(runs, columns)
+
+    metered = [r for r in runs if r.get("joules")]
+    if metered:
+        print(f"energy — {len(metered)} of {len(runs)} run(s) metered")
+        print_table(metered, ENERGY_COLUMNS)
 
     if args.csv:
         keys = list(runs[0].keys())

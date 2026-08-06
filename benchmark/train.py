@@ -305,6 +305,8 @@ def main():
     best_acc = 0.0
 
     platform.synchronize()
+    energy_start = platform.energy_joules()
+    energy_at_target = None
     train_start = time.perf_counter()
 
     with make_profiler(args, platform, is_main) as prof:
@@ -361,6 +363,11 @@ def main():
                 if time_to_target is None and acc >= args.target_accuracy:
                     time_to_target = time.perf_counter() - train_start
                     epoch_to_target = epoch + 1
+                    # Read the counter at the crossing rather than scaling total
+                    # energy by time_to_target/wall -- power is not constant
+                    # across a run, so that estimate would be wrong by however
+                    # much the early epochs differ from the late ones.
+                    energy_at_target = platform.energy_joules()
 
             elapsed = time.perf_counter() - train_start
             record.curve.append(
@@ -383,6 +390,7 @@ def main():
 
     platform.synchronize()
     total_train_s = time.perf_counter() - train_start
+    energy_end = platform.energy_joules()
 
     if prof is not None:
         write_profile(prof, platform, args, record.run_id, log)
@@ -414,6 +422,26 @@ def main():
             record.throughput.get("samples_per_s", 0.0),
             load_peak_flops(args.peak_flops_config, platform.device_name(), args.precision),
             world_size,
+        )
+        # This rank's device only, against this rank's samples -- so the ratios
+        # are per device. Summing across ranks would double count on Aurora,
+        # where power is reported per GPU card but there are two ranks per card.
+        joules = (
+            energy_end - energy_start
+            if energy_end is not None and energy_start is not None
+            else None
+        )
+        record.set_energy(
+            joules=joules,
+            joules_to_target=(
+                energy_at_target - energy_start
+                if energy_at_target is not None and energy_start is not None
+                else None
+            ),
+            wall_s=total_train_s,
+            samples_processed=step * local_batch,
+            scope=platform.energy_scope(),
+            devices_counted=1,
         )
         record.set_cost(record.config["nodes"], total_train_s)
         if args.synthetic_data:
