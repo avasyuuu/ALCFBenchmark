@@ -32,19 +32,19 @@ COLUMNS = [
     ("tta_s", "TTA (s)"),
     ("mfu_pct", "MFU %"),
     ("node_hours", "Node-hrs"),
-    ("note", "Note"),
 ]
 
 NOTE_WIDTH = 28
 
 
 def short_when(timestamp: str | None) -> str | None:
-    """UTC timestamp -> 'MM-DD HH:MM'. Enough to tell runs apart; the full
-    value stays in the JSON."""
+    """UTC timestamp -> 'MM-DD HH:MM:SS'. Seconds are worth the width: back to
+    back runs of the same config land in the same minute. Full value, year and
+    timezone included, stays in the JSON."""
     if not timestamp:
         return None
     try:
-        return datetime.fromisoformat(timestamp).strftime("%m-%d %H:%M")
+        return datetime.fromisoformat(timestamp).strftime("%m-%d %H:%M:%S")
     except ValueError:
         return None
 
@@ -184,7 +184,15 @@ def main():
     if not args.include_synthetic:
         runs = [r for r in runs if not r["synthetic"]]
 
-    runs.sort(key=lambda r: (r["machine"] or "", r["workload"] or "", r["world_size"] or 0))
+    # Group for comparison first; oldest to newest within a group.
+    runs.sort(
+        key=lambda r: (
+            r["machine"] or "",
+            r["workload"] or "",
+            r["world_size"] or 0,
+            r["timestamp_utc"] or "",
+        )
+    )
 
     columns = list(COLUMNS)
     if args.scaling:
