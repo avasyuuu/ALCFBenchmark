@@ -3,6 +3,7 @@
     python analysis/summarize.py                    # markdown table
     python analysis/summarize.py --csv out.csv      # also write CSV
     python analysis/summarize.py --scaling          # add parallel efficiency
+    python analysis/summarize.py --devices          # per-accelerator power
 
 Stdlib only, so it runs on a login node without installing anything.
 """
@@ -48,6 +49,33 @@ ENERGY_COLUMNS = [
     ("energy_scope", "Scope"),
 ]
 
+# Node-wide sampler output. Separate from ENERGY_COLUMNS because it answers a
+# different question: that table is "what did the rank's device cost", this one
+# is "what did the node's accelerators cost, including the ones nobody used".
+POWER_COLUMNS = [
+    ("when", "When"),
+    ("machine", "Machine"),
+    ("nodes", "Nodes"),
+    ("power_devices", "Devices"),
+    ("power_devices_idle", "Idle"),
+    ("power_joules_total", "Node J"),
+    ("power_joules_bound", "Used J"),
+    ("power_joules_idle", "Idle J"),
+    ("power_idle_pct", "Idle %"),
+]
+
+DEVICE_COLUMNS = [
+    ("when", "When"),
+    ("machine", "Machine"),
+    ("device_key", "Device"),
+    ("device_bound", "Used"),
+    ("device_joules", "Joules"),
+    ("device_mean_w", "Mean W"),
+    ("device_floor_w", "Floor W"),
+    ("device_max_w", "Max W"),
+    ("device_scope", "Scope"),
+]
+
 NOTE_WIDTH = 28
 
 
@@ -67,7 +95,7 @@ def load_runs(results_dir: str):
     runs = []
     for path in sorted(Path(results_dir).glob("*.json")):
         blob = json.loads(path.read_text())
-        if blob.get("kind") == "allreduce_microbenchmark":
+        if blob.get("kind") in ("allreduce_microbenchmark", "power_timeline"):
             continue
         if blob.get("status") != "complete":
             print(f"  skipping incomplete run: {path.name}")
@@ -87,6 +115,7 @@ def flatten(blob: dict) -> dict:
     flops = blob.get("flops", {})
     cost = blob.get("cost", {})
     energy = blob.get("energy") or {}
+    power = blob.get("power") or {}
 
     median = step.get("median_s")
     p90 = step.get("p90_s")
@@ -139,7 +168,48 @@ def flatten(blob: dict) -> dict:
         "samples_per_joule": energy.get("samples_per_joule"),
         "joules_to_target": energy.get("joules_to_target_accuracy"),
         "energy_scope": energy.get("scope"),
+        "power_devices": power.get("devices_total"),
+        "power_devices_idle": power.get("devices_idle"),
+        "power_joules_total": power.get("joules_total"),
+        "power_joules_bound": power.get("joules_bound"),
+        "power_joules_idle": power.get("joules_idle"),
+        "power_idle_pct": (
+            power.get("idle_fraction") * 100
+            if power.get("idle_fraction") is not None
+            else None
+        ),
+        # Kept whole so --devices can expand it; every other consumer ignores it.
+        "power_per_node": power.get("per_node") or [],
     }
+
+
+def device_rows(runs):
+    """One row per counter per node, for --devices.
+
+    Aggregate counters (Aurora's whole-card node) are dropped: they overlap the
+    per-tile rows and would read as extra devices rather than as the same
+    silicon measured a second way.
+    """
+    rows = []
+    for run in runs:
+        for node in run.get("power_per_node") or []:
+            for device in node.get("devices") or []:
+                if device.get("aggregate"):
+                    continue
+                rows.append(
+                    {
+                        "when": run["when"],
+                        "machine": run["machine"],
+                        "device_key": device.get("key"),
+                        "device_bound": "yes" if device.get("bound") else "no",
+                        "device_joules": device.get("joules"),
+                        "device_mean_w": device.get("mean_watts"),
+                        "device_floor_w": device.get("floor_watts"),
+                        "device_max_w": device.get("max_watts"),
+                        "device_scope": device.get("scope"),
+                    }
+                )
+    return rows
 
 
 def add_scaling_efficiency(runs):
@@ -198,6 +268,11 @@ def main():
     p.add_argument("--csv", help="also write a CSV here")
     p.add_argument("--scaling", action="store_true", help="add parallel efficiency column")
     p.add_argument("--include-synthetic", action="store_true")
+    p.add_argument(
+        "--devices",
+        action="store_true",
+        help="expand the power table to one row per accelerator",
+    )
     args = p.parse_args()
 
     runs = load_runs(args.results_dir)
@@ -230,10 +305,23 @@ def main():
         print(f"energy — {len(metered)} of {len(runs)} run(s) metered")
         print_table(metered, ENERGY_COLUMNS)
 
+    sampled = [r for r in runs if r.get("power_joules_total")]
+    if sampled:
+        print(f"node power — {len(sampled)} of {len(runs)} run(s) sampled")
+        print_table(sampled, POWER_COLUMNS)
+        if args.devices:
+            rows = device_rows(sampled)
+            print(f"per device — {len(rows)} counter(s)")
+            print_table(rows, DEVICE_COLUMNS)
+        else:
+            print("  (--devices for the per-accelerator breakdown)\n")
+
     if args.csv:
-        keys = list(runs[0].keys())
+        # per_node is nested; it has its own table and would only produce an
+        # unreadable repr in a CSV cell.
+        keys = [k for k in runs[0].keys() if k != "power_per_node"]
         with open(args.csv, "w", newline="") as fh:
-            writer = csv.DictWriter(fh, fieldnames=keys)
+            writer = csv.DictWriter(fh, fieldnames=keys, extrasaction="ignore")
             writer.writeheader()
             writer.writerows(runs)
         print(f"wrote {args.csv}")

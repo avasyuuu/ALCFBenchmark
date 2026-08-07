@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import math
 import os
+import socket
 import time
 from contextlib import nullcontext
 from pathlib import Path
@@ -31,12 +32,14 @@ from .metrics import (
     RunRecord,
     StepTimer,
     Stopwatch,
+    anon_hostname,
     anonymize_environment,
     git_commit,
     load_peak_flops,
     pbs_environment,
 )
 from .platform import detect_platform, get_rank_info, init_distributed
+from .power import PowerSampler, bound_device_indices
 
 PRECISIONS = {
     "fp32": torch.float32,
@@ -148,6 +151,14 @@ def parse_args():
         "--profile-dir",
         default=None,
         help="where to write the Chrome trace (default: alongside --results-dir)",
+    )
+    # --- power sampling ---
+    p.add_argument(
+        "--power-interval",
+        type=float,
+        default=0.1,
+        help="seconds between node-wide power samples; 0 disables. One rank per "
+        "node reads every accelerator counter, idle ones included.",
     )
     p.add_argument(
         "--anonymize",
@@ -297,6 +308,21 @@ def main():
         notes=list(args.note),
     )
 
+    # Every rank generated its own run_id. The power sidecars are written by one
+    # rank per node but have to be findable from the single result JSON rank 0
+    # writes, so all ranks adopt rank 0's id.
+    if distributed:
+        ids = [record.run_id]
+        try:
+            # NCCL and XCCL move the pickled object through device memory, so
+            # the device has to be named rather than inferred.
+            torch.distributed.broadcast_object_list(
+                ids, src=0, device=platform.device
+            )
+            record.run_id = ids[0]
+        except Exception as exc:
+            log(f"run_id broadcast failed ({exc}); power sidecars will not match")
+
     # --- train ------------------------------------------------------------
     timer = StepTimer()
     step = 0
@@ -309,8 +335,34 @@ def main():
     energy_at_target = None
     train_start = time.perf_counter()
 
+    # One rank per node samples the whole node. Every rank doing it would read
+    # the same counters twelve times over for identical numbers, and the point
+    # of reading node-wide is to catch devices that have no rank to read them.
+    sampler = None
+    if args.power_interval > 0 and local_rank == 0:
+        sources = platform.node_energy_sources()
+        if sources:
+            sampler = PowerSampler(
+                sources,
+                interval_s=args.power_interval,
+                t0=train_start,
+                bound_devices=bound_device_indices(
+                    world_size, node_count, platform.device_count()
+                ),
+            ).start()
+            log(
+                f"power: sampling {len(sources)} counters every "
+                f"{args.power_interval}s on each node"
+            )
+        else:
+            log("power: no node energy counters on this platform, sampler off")
+
     with make_profiler(args, platform, is_main) as prof:
         for epoch in range(args.epochs):
+            # Phase marks are what let the power series be read as "which part
+            # of the run costs what" rather than just a mean.
+            if sampler is not None:
+                sampler.mark(f"epoch {epoch} train")
             if train_sampler is not None:
                 train_sampler.set_epoch(epoch)  # else every epoch reshuffles identically
 
@@ -358,6 +410,8 @@ def main():
 
             acc = None
             if (epoch + 1) % args.eval_every == 0 or epoch == args.epochs - 1:
+                if sampler is not None:
+                    sampler.mark(f"epoch {epoch} eval")
                 acc = evaluate(model, val_loader, platform, dtype, distributed)
                 best_acc = max(best_acc, acc)
                 if time_to_target is None and acc >= args.target_accuracy:
@@ -368,6 +422,8 @@ def main():
                     # across a run, so that estimate would be wrong by however
                     # much the early epochs differ from the late ones.
                     energy_at_target = platform.energy_joules()
+                    if sampler is not None:
+                        sampler.mark("target accuracy reached")
 
             elapsed = time.perf_counter() - train_start
             record.curve.append(
@@ -391,6 +447,50 @@ def main():
     platform.synchronize()
     total_train_s = time.perf_counter() - train_start
     energy_end = platform.energy_joules()
+    timeline = sampler.stop() if sampler is not None else None
+
+    # --- power ------------------------------------------------------------
+    # Each monitor rank owns its own node's series and writes it beside the
+    # results; only the rollup is shared, because a 100 Hz series over 18
+    # counters is megabytes and does not belong in the file every analysis
+    # script parses.
+    node_summary, timeline_name = None, None
+    if timeline:
+        node_summary = timeline.summary()
+        # The filename carries the hostname, so --anonymize has to reach it too:
+        # scrubbing the JSON while publishing a directory listing of real Aurora
+        # node names would defeat the whole flag.
+        hostname = socket.gethostname()
+        try:
+            path = timeline.write(
+                Path(args.results_dir) / "power",
+                platform.name,
+                record.run_id,
+                anon_hostname(hostname) if args.anonymize else hostname,
+            )
+            timeline_name = path.name
+            print(f"[bench] wrote {path}", flush=True)
+        except OSError as exc:
+            # Must not propagate: the all_gather below is collective, and a rank
+            # that bails on a filesystem error would hang every other one.
+            print(f"[bench] power timeline write failed: {exc}", flush=True)
+
+    node_summaries = [node_summary] if node_summary else []
+    timeline_names = [timeline_name] if timeline_name else []
+    if distributed:
+        gathered = [None] * world_size
+        try:
+            torch.distributed.all_gather_object(
+                gathered, (node_summary, timeline_name)
+            )
+            # Ordering follows rank, so node 0 is always first in the list.
+            node_summaries = [s for s, _ in gathered if s]
+            timeline_names = [n for _, n in gathered if n]
+        except Exception as exc:
+            # Object gather goes through the collective backend and is the one
+            # thing here that can fail on an exotic build. Losing the other
+            # nodes' rollups is not worth losing the run.
+            log(f"power: summary gather failed ({exc}); reporting this node only")
 
     if prof is not None:
         write_profile(prof, platform, args, record.run_id, log)
@@ -443,6 +543,7 @@ def main():
             scope=platform.energy_scope(),
             devices_counted=1,
         )
+        record.set_power(node_summaries, timeline_names)
         record.set_cost(record.config["nodes"], total_train_s)
         if args.synthetic_data:
             record.notes.append("Synthetic data: accuracy is meaningless, throughput only.")
@@ -456,6 +557,14 @@ def main():
             f"{record.throughput.get('samples_per_s', 0):.0f} samples/s | "
             f"best top1 {best_acc:.4f} | TTA {time_to_target}"
         )
+        if record.power.get("joules_total"):
+            log(
+                f"node accelerators {record.power['joules_total']:.0f} J across "
+                f"{record.power['devices_total']} device(s) | "
+                f"{record.power['devices_idle']} idle drew "
+                f"{record.power.get('joules_idle') or 0:.0f} J "
+                f"({(record.power.get('idle_fraction') or 0) * 100:.0f}%)"
+            )
 
     if distributed:
         torch.distributed.barrier()

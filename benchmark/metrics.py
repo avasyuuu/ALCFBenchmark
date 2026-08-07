@@ -19,7 +19,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 2 adds the node-wide `power` block from the sampler
 
 
 class Stopwatch:
@@ -134,6 +134,14 @@ def _anon_id(value: str, salt: str) -> str:
     return "anon-" + hashlib.sha256((salt + value).encode()).hexdigest()[:10]
 
 
+def anon_hostname(hostname: str) -> str:
+    """The same salted hash anonymize_environment applies, for callers holding a
+    bare hostname rather than an environment dict -- the power sidecar files
+    carry one in their filename, which no amount of scrubbing inside the JSON
+    would hide."""
+    return _anon_id(hostname, _anon_salt())
+
+
 def anonymize_environment(env: dict) -> dict:
     """Strip facility-identifying detail so results can be published.
 
@@ -176,6 +184,7 @@ class RunRecord:
     memory: dict = field(default_factory=dict)
     flops: dict = field(default_factory=dict)
     energy: dict = field(default_factory=dict)
+    power: dict = field(default_factory=dict)
     cost: dict = field(default_factory=dict)
     curve: list = field(default_factory=list)
     status: str = "incomplete"
@@ -277,6 +286,43 @@ class RunRecord:
             "devices_counted": devices_counted,
             "wall_s": wall_s,
         }
+
+    def set_power(self, node_summaries: list, timeline_files: list):
+        """Per-device energy across every monitored node, from the sampler.
+
+        Deliberately a separate block rather than folded into set_energy:
+        energy.joules stays "this rank's device", so results written before the
+        sampler existed remain comparable to ones written after. This block is
+        the node-complete view, and the only one that can see a device the job
+        never used -- energy.joules is read by a rank, and an unused device has
+        no rank to read it.
+        """
+        if not node_summaries:
+            return
+
+        bound = sum(s.get("joules_bound") or 0 for s in node_summaries)
+        idle = sum(s.get("joules_idle") or 0 for s in node_summaries)
+        total = bound + idle
+        idle_devices = sum(s.get("devices_idle") or 0 for s in node_summaries)
+
+        self.power = {
+            "nodes_monitored": len(node_summaries),
+            "devices_total": sum(s.get("device_count") or 0 for s in node_summaries),
+            "devices_idle": idle_devices,
+            "joules_total": total or None,
+            "joules_bound": bound or None,
+            "joules_idle": idle or None,
+            "idle_fraction": (idle / total) if total else None,
+            "sample_interval_s": node_summaries[0].get("sample_interval_s"),
+            "timeline_files": timeline_files,
+            "per_node": node_summaries,
+        }
+
+        if idle and total:
+            self.notes.append(
+                f"{idle / total * 100:.0f}% of accelerator energy ({idle:.0f} J) "
+                f"went to {idle_devices} device(s) this job never used."
+            )
 
     def set_cost(self, node_count: int, wall_s: float):
         node_seconds = node_count * wall_s

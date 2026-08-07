@@ -7,11 +7,15 @@ Aurora is the reference implementation; Polaris/Sophia/Crux follow the same shap
 from __future__ import annotations
 
 import os
+import re
 import socket
+import time
 from contextlib import nullcontext
 from pathlib import Path
 
 import torch
+
+from .power import EnergySource
 
 # Env vars that carry rank info, in priority order. Different launchers set
 # different ones: torchrun sets RANK/LOCAL_RANK, Aurora's mpiexec (MPICH+PALS)
@@ -111,6 +115,17 @@ class Platform:
         an accelerator-only figure is never mistaken for node power."""
         return "unsupported"
 
+    def node_energy_sources(self) -> list[EnergySource]:
+        """Every readable energy counter on this NODE, not just this rank's.
+
+        energy_joules() above is deliberately per-rank: it answers "what did my
+        device cost". This answers "what did the node's accelerators cost",
+        including the ones no rank ever bound to -- which is the only way an
+        idle device shows up in a result at all. Sampled by one rank per node,
+        so a device with no rank on it still gets read.
+        """
+        return []
+
     # --- profiling ---------------------------------------------------------
     def profiler_activities(self) -> list:
         """Activities for torch.profiler. Each backend names its device
@@ -136,6 +151,61 @@ class Platform:
             "device_name": self.device_name(),
             "torch_version": torch.__version__,
         }
+
+
+_DRM_CARD = re.compile(r"^card(\d+)$")
+
+
+def _hwmon_counters():
+    """Yield (card_index, hwmon_name, energy_path) for every readable i915
+    energy counter on this node, cards in numeric order.
+
+    Single place that knows the sysfs layout, so the per-rank counter and the
+    node-wide enumeration cannot drift apart. /sys/class/drm also holds
+    connector entries (card0-DP-1) and render nodes, hence the strict match on
+    card<N>; and cards are sorted numerically because card10 sorts before card2
+    as a string.
+    """
+    try:
+        entries = list(Path("/sys/class/drm").iterdir())
+    except OSError:
+        return
+
+    cards = [
+        (int(m.group(1)), entry)
+        for entry in entries
+        if (m := _DRM_CARD.match(entry.name))
+    ]
+    for card, entry in sorted(cards):
+        try:
+            hwmons = sorted((entry / "device" / "hwmon").glob("hwmon*"))
+        except OSError:
+            continue
+        for hwmon in hwmons:
+            try:
+                name = (hwmon / "name").read_text().strip()
+            except OSError:
+                continue
+            counter = hwmon / "energy1_input"
+            try:
+                int(counter.read_text())
+            except (OSError, ValueError):
+                continue
+            yield card, name, counter
+
+
+def _microjoule_reader(path: Path):
+    """Closure over one counter path. A factory rather than a lambda in a loop,
+    which would capture the loop variable and make every source read the last
+    path."""
+
+    def read():
+        try:
+            return int(path.read_text()) / 1e6
+        except (OSError, ValueError):
+            return None
+
+    return read
 
 
 class AuroraPlatform(Platform):
@@ -210,11 +280,7 @@ class AuroraPlatform(Platform):
         self._energy_scope = "no readable hwmon energy counter"
         index = self.device.index or 0
         card, tile = index // 2, index % 2
-        hwmon = Path(f"/sys/class/drm/card{card}/device/hwmon")
-        try:
-            entries = sorted(hwmon.glob("hwmon*"))
-        except OSError:
-            entries = []
+        mine = [(n, p) for c, n, p in _hwmon_counters() if c == card]
 
         # Prefer this rank's tile; fall back to the whole card, which is still
         # a real measurement as long as the result says so.
@@ -222,21 +288,50 @@ class AuroraPlatform(Platform):
             (f"_gt{tile}", f"xpu tile {tile} of card {card} (hwmon energy1_input)"),
             ("", f"whole card {card}, both tiles + HBM (hwmon energy1_input)"),
         ):
-            for h in entries:
-                try:
-                    name = (h / "name").read_text().strip()
-                except OSError:
-                    continue
+            for name, counter in mine:
                 matches = name.endswith(want) if want else "_gt" not in name
-                if matches and (h / "energy1_input").exists():
-                    try:
-                        int((h / "energy1_input").read_text())
-                    except (OSError, ValueError):
-                        continue
-                    self._energy_file = h / "energy1_input"
+                if matches:
+                    self._energy_file = counter
                     self._energy_scope = scope
                     return self._energy_file
         return None
+
+    def node_energy_sources(self) -> list[EnergySource]:
+        """Both tiles of every card on the node, plus each whole-card counter.
+
+        Tile counters are what sum to a node total, one per torch device. The
+        card counter additionally covers HBM and uncore, so it is larger than
+        its two tiles combined -- recorded as an aggregate so the difference can
+        finally be quantified instead of left as a caveat, but kept out of the
+        totals so nothing is counted twice.
+        """
+        sources = []
+        for card, name, counter in _hwmon_counters():
+            if name.endswith(("_gt0", "_gt1")):
+                tile = int(name[-1])
+                sources.append(
+                    EnergySource(
+                        key=f"card{card}.gt{tile}",
+                        scope=f"xpu tile {tile} of card {card} (hwmon energy1_input)",
+                        read=_microjoule_reader(counter),
+                        # Inverse of the index -> (card, tile) split in
+                        # _energy_path, and correct only under
+                        # ZE_FLAT_DEVICE_HIERARCHY=FLAT, which this class
+                        # already documents relying on.
+                        device_index=card * 2 + tile,
+                    )
+                )
+            elif "_gt" not in name:
+                sources.append(
+                    EnergySource(
+                        key=f"card{card}",
+                        scope=f"whole card {card}, both tiles + HBM (hwmon energy1_input)",
+                        read=_microjoule_reader(counter),
+                        device_index=None,
+                        aggregate=True,
+                    )
+                )
+        return sources
 
     def energy_joules(self) -> float | None:
         path = self._energy_path()
@@ -284,6 +379,45 @@ class AuroraPlatform(Platform):
         return env
 
 
+def _nvml_energy_reader(nvml, handle):
+    """(read, kind) for one GPU, in joules.
+
+    nvmlDeviceGetTotalEnergyConsumption is a cumulative millijoule counter since
+    the last driver reload -- the same shape as Aurora's hwmon node, so the
+    subtract-two-readings design carries over unchanged. It is Volta and newer;
+    anything older falls back to integrating instantaneous power, which is named
+    in the scope string because it is the weaker measurement: it misses whatever
+    happens between samples.
+    """
+    try:
+        nvml.nvmlDeviceGetTotalEnergyConsumption(handle)
+
+        def read():
+            try:
+                return nvml.nvmlDeviceGetTotalEnergyConsumption(handle) / 1e3
+            except Exception:
+                return None
+
+        return read, "nvml energy counter"
+    except Exception:
+        pass
+
+    state = {"t": None, "j": 0.0}
+
+    def read():
+        try:
+            watts = nvml.nvmlDeviceGetPowerUsage(handle) / 1e3
+        except Exception:
+            return None
+        now = time.perf_counter()
+        if state["t"] is not None:
+            state["j"] += watts * (now - state["t"])
+        state["t"] = now
+        return state["j"]
+
+    return read, "nvml power sampling integrated (no energy counter)"
+
+
 class CudaPlatform(Platform):
     """Polaris / Sophia — NVIDIA A100 via CUDA + NCCL."""
 
@@ -316,6 +450,98 @@ class CudaPlatform(Platform):
 
     def reset_peak_memory(self) -> None:
         torch.cuda.reset_peak_memory_stats(self.device)
+
+    # --- energy ------------------------------------------------------------
+    # NOT YET RUN ON HARDWARE: written against the NVML docs, needs a Polaris or
+    # Sophia run to confirm before any number from it is reported.
+    def _nvml(self):
+        if hasattr(self, "_nvml_mod"):
+            return self._nvml_mod
+        self._nvml_mod = None
+        try:
+            import pynvml
+
+            pynvml.nvmlInit()
+            self._nvml_mod = pynvml
+        except Exception:
+            pass  # no pynvml, or no driver: energy stays unsupported
+        return self._nvml_mod
+
+    def _visible_devices(self):
+        """NVML index -> torch index mapping, or None when they coincide.
+
+        NVML enumerates every GPU on the node regardless of
+        CUDA_VISIBLE_DEVICES, which is precisely what makes an unused device
+        visible -- but it also means the two numberings diverge the moment that
+        variable is set, so a job pinned to one GPU would otherwise attribute
+        its energy to the wrong device.
+
+        The two agree on ordering only under CUDA_DEVICE_ORDER=PCI_BUS_ID; CUDA
+        defaults to FASTEST_FIRST, which matches on a homogeneous node but is
+        not guaranteed to. Set it in the submit script.
+        """
+        raw = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+        if not raw:
+            return None
+        return [int(t) for t in raw.split(",") if t.strip().isdigit()] or None
+
+    def _energy_sources(self):
+        if hasattr(self, "_sources"):
+            return self._sources
+
+        self._sources = []
+        nvml = self._nvml()
+        if nvml is None:
+            return self._sources
+        visible = self._visible_devices()
+        try:
+            count = nvml.nvmlDeviceGetCount()
+        except Exception:
+            return self._sources
+
+        for i in range(count):
+            try:
+                handle = nvml.nvmlDeviceGetHandleByIndex(i)
+            except Exception:
+                continue
+            read, kind = _nvml_energy_reader(nvml, handle)
+            if visible is None:
+                torch_index = i
+            elif i in visible:
+                torch_index = visible.index(i)
+            else:
+                torch_index = None  # masked out of this job, still drawing power
+            self._sources.append(
+                EnergySource(
+                    key=f"gpu{i}",
+                    scope=f"whole gpu {i} incl. HBM ({kind})",
+                    read=read,
+                    device_index=torch_index,
+                )
+            )
+        return self._sources
+
+    def node_energy_sources(self) -> list[EnergySource]:
+        return self._energy_sources()
+
+    def _my_source(self):
+        index = self.device.index or 0
+        for source in self._energy_sources():
+            if source.device_index == index:
+                return source
+        return None
+
+    def energy_joules(self) -> float | None:
+        # Deliberately the same EnergySource object the sampler holds: on the
+        # power-integration fallback that closure only accumulates when it is
+        # read, so sharing it means the start/end reads inherit the sampler's
+        # 10 Hz cadence instead of integrating over two points.
+        source = self._my_source()
+        return source.read() if source else None
+
+    def energy_scope(self) -> str:
+        source = self._my_source()
+        return source.scope if source else "nvml unavailable"
 
     def profiler_activities(self) -> list:
         from torch.profiler import ProfilerActivity

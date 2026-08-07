@@ -103,6 +103,36 @@ These exist so the numbers compare machines rather than accidents of setup.
 Run each configuration **at least 3 times** and report median plus spread.
 Aurora node variability makes single runs untrustworthy.
 
+## Power: two different measurements
+
+The results JSON carries two energy blocks, and they answer different questions.
+Do not add them together.
+
+**`energy`** is per rank: one counter read before training, one after, on the
+device this rank owns. It is what `samples_per_joule` and `joules_to_target`
+(the energy twin of time-to-accuracy) are computed from.
+
+**`power`** is per node, from a sampler thread that one rank per node runs at
+`--power-interval` seconds (default 0.1, `0` disables). It reads **every**
+accelerator counter on the node, including devices no rank ever bound to — the
+only way an idle device appears in a result at all, since a per-rank read has
+nobody to take it. `bound` comes from the rank-to-device binding rule, not from
+a power threshold, because a device can idle at a third of its peak.
+
+```bash
+python analysis/summarize.py --devices
+```
+
+The full time series goes to `results/power/` as one file per node, with epoch
+and eval boundaries recorded as marks so power can be attributed to a phase
+rather than averaged over the run. The result JSON keeps only the rollup.
+
+On Aurora each tile is counted once; the whole-card counter is recorded
+alongside but flagged `aggregate`, since it spans both tiles plus HBM and would
+double count. **Scope is not comparable across machines** — an Aurora tile and
+an A100 are different measurement boundaries. Compare per node, and read
+`scope` before quoting any figure.
+
 ## Before publishing any MFU number
 
 `configs/peak_flops.json` ships with every value `null`, so MFU is omitted
