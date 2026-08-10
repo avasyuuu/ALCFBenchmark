@@ -1,0 +1,225 @@
+{
+  "machine": "polaris",
+  "workload": "resnet20_cifar10",
+  "config": {
+    "model": "resnet20",
+    "scaling": "strong",
+    "nodes": 1,
+    "world_size": 4,
+    "ranks_per_node": 4,
+    "global_batch_size": 1536,
+    "local_batch_size": 384,
+    "precision": "bf16",
+    "epochs": 3,
+    "base_lr": 0.1,
+    "warmup_epochs": 5,
+    "seed": 1234,
+    "synthetic_data": false,
+    "target_accuracy": 0.9,
+    "dataloader_workers": 4,
+    "ipex_optimize": true
+  },
+  "environment": {
+    "platform": "cuda",
+    "hostname": "x3112c0s37b0n0",
+    "device_name": "NVIDIA A100-SXM4-40GB",
+    "torch_version": "2.8.0",
+    "pbs_jobid": "7405816.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov",
+    "pbs_queue": "debug",
+    "pbs_nodes": [
+      "x3112c0s37b0n0.hsn.cm.polaris.alcf.anl.gov"
+    ],
+    "pbs_node_count": 1,
+    "git_commit": "2ddac7e"
+  },
+  "run_id": "e7a8652bdaa8",
+  "schema_version": 2,
+  "timestamp_utc": "2026-08-10T14:41:30.435290+00:00",
+  "timing": {
+    "startup_s": 2.017082693055272,
+    "data_setup_s": 8.041108042001724,
+    "total_train_s": 14.44113737065345,
+    "warmup_steps_excluded": 20
+  },
+  "throughput": {
+    "step_time": {
+      "count": 76,
+      "mean_s": 0.1240650336993368,
+      "median_s": 0.08767225127667189,
+      "min_s": 0.021143377758562565,
+      "max_s": 0.8554826155304909,
+      "p90_s": 0.2185253007337451,
+      "p99_s": 0.8554826155304909,
+      "stdev_s": 0.1326003229317119
+    },
+    "data_wait": {
+      "count": 76,
+      "mean_s": 0.06933488411289689,
+      "median_s": 0.009183802641928196,
+      "min_s": 3.91937792301178e-05,
+      "max_s": 0.8206435618922114,
+      "p90_s": 0.18462499231100082,
+      "p99_s": 0.8206435618922114,
+      "stdev_s": 0.14070985578767908
+    },
+    "compute": {
+      "count": 76,
+      "mean_s": 0.054730149586439916,
+      "median_s": 0.05730946408584714,
+      "min_s": 0.020192979834973812,
+      "max_s": 0.09715333115309477,
+      "p90_s": 0.08697078563272953,
+      "p99_s": 0.09715333115309477,
+      "stdev_s": 0.02457034240908536
+    },
+    "samples_per_s": 17519.796487862106,
+    "warmup_steps_excluded": 20
+  },
+  "accuracy": {
+    "target": 0.9,
+    "time_to_target_s": null,
+    "epoch_to_target": null,
+    "reached_target": false,
+    "final_top1": 0.38339999318122864,
+    "best_top1": 0.38339999318122864
+  },
+  "memory": {
+    "peak_bytes_per_device": 341658112
+  },
+  "flops": {
+    "fwd_flops_per_sample": 81626368,
+    "train_flops_per_sample": 244879104,
+    "achieved_flops_per_s": 4290232066210.0195,
+    "peak_flops_per_s_per_device": 312000000000000.0,
+    "peak_flops_per_s": 1248000000000000.0,
+    "mfu": 0.0034376859504887977
+  },
+  "energy": {
+    "joules": 1022.5960000753403,
+    "avg_watts": 70.81132003864239,
+    "samples_per_joule": 36.0494271415926,
+    "joules_to_target_accuracy": null,
+    "scope": "whole gpu 0 incl. HBM (nvml energy counter)",
+    "devices_counted": 1,
+    "wall_s": 14.44113737065345
+  },
+  "power": {
+    "nodes_monitored": 1,
+    "devices_total": 4,
+    "devices_idle": 0,
+    "joules_total": 4829.34399998188,
+    "joules_bound": 4829.34399998188,
+    "joules_idle": null,
+    "idle_fraction": 0.0,
+    "sample_interval_s": 0.1,
+    "timeline_files": [
+      "polaris_e7a8652bdaa8_x3112c0s37b0n0_power.json"
+    ],
+    "per_node": [
+      {
+        "devices": [
+          {
+            "key": "gpu0",
+            "scope": "whole gpu 0 incl. HBM (nvml energy counter)",
+            "device_index": 0,
+            "bound": true,
+            "aggregate": false,
+            "joules": 1022.5960000753403,
+            "mean_watts": 70.95459379855332,
+            "floor_watts": 56.360603548576364,
+            "median_watts": 70.83087574444096,
+            "max_watts": 125.65486993000074,
+            "samples": 139,
+            "counter_reset": null
+          },
+          {
+            "key": "gpu1",
+            "scope": "whole gpu 1 incl. HBM (nvml energy counter)",
+            "device_index": 1,
+            "bound": true,
+            "aggregate": false,
+            "joules": 1288.1999999284744,
+            "mean_watts": 89.3839871459375,
+            "floor_watts": 58.17400596752503,
+            "median_watts": 93.54576470246839,
+            "max_watts": 168.97701722783967,
+            "samples": 139,
+            "counter_reset": null
+          },
+          {
+            "key": "gpu2",
+            "scope": "whole gpu 2 incl. HBM (nvml energy counter)",
+            "device_index": 2,
+            "bound": true,
+            "aggregate": false,
+            "joules": 1261.330999970436,
+            "mean_watts": 87.51963506783872,
+            "floor_watts": 57.419885077445414,
+            "median_watts": 92.3692733134307,
+            "max_watts": 240.12976764685968,
+            "samples": 139,
+            "counter_reset": null
+          },
+          {
+            "key": "gpu3",
+            "scope": "whole gpu 3 incl. HBM (nvml energy counter)",
+            "device_index": 3,
+            "bound": true,
+            "aggregate": false,
+            "joules": 1257.2170000076294,
+            "mean_watts": 87.23417805820178,
+            "floor_watts": 0.0,
+            "median_watts": 91.1248370638683,
+            "max_watts": 244.5191280358025,
+            "samples": 139,
+            "counter_reset": null
+          }
+        ],
+        "device_count": 4,
+        "devices_bound": 4,
+        "devices_idle": 0,
+        "joules_total": 4829.34399998188,
+        "joules_bound": 4829.34399998188,
+        "joules_idle": null,
+        "idle_fraction": 0.0,
+        "sample_interval_s": 0.1,
+        "sample_count": 140,
+        "span_s": 14.411977369338274
+      }
+    ]
+  },
+  "cost": {
+    "node_count": 1,
+    "wall_s": 14.44113737065345,
+    "node_seconds": 14.44113737065345,
+    "node_hours": 0.004011427047403736
+  },
+  "curve": [
+    {
+      "epoch": 1,
+      "step": 32,
+      "elapsed_s": 5.3360721580684185,
+      "lr": 0.24000000000000005,
+      "train_loss": 2.049180716276169,
+      "val_top1": 0.22100000083446503
+    },
+    {
+      "epoch": 2,
+      "step": 64,
+      "elapsed_s": 9.915708720684052,
+      "lr": 0.4800000000000001,
+      "train_loss": 1.732795413583517,
+      "val_top1": 0.29420000314712524
+    },
+    {
+      "epoch": 3,
+      "step": 96,
+      "elapsed_s": 14.441068180836737,
+      "lr": 0.7200000000000001,
+      "train_loss": 1.6363177858293056,
+      "val_top1": 0.38339999318122864
+    }
+  ],
+  "status": "complete",
+  "notes": []
+}
