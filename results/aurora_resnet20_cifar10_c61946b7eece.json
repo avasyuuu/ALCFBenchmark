@@ -1,0 +1,1212 @@
+{
+  "machine": "aurora",
+  "workload": "resnet20_cifar10",
+  "config": {
+    "model": "resnet20",
+    "scaling": "strong",
+    "nodes": 1,
+    "world_size": 12,
+    "ranks_per_node": 12,
+    "global_batch_size": 1536,
+    "local_batch_size": 128,
+    "precision": "bf16",
+    "epochs": 100,
+    "base_lr": 0.1,
+    "warmup_epochs": 5,
+    "seed": 1234,
+    "synthetic_data": false,
+    "target_accuracy": 0.9,
+    "dataloader_workers": 4,
+    "ipex_optimize": true
+  },
+  "environment": {
+    "platform": "aurora",
+    "hostname": "x4313c5s2b0n0",
+    "device_name": "Intel(R) Data Center GPU Max 1550",
+    "torch_version": "2.10.0a0+git449b176",
+    "ipex_version": "2.10.10+gitd0f992f",
+    "xpu_device_count": 12,
+    "ze_flat_device_hierarchy": "FLAT",
+    "ze_affinity_mask": "unset",
+    "pbs_jobid": "8747637.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov",
+    "pbs_queue": "debug",
+    "pbs_nodes": [
+      "x4313c5s2b0n0.hsn.cm.aurora.alcf.anl.gov"
+    ],
+    "pbs_node_count": 1,
+    "git_commit": "2935d69"
+  },
+  "run_id": "c61946b7eece",
+  "schema_version": 3,
+  "timestamp_utc": "2026-08-10T21:26:15.927779+00:00",
+  "timing": {
+    "startup_s": 6.135947615839541,
+    "data_setup_s": 1.336342717986554,
+    "total_train_s": 57.91693480592221,
+    "warmup_steps_excluded": 20
+  },
+  "work": {
+    "steps": 3200,
+    "epochs_completed": 100,
+    "epochs_requested": 100,
+    "samples_global": 4915200,
+    "samples_per_rank": 409600,
+    "stopped_early": false
+  },
+  "throughput": {
+    "step_time": {
+      "count": 3180,
+      "mean_s": 0.015381477673028438,
+      "median_s": 0.013871947419829667,
+      "min_s": 0.011931322049349546,
+      "max_s": 0.29301472194492817,
+      "p90_s": 0.01551231206394732,
+      "p99_s": 0.05005825497210026,
+      "stdev_s": 0.011180520007364242
+    },
+    "data_wait": {
+      "count": 3180,
+      "mean_s": 0.0016851699611599668,
+      "median_s": 0.0007113019237294793,
+      "min_s": 6.24458771198988e-05,
+      "max_s": 0.26058096601627767,
+      "p90_s": 0.001091561047360301,
+      "p99_s": 0.030240887077525258,
+      "stdev_s": 0.006803681454526055
+    },
+    "compute": {
+      "count": 3180,
+      "mean_s": 0.01369630771186847,
+      "median_s": 0.013187968521378934,
+      "min_s": 0.01108674518764019,
+      "max_s": 0.2919319209177047,
+      "p90_s": 0.014655512990429997,
+      "p99_s": 0.02085350500419736,
+      "stdev_s": 0.008248852493973047
+    },
+    "samples_per_s": 110727.06329641354,
+    "warmup_steps_excluded": 20
+  },
+  "accuracy": {
+    "target": 0.9,
+    "time_to_target_s": 48.816391463857144,
+    "epoch_to_target": 83,
+    "reached_target": true,
+    "final_top1": 0.918864905834198,
+    "best_top1": 0.9201638698577881
+  },
+  "memory": {
+    "peak_bytes_per_device": 108685312
+  },
+  "flops": {
+    "fwd_flops_per_sample": 81626368,
+    "train_flops_per_sample": 244879104,
+    "achieved_flops_per_s": 27114744048577.035,
+    "peak_flops_per_s_per_device": 419500000000000.0,
+    "peak_flops_per_s": 5034000000000000.0,
+    "mfu": 0.005386321821330361
+  },
+  "energy": {
+    "joules": 6163.350829999894,
+    "avg_watts": 106.41707560410586,
+    "samples_processed": 409600,
+    "samples_per_joule": 66.45735595745846,
+    "joules_to_target_accuracy": 5183.200195999816,
+    "scope": "xpu tile 0 of card 0 (hwmon energy1_input)",
+    "devices_counted": 1,
+    "wall_s": 57.91693480592221
+  },
+  "power": {
+    "nodes_monitored": 1,
+    "devices_total": 12,
+    "devices_idle": 0,
+    "joules_total": 73493.18695299956,
+    "joules_bound": 73493.18695299956,
+    "joules_idle": null,
+    "idle_fraction": 0.0,
+    "sample_interval_s": 0.1,
+    "timeline_files": [
+      "aurora_c61946b7eece_x4313c5s2b0n0_power.json"
+    ],
+    "per_node": [
+      {
+        "devices": [
+          {
+            "key": "card0",
+            "scope": "whole card 0, both tiles + HBM (hwmon energy1_input)",
+            "device_index": null,
+            "bound": null,
+            "aggregate": true,
+            "joules": 17728.43432600051,
+            "mean_watts": 306.1451628298183,
+            "floor_watts": 271.6800915207069,
+            "median_watts": 312.03586913727577,
+            "max_watts": 361.5836045661293,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card0.gt0",
+            "scope": "xpu tile 0 of card 0 (hwmon energy1_input)",
+            "device_index": 0,
+            "bound": true,
+            "aggregate": false,
+            "joules": 6162.488890999928,
+            "mean_watts": 106.41752849010525,
+            "floor_watts": 89.55053047625442,
+            "median_watts": 109.32339625567856,
+            "max_watts": 119.14642985939645,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card0.gt1",
+            "scope": "xpu tile 1 of card 0 (hwmon energy1_input)",
+            "device_index": 1,
+            "bound": true,
+            "aggregate": false,
+            "joules": 6146.3043219998945,
+            "mean_watts": 106.13804371323587,
+            "floor_watts": 89.69497652965899,
+            "median_watts": 109.01326787542109,
+            "max_watts": 130.01064415409962,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card1",
+            "scope": "whole card 1, both tiles + HBM (hwmon energy1_input)",
+            "device_index": null,
+            "bound": null,
+            "aggregate": true,
+            "joules": 17850.57678200025,
+            "mean_watts": 308.2543915069177,
+            "floor_watts": 274.08689601897044,
+            "median_watts": 313.75141021106447,
+            "max_watts": 380.4000653333425,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card1.gt0",
+            "scope": "xpu tile 0 of card 1 (hwmon energy1_input)",
+            "device_index": 2,
+            "bound": true,
+            "aggregate": false,
+            "joules": 6251.411376999924,
+            "mean_watts": 107.95309493974798,
+            "floor_watts": 90.07603206988848,
+            "median_watts": 111.03881319719034,
+            "max_watts": 152.4498752337594,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card1.gt1",
+            "scope": "xpu tile 1 of card 1 (hwmon energy1_input)",
+            "device_index": 3,
+            "bound": true,
+            "aggregate": false,
+            "joules": 6485.061584999785,
+            "mean_watts": 111.98790589135193,
+            "floor_watts": 96.01325879062412,
+            "median_watts": 114.64668152719992,
+            "max_watts": 159.25827145742457,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card2",
+            "scope": "whole card 2, both tiles + HBM (hwmon energy1_input)",
+            "device_index": null,
+            "bound": null,
+            "aggregate": true,
+            "joules": 17771.276673000306,
+            "mean_watts": 306.8849899943089,
+            "floor_watts": 272.36441689223295,
+            "median_watts": 312.7011208797892,
+            "max_watts": 442.0098560451916,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card2.gt0",
+            "scope": "xpu tile 0 of card 2 (hwmon energy1_input)",
+            "device_index": 4,
+            "bound": true,
+            "aggregate": false,
+            "joules": 5835.715332000051,
+            "mean_watts": 100.77460805004259,
+            "floor_watts": 83.52807269767878,
+            "median_watts": 103.77849881066864,
+            "max_watts": 208.19894433281436,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card2.gt1",
+            "scope": "xpu tile 1 of card 2 (hwmon energy1_input)",
+            "device_index": 5,
+            "bound": true,
+            "aggregate": false,
+            "joules": 6333.280762000009,
+            "mean_watts": 109.36686424056376,
+            "floor_watts": 92.51636835962965,
+            "median_watts": 112.29178435327512,
+            "max_watts": 228.61966664975415,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card3.gt0",
+            "scope": "xpu tile 0 of card 3 (hwmon energy1_input)",
+            "device_index": 6,
+            "bound": true,
+            "aggregate": false,
+            "joules": 6057.124634000007,
+            "mean_watts": 104.59803574627192,
+            "floor_watts": 86.67412220031034,
+            "median_watts": 107.82822583051964,
+            "max_watts": 216.11735392002265,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card3.gt1",
+            "scope": "xpu tile 1 of card 3 (hwmon energy1_input)",
+            "device_index": 7,
+            "bound": true,
+            "aggregate": false,
+            "joules": 5893.818665000144,
+            "mean_watts": 101.77797101008588,
+            "floor_watts": 83.52554677331862,
+            "median_watts": 105.01180565343668,
+            "max_watts": 209.48136638786838,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card3",
+            "scope": "whole card 3, both tiles + HBM (hwmon energy1_input)",
+            "device_index": null,
+            "bound": null,
+            "aggregate": true,
+            "joules": 17759.906311000697,
+            "mean_watts": 306.6886398112192,
+            "floor_watts": 270.98859482360587,
+            "median_watts": 312.73411783046015,
+            "max_watts": 654.5895164088824,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card4",
+            "scope": "whole card 4, both tiles + HBM (hwmon energy1_input)",
+            "device_index": null,
+            "bound": null,
+            "aggregate": true,
+            "joules": 17825.5266110003,
+            "mean_watts": 307.82181023444474,
+            "floor_watts": 273.7117403476714,
+            "median_watts": 313.6595578036868,
+            "max_watts": 660.6399985595933,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card4.gt0",
+            "scope": "xpu tile 0 of card 4 (hwmon energy1_input)",
+            "device_index": 8,
+            "bound": true,
+            "aggregate": false,
+            "joules": 6190.289855999872,
+            "mean_watts": 106.89761211171708,
+            "floor_watts": 89.81420448237603,
+            "median_watts": 109.90421556777872,
+            "max_watts": 222.47291480540378,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card4.gt1",
+            "scope": "xpu tile 1 of card 4 (hwmon energy1_input)",
+            "device_index": 9,
+            "bound": true,
+            "aggregate": false,
+            "joules": 5836.309021000052,
+            "mean_watts": 100.78486022529019,
+            "floor_watts": 83.59812871342316,
+            "median_watts": 103.7798415672948,
+            "max_watts": 209.7047025484255,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card5",
+            "scope": "whole card 5, both tiles + HBM (hwmon energy1_input)",
+            "device_index": null,
+            "bound": null,
+            "aggregate": true,
+            "joules": 17836.75085499976,
+            "mean_watts": 308.01563716488135,
+            "floor_watts": 273.18576344128064,
+            "median_watts": 314.05172546907056,
+            "max_watts": 661.5372959668426,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card5.gt0",
+            "scope": "xpu tile 0 of card 5 (hwmon energy1_input)",
+            "device_index": 10,
+            "bound": true,
+            "aggregate": false,
+            "joules": 6170.628173999954,
+            "mean_watts": 106.55808247662996,
+            "floor_watts": 89.7939664512726,
+            "median_watts": 109.5929128389343,
+            "max_watts": 223.12838698990998,
+            "samples": 578,
+            "counter_reset": null
+          },
+          {
+            "key": "card5.gt1",
+            "scope": "xpu tile 1 of card 5 (hwmon energy1_input)",
+            "device_index": 11,
+            "bound": true,
+            "aggregate": false,
+            "joules": 6130.754333999939,
+            "mean_watts": 105.86951725902631,
+            "floor_watts": 87.56275328014895,
+            "median_watts": 108.9519265928759,
+            "max_watts": 219.652818888146,
+            "samples": 578,
+            "counter_reset": null
+          }
+        ],
+        "device_count": 12,
+        "devices_bound": 12,
+        "devices_idle": 0,
+        "joules_total": 73493.18695299956,
+        "joules_bound": 73493.18695299956,
+        "joules_idle": null,
+        "idle_fraction": 0.0,
+        "sample_interval_s": 0.1,
+        "sample_count": 579,
+        "span_s": 57.908588730031624
+      }
+    ]
+  },
+  "cost": {
+    "node_count": 1,
+    "wall_s": 57.91693480592221,
+    "node_seconds": 57.91693480592221,
+    "node_hours": 0.0160880374460895
+  },
+  "curve": [
+    {
+      "epoch": 1,
+      "step": 32,
+      "elapsed_s": 3.532507970929146,
+      "lr": 0.24000000000000005,
+      "train_loss": 2.033767491579056,
+      "val_top1": 0.168864905834198
+    },
+    {
+      "epoch": 2,
+      "step": 64,
+      "elapsed_s": 4.643295734887943,
+      "lr": 0.4800000000000001,
+      "train_loss": 1.6854162216186523,
+      "val_top1": 0.40227818489074707
+    },
+    {
+      "epoch": 3,
+      "step": 96,
+      "elapsed_s": 5.158560615964234,
+      "lr": 0.7200000000000001,
+      "train_loss": 1.5322595238685608,
+      "val_top1": 0.3787969648838043
+    },
+    {
+      "epoch": 4,
+      "step": 128,
+      "elapsed_s": 5.670718355802819,
+      "lr": 0.9600000000000002,
+      "train_loss": 1.3698916658759117,
+      "val_top1": 0.48161470890045166
+    },
+    {
+      "epoch": 5,
+      "step": 160,
+      "elapsed_s": 6.20517937396653,
+      "lr": 1.2000000000000002,
+      "train_loss": 1.1823391318321228,
+      "val_top1": 0.5052957534790039
+    },
+    {
+      "epoch": 6,
+      "step": 192,
+      "elapsed_s": 6.7383059279527515,
+      "lr": 1.2000000000000002,
+      "train_loss": 1.0064397174865007,
+      "val_top1": 0.5036970376968384
+    },
+    {
+      "epoch": 7,
+      "step": 224,
+      "elapsed_s": 7.2529122869018465,
+      "lr": 1.1996719544045558,
+      "train_loss": 0.9132850561290979,
+      "val_top1": 0.5360711216926575
+    },
+    {
+      "epoch": 8,
+      "step": 256,
+      "elapsed_s": 7.772294540889561,
+      "lr": 1.198688176331265,
+      "train_loss": 0.8248438481241465,
+      "val_top1": 0.6000199913978577
+    },
+    {
+      "epoch": 9,
+      "step": 288,
+      "elapsed_s": 8.330928385956213,
+      "lr": 1.197049741527007,
+      "train_loss": 0.782316155731678,
+      "val_top1": 0.5182853937149048
+    },
+    {
+      "epoch": 10,
+      "step": 320,
+      "elapsed_s": 8.882760617882013,
+      "lr": 1.1947584415961854,
+      "train_loss": 0.7042666338384151,
+      "val_top1": 0.5237810015678406
+    },
+    {
+      "epoch": 11,
+      "step": 352,
+      "elapsed_s": 9.438820700859651,
+      "lr": 1.1918167820416337,
+      "train_loss": 0.6770214848220348,
+      "val_top1": 0.7214228510856628
+    },
+    {
+      "epoch": 12,
+      "step": 384,
+      "elapsed_s": 9.958224799949676,
+      "lr": 1.1882279795248858,
+      "train_loss": 0.6718351114541292,
+      "val_top1": 0.6663669347763062
+    },
+    {
+      "epoch": 13,
+      "step": 416,
+      "elapsed_s": 10.47776634991169,
+      "lr": 1.1839959583488038,
+      "train_loss": 0.591029679402709,
+      "val_top1": 0.5592526197433472
+    },
+    {
+      "epoch": 14,
+      "step": 448,
+      "elapsed_s": 11.0128265528474,
+      "lr": 1.1791253461664093,
+      "train_loss": 0.6015040669590235,
+      "val_top1": 0.6543765068054199
+    },
+    {
+      "epoch": 15,
+      "step": 480,
+      "elapsed_s": 11.543282076017931,
+      "lr": 1.1736214689206148,
+      "train_loss": 0.5916999876499176,
+      "val_top1": 0.47102317214012146
+    },
+    {
+      "epoch": 16,
+      "step": 512,
+      "elapsed_s": 12.059097960824147,
+      "lr": 1.1674903450203808,
+      "train_loss": 0.5670116916298866,
+      "val_top1": 0.528777003288269
+    },
+    {
+      "epoch": 17,
+      "step": 544,
+      "elapsed_s": 12.575507732806727,
+      "lr": 1.1607386787596767,
+      "train_loss": 0.5656269770115614,
+      "val_top1": 0.7067345976829529
+    },
+    {
+      "epoch": 18,
+      "step": 576,
+      "elapsed_s": 13.102753802901134,
+      "lr": 1.153373852986431,
+      "train_loss": 0.5415526190772653,
+      "val_top1": 0.5872302055358887
+    },
+    {
+      "epoch": 19,
+      "step": 608,
+      "elapsed_s": 13.657701208954677,
+      "lr": 1.1454039210294977,
+      "train_loss": 0.5477639380842447,
+      "val_top1": 0.6853517293930054
+    },
+    {
+      "epoch": 20,
+      "step": 640,
+      "elapsed_s": 14.181231991853565,
+      "lr": 1.1368375978924583,
+      "train_loss": 0.5459868237376213,
+      "val_top1": 0.6539767980575562
+    },
+    {
+      "epoch": 21,
+      "step": 672,
+      "elapsed_s": 14.696885047946125,
+      "lr": 1.1276842507238936,
+      "train_loss": 0.5679381405934691,
+      "val_top1": 0.6855515837669373
+    },
+    {
+      "epoch": 22,
+      "step": 704,
+      "elapsed_s": 15.232754052849486,
+      "lr": 1.1179538885745446,
+      "train_loss": 0.5112694371491671,
+      "val_top1": 0.6333932876586914
+    },
+    {
+      "epoch": 23,
+      "step": 736,
+      "elapsed_s": 15.757420982932672,
+      "lr": 1.1076571514525613,
+      "train_loss": 0.5411723218858242,
+      "val_top1": 0.620303750038147
+    },
+    {
+      "epoch": 24,
+      "step": 768,
+      "elapsed_s": 16.273783038835973,
+      "lr": 1.0968052986888122,
+      "train_loss": 0.5009370250627398,
+      "val_top1": 0.5686450600624084
+    },
+    {
+      "epoch": 25,
+      "step": 800,
+      "elapsed_s": 16.791202544001862,
+      "lr": 1.0854101966249687,
+      "train_loss": 0.512177363038063,
+      "val_top1": 0.6962429881095886
+    },
+    {
+      "epoch": 26,
+      "step": 832,
+      "elapsed_s": 17.5358778599184,
+      "lr": 1.0734843056378365,
+      "train_loss": 0.5210589077323675,
+      "val_top1": 0.657573938369751
+    },
+    {
+      "epoch": 27,
+      "step": 864,
+      "elapsed_s": 18.061746949795634,
+      "lr": 1.0610406665141157,
+      "train_loss": 0.5189302172511816,
+      "val_top1": 0.7490007877349854
+    },
+    {
+      "epoch": 28,
+      "step": 896,
+      "elapsed_s": 18.577833246905357,
+      "lr": 1.0480928861904926,
+      "train_loss": 0.5052242428064346,
+      "val_top1": 0.6770583391189575
+    },
+    {
+      "epoch": 29,
+      "step": 928,
+      "elapsed_s": 19.1023995669093,
+      "lr": 1.0346551228746537,
+      "train_loss": 0.4801171151921153,
+      "val_top1": 0.7281175255775452
+    },
+    {
+      "epoch": 30,
+      "step": 960,
+      "elapsed_s": 19.865953507833183,
+      "lr": 1.0207420705634933,
+      "train_loss": 0.4639997072517872,
+      "val_top1": 0.7539967894554138
+    },
+    {
+      "epoch": 31,
+      "step": 992,
+      "elapsed_s": 21.124710022006184,
+      "lr": 1.0063689429754448,
+      "train_loss": 0.46296493895351887,
+      "val_top1": 0.6517785787582397
+    },
+    {
+      "epoch": 32,
+      "step": 1024,
+      "elapsed_s": 21.671054519945756,
+      "lr": 0.9915514569145013,
+      "train_loss": 0.47708151303231716,
+      "val_top1": 0.7464028596878052
+    },
+    {
+      "epoch": 33,
+      "step": 1056,
+      "elapsed_s": 22.191002381965518,
+      "lr": 0.9763058150841224,
+      "train_loss": 0.44406225625425577,
+      "val_top1": 0.7645883560180664
+    },
+    {
+      "epoch": 34,
+      "step": 1088,
+      "elapsed_s": 22.716991582885385,
+      "lr": 0.9606486883698152,
+      "train_loss": 0.4390732441097498,
+      "val_top1": 0.741506814956665
+    },
+    {
+      "epoch": 35,
+      "step": 1120,
+      "elapsed_s": 23.256194673012942,
+      "lr": 0.9445971976097662,
+      "train_loss": 0.44520213827490807,
+      "val_top1": 0.7737810015678406
+    },
+    {
+      "epoch": 36,
+      "step": 1152,
+      "elapsed_s": 23.798722517909482,
+      "lr": 0.9281688948734564,
+      "train_loss": 0.44717234559357166,
+      "val_top1": 0.6529776453971863
+    },
+    {
+      "epoch": 37,
+      "step": 1184,
+      "elapsed_s": 24.307514933869243,
+      "lr": 0.9113817442687293,
+      "train_loss": 0.45757464691996574,
+      "val_top1": 0.6965427398681641
+    },
+    {
+      "epoch": 38,
+      "step": 1216,
+      "elapsed_s": 24.828678753925487,
+      "lr": 0.894254102298305,
+      "train_loss": 0.4516206430271268,
+      "val_top1": 0.7081335186958313
+    },
+    {
+      "epoch": 39,
+      "step": 1248,
+      "elapsed_s": 25.384628342930228,
+      "lr": 0.8768046977872128,
+      "train_loss": 0.4337965026497841,
+      "val_top1": 0.7457034587860107
+    },
+    {
+      "epoch": 40,
+      "step": 1280,
+      "elapsed_s": 25.90400980785489,
+      "lr": 0.8590526114030959,
+      "train_loss": 0.3921464392915368,
+      "val_top1": 0.8026579022407532
+    },
+    {
+      "epoch": 41,
+      "step": 1312,
+      "elapsed_s": 26.41689671180211,
+      "lr": 0.8410172547917819,
+      "train_loss": 0.4213319388218224,
+      "val_top1": 0.6993405222892761
+    },
+    {
+      "epoch": 42,
+      "step": 1344,
+      "elapsed_s": 26.935030299937353,
+      "lr": 0.8227183493509326,
+      "train_loss": 0.4029591679573059,
+      "val_top1": 0.7933652997016907
+    },
+    {
+      "epoch": 43,
+      "step": 1376,
+      "elapsed_s": 27.488894786918536,
+      "lr": 0.804175904664986,
+      "train_loss": 0.41118515096604824,
+      "val_top1": 0.7766786813735962
+    },
+    {
+      "epoch": 44,
+      "step": 1408,
+      "elapsed_s": 28.066262929001823,
+      "lr": 0.7854101966249686,
+      "train_loss": 0.41032115649431944,
+      "val_top1": 0.7571942210197449
+    },
+    {
+      "epoch": 45,
+      "step": 1440,
+      "elapsed_s": 28.578578685875982,
+      "lr": 0.7664417452571068,
+      "train_loss": 0.4013179773464799,
+      "val_top1": 0.769384503364563
+    },
+    {
+      "epoch": 46,
+      "step": 1472,
+      "elapsed_s": 29.13195231091231,
+      "lr": 0.7472912922844797,
+      "train_loss": 0.3790011079981923,
+      "val_top1": 0.6616706848144531
+    },
+    {
+      "epoch": 47,
+      "step": 1504,
+      "elapsed_s": 29.64890236989595,
+      "lr": 0.7279797784462483,
+      "train_loss": 0.3685650769621134,
+      "val_top1": 0.7863709330558777
+    },
+    {
+      "epoch": 48,
+      "step": 1536,
+      "elapsed_s": 30.164353871019557,
+      "lr": 0.7085283205992662,
+      "train_loss": 0.3800137098878622,
+      "val_top1": 0.7963629364967346
+    },
+    {
+      "epoch": 49,
+      "step": 1568,
+      "elapsed_s": 30.687168183969334,
+      "lr": 0.6889581886271053,
+      "train_loss": 0.3706869054585695,
+      "val_top1": 0.6492805480957031
+    },
+    {
+      "epoch": 50,
+      "step": 1600,
+      "elapsed_s": 31.210726673947647,
+      "lr": 0.6692907821817519,
+      "train_loss": 0.3542842916212976,
+      "val_top1": 0.78067547082901
+    },
+    {
+      "epoch": 51,
+      "step": 1632,
+      "elapsed_s": 31.727428568992764,
+      "lr": 0.6495476072833996,
+      "train_loss": 0.3759250305593014,
+      "val_top1": 0.7184252738952637
+    },
+    {
+      "epoch": 52,
+      "step": 1664,
+      "elapsed_s": 32.24345110799186,
+      "lr": 0.6297502528039335,
+      "train_loss": 0.34946064837276936,
+      "val_top1": 0.793864905834198
+    },
+    {
+      "epoch": 53,
+      "step": 1696,
+      "elapsed_s": 32.78291820199229,
+      "lr": 0.6099203668598152,
+      "train_loss": 0.3398936786688864,
+      "val_top1": 0.7921662926673889
+    },
+    {
+      "epoch": 54,
+      "step": 1728,
+      "elapsed_s": 33.297271066810936,
+      "lr": 0.590079633140185,
+      "train_loss": 0.32176815858110785,
+      "val_top1": 0.7456035017967224
+    },
+    {
+      "epoch": 55,
+      "step": 1760,
+      "elapsed_s": 33.81567194801755,
+      "lr": 0.5702497471960667,
+      "train_loss": 0.3139775921590626,
+      "val_top1": 0.800059974193573
+    },
+    {
+      "epoch": 56,
+      "step": 1792,
+      "elapsed_s": 34.329102801857516,
+      "lr": 0.5504523927166007,
+      "train_loss": 0.32737371511757374,
+      "val_top1": 0.7265188097953796
+    },
+    {
+      "epoch": 57,
+      "step": 1824,
+      "elapsed_s": 34.88635378680192,
+      "lr": 0.5307092178182484,
+      "train_loss": 0.3297030874527991,
+      "val_top1": 0.8359312415122986
+    },
+    {
+      "epoch": 58,
+      "step": 1856,
+      "elapsed_s": 35.4049214089755,
+      "lr": 0.5110418113728948,
+      "train_loss": 0.34357653092592955,
+      "val_top1": 0.7844724059104919
+    },
+    {
+      "epoch": 59,
+      "step": 1888,
+      "elapsed_s": 35.92002620687708,
+      "lr": 0.49147167940073433,
+      "train_loss": 0.29767559189349413,
+      "val_top1": 0.837729811668396
+    },
+    {
+      "epoch": 60,
+      "step": 1920,
+      "elapsed_s": 36.43677536281757,
+      "lr": 0.47202022155375206,
+      "train_loss": 0.31718450086191297,
+      "val_top1": 0.8437250256538391
+    },
+    {
+      "epoch": 61,
+      "step": 1952,
+      "elapsed_s": 36.96534270280972,
+      "lr": 0.45270870771552063,
+      "train_loss": 0.29465117678046227,
+      "val_top1": 0.7619904279708862
+    },
+    {
+      "epoch": 62,
+      "step": 1984,
+      "elapsed_s": 37.499945661984384,
+      "lr": 0.43355825474289345,
+      "train_loss": 0.2922971318475902,
+      "val_top1": 0.8008593320846558
+    },
+    {
+      "epoch": 63,
+      "step": 2016,
+      "elapsed_s": 38.017176219960675,
+      "lr": 0.41458980337503165,
+      "train_loss": 0.2625032872892916,
+      "val_top1": 0.6679656505584717
+    },
+    {
+      "epoch": 64,
+      "step": 2048,
+      "elapsed_s": 38.55038643581793,
+      "lr": 0.3958240953350142,
+      "train_loss": 0.28187322663143277,
+      "val_top1": 0.8447242379188538
+    },
+    {
+      "epoch": 65,
+      "step": 2080,
+      "elapsed_s": 39.089385287836194,
+      "lr": 0.3772816506490675,
+      "train_loss": 0.2920647794380784,
+      "val_top1": 0.7532973885536194
+    },
+    {
+      "epoch": 66,
+      "step": 2112,
+      "elapsed_s": 39.642528579803184,
+      "lr": 0.3589827452082185,
+      "train_loss": 0.26938459975644946,
+      "val_top1": 0.8310351967811584
+    },
+    {
+      "epoch": 67,
+      "step": 2144,
+      "elapsed_s": 40.17351065482944,
+      "lr": 0.3409473885969044,
+      "train_loss": 0.25907389679923654,
+      "val_top1": 0.8399280309677124
+    },
+    {
+      "epoch": 68,
+      "step": 2176,
+      "elapsed_s": 40.70268371189013,
+      "lr": 0.32319530221278747,
+      "train_loss": 0.2435355931520462,
+      "val_top1": 0.8211430907249451
+    },
+    {
+      "epoch": 69,
+      "step": 2208,
+      "elapsed_s": 41.23554671090096,
+      "lr": 0.30574589770169536,
+      "train_loss": 0.2590128919109702,
+      "val_top1": 0.852418065071106
+    },
+    {
+      "epoch": 70,
+      "step": 2240,
+      "elapsed_s": 41.78507874091156,
+      "lr": 0.2886182557312711,
+      "train_loss": 0.24876332934945822,
+      "val_top1": 0.839628279209137
+    },
+    {
+      "epoch": 71,
+      "step": 2272,
+      "elapsed_s": 42.32161385985091,
+      "lr": 0.271831105126544,
+      "train_loss": 0.23153021186590195,
+      "val_top1": 0.8555155992507935
+    },
+    {
+      "epoch": 72,
+      "step": 2304,
+      "elapsed_s": 42.84121503983624,
+      "lr": 0.2554028023902339,
+      "train_loss": 0.23174761841073632,
+      "val_top1": 0.8474220633506775
+    },
+    {
+      "epoch": 73,
+      "step": 2336,
+      "elapsed_s": 43.41534961783327,
+      "lr": 0.23935131163018497,
+      "train_loss": 0.21003861050121486,
+      "val_top1": 0.8626099228858948
+    },
+    {
+      "epoch": 74,
+      "step": 2368,
+      "elapsed_s": 43.950814998941496,
+      "lr": 0.2236941849158778,
+      "train_loss": 0.20251242420636117,
+      "val_top1": 0.8244404196739197
+    },
+    {
+      "epoch": 75,
+      "step": 2400,
+      "elapsed_s": 44.49350842181593,
+      "lr": 0.20844854308549882,
+      "train_loss": 0.19491438660770655,
+      "val_top1": 0.8494204878807068
+    },
+    {
+      "epoch": 76,
+      "step": 2432,
+      "elapsed_s": 45.04158421093598,
+      "lr": 0.1936310570245555,
+      "train_loss": 0.1943416390568018,
+      "val_top1": 0.8832933902740479
+    },
+    {
+      "epoch": 77,
+      "step": 2464,
+      "elapsed_s": 45.5767373170238,
+      "lr": 0.17925792943650687,
+      "train_loss": 0.17430807882919908,
+      "val_top1": 0.8398281335830688
+    },
+    {
+      "epoch": 78,
+      "step": 2496,
+      "elapsed_s": 46.0957822939381,
+      "lr": 0.16534487712534665,
+      "train_loss": 0.17230022535659373,
+      "val_top1": 0.8799960017204285
+    },
+    {
+      "epoch": 79,
+      "step": 2528,
+      "elapsed_s": 46.64994048886001,
+      "lr": 0.1519071138095079,
+      "train_loss": 0.15430534537881613,
+      "val_top1": 0.8948841094970703
+    },
+    {
+      "epoch": 80,
+      "step": 2560,
+      "elapsed_s": 47.1871737788897,
+      "lr": 0.13895933348588474,
+      "train_loss": 0.150079972227104,
+      "val_top1": 0.8794963955879211
+    },
+    {
+      "epoch": 81,
+      "step": 2592,
+      "elapsed_s": 47.73482546885498,
+      "lr": 0.12651569436216395,
+      "train_loss": 0.14144931337796152,
+      "val_top1": 0.8844923973083496
+    },
+    {
+      "epoch": 82,
+      "step": 2624,
+      "elapsed_s": 48.267786028794944,
+      "lr": 0.11458980337503161,
+      "train_loss": 0.14459989638999104,
+      "val_top1": 0.8855915069580078
+    },
+    {
+      "epoch": 83,
+      "step": 2656,
+      "elapsed_s": 48.81672913301736,
+      "lr": 0.10319470131118799,
+      "train_loss": 0.12640332826413214,
+      "val_top1": 0.9035771489143372
+    },
+    {
+      "epoch": 84,
+      "step": 2688,
+      "elapsed_s": 49.36579939397052,
+      "lr": 0.0923428485474387,
+      "train_loss": 0.11338930577039719,
+      "val_top1": 0.899080753326416
+    },
+    {
+      "epoch": 85,
+      "step": 2720,
+      "elapsed_s": 49.91625322890468,
+      "lr": 0.08204611142545568,
+      "train_loss": 0.10168773273471743,
+      "val_top1": 0.9012789726257324
+    },
+    {
+      "epoch": 86,
+      "step": 2752,
+      "elapsed_s": 50.45832559792325,
+      "lr": 0.07231574927610664,
+      "train_loss": 0.10093890223652124,
+      "val_top1": 0.9042765498161316
+    },
+    {
+      "epoch": 87,
+      "step": 2784,
+      "elapsed_s": 51.00628606788814,
+      "lr": 0.06316240210754193,
+      "train_loss": 0.08751689421478659,
+      "val_top1": 0.9051758646965027
+    },
+    {
+      "epoch": 88,
+      "step": 2816,
+      "elapsed_s": 51.5561881759204,
+      "lr": 0.054596078970502504,
+      "train_loss": 0.08513736608438194,
+      "val_top1": 0.9031774401664734
+    },
+    {
+      "epoch": 89,
+      "step": 2848,
+      "elapsed_s": 52.09573073987849,
+      "lr": 0.04662614701356916,
+      "train_loss": 0.07869161537382752,
+      "val_top1": 0.9113709330558777
+    },
+    {
+      "epoch": 90,
+      "step": 2880,
+      "elapsed_s": 52.65836419793777,
+      "lr": 0.03926132124032356,
+      "train_loss": 0.06948584405472502,
+      "val_top1": 0.9121702909469604
+    },
+    {
+      "epoch": 91,
+      "step": 2912,
+      "elapsed_s": 53.19756742194295,
+      "lr": 0.032509654979619225,
+      "train_loss": 0.06665065104607493,
+      "val_top1": 0.9147681593894958
+    },
+    {
+      "epoch": 92,
+      "step": 2944,
+      "elapsed_s": 53.718284416012466,
+      "lr": 0.02637853107938542,
+      "train_loss": 0.06259006104664877,
+      "val_top1": 0.9132694005966187
+    },
+    {
+      "epoch": 93,
+      "step": 2976,
+      "elapsed_s": 54.22772328183055,
+      "lr": 0.020874653833590863,
+      "train_loss": 0.06287796702235937,
+      "val_top1": 0.9162669777870178
+    },
+    {
+      "epoch": 94,
+      "step": 3008,
+      "elapsed_s": 54.76175390579738,
+      "lr": 0.016004041651196555,
+      "train_loss": 0.05849654576741159,
+      "val_top1": 0.9174660444259644
+    },
+    {
+      "epoch": 95,
+      "step": 3040,
+      "elapsed_s": 55.27267122990452,
+      "lr": 0.011772020475114388,
+      "train_loss": 0.055460342206060886,
+      "val_top1": 0.9183652997016907
+    },
+    {
+      "epoch": 96,
+      "step": 3072,
+      "elapsed_s": 55.80142870196141,
+      "lr": 0.008183217958366608,
+      "train_loss": 0.05213024327531457,
+      "val_top1": 0.9193645119667053
+    },
+    {
+      "epoch": 97,
+      "step": 3104,
+      "elapsed_s": 56.3170783338137,
+      "lr": 0.005241558403814884,
+      "train_loss": 0.05289370485115796,
+      "val_top1": 0.9201638698577881
+    },
+    {
+      "epoch": 98,
+      "step": 3136,
+      "elapsed_s": 56.87091582198627,
+      "lr": 0.0029502584729931506,
+      "train_loss": 0.05335891334107146,
+      "val_top1": 0.9200639724731445
+    },
+    {
+      "epoch": 99,
+      "step": 3168,
+      "elapsed_s": 57.39312838297337,
+      "lr": 0.0013118236687352793,
+      "train_loss": 0.04889637866290286,
+      "val_top1": 0.9194644093513489
+    },
+    {
+      "epoch": 100,
+      "step": 3200,
+      "elapsed_s": 57.91679439181462,
+      "lr": 0.0003280455954443707,
+      "train_loss": 0.040768230392131954,
+      "val_top1": 0.918864905834198
+    }
+  ],
+  "status": "complete",
+  "notes": [
+    "aurora 1-node bf16 strong-scaling 100ep"
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "machine": "aurora",
+  "workload": "resnet20_cifar10",
+  "config": {
+    "model": "resnet20",
+    "scaling": "strong",
+    "nodes": 1,
+    "world_size": 12,
+    "ranks_per_node": 12,
+    "global_batch_size": 1536,
+    "local_batch_size": 128,
+    "precision": "bf16",
+    "epochs": 1,
+    "base_lr": 0.1,
+    "warmup_epochs": 5,
+    "seed": 1234,
+    "synthetic_data": false,
+    "target_accuracy": 0.9,
+    "dataloader_workers": 4,
+    "ipex_optimize": true
+  },
+  "environment": {
+    "platform": "aurora",
+    "hostname": "x4311c6s7b0n0",
+    "device_name": "Intel(R) Data Center GPU Max 1550",
+    "torch_version": "2.10.0a0+git449b176",
+    "ipex_version": "2.10.10+gitd0f992f",
+    "xpu_device_count": 12,
+    "ze_flat_device_hierarchy": "FLAT",
+    "ze_affinity_mask": "unset",
+    "pbs_jobid": "8740473.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov",
+    "pbs_queue": "debug",
+    "pbs_nodes": [
+      "x4311c6s7b0n0.hsn.cm.aurora.alcf.anl.gov"
+    ],
+    "pbs_node_count": 1,
+    "git_commit": "e49de96"
+  },
+  "run_id": "af9f25dd365b",
+  "schema_version": 1,
+  "timestamp_utc": "2026-08-06T19:54:45.879916+00:00",
+  "timing": {
+    "startup_s": 6.35788750401116,
+    "data_setup_s": 2.07928123199963,
+    "total_train_s": 3.630627883016132,
+    "warmup_steps_excluded": 0
+  },
+  "throughput": {
+    "step_time": {
+      "count": 20,
+      "mean_s": 0.15623509590368484,
+      "median_s": 0.036414055997738615,
+      "min_s": 0.013174303021514788,
+      "max_s": 2.4924134839966428,
+      "p90_s": 0.14755964401410893,
+      "p99_s": 2.4924134839966428,
+      "stdev_s": 0.5506882933681418
+    },
+    "data_wait": {
+      "count": 20,
+      "mean_s": 0.013510716652672273,
+      "median_s": 0.000920816499274224,
+      "min_s": 0.00012443101149983704,
+      "max_s": 0.13568877600482665,
+      "p90_s": 0.1153610449982807,
+      "p99_s": 0.13568877600482665,
+      "stdev_s": 0.038453317377830705
+    },
+    "compute": {
+      "count": 20,
+      "mean_s": 0.14272437925101258,
+      "median_s": 0.02443547449365724,
+      "min_s": 0.011870868009282276,
+      "max_s": 2.377052438998362,
+      "p90_s": 0.043295030016452074,
+      "p99_s": 2.377052438998362,
+      "stdev_s": 0.526068362310265
+    },
+    "samples_per_s": 42181.51364669151,
+    "warmup_steps_excluded": 0
+  },
+  "accuracy": {
+    "target": 0.9,
+    "time_to_target_s": null,
+    "epoch_to_target": null,
+    "reached_target": false,
+    "final_top1": 0.1604716181755066,
+    "best_top1": 0.1604716181755066
+  },
+  "memory": {
+    "peak_bytes_per_device": 108685312
+  },
+  "flops": {
+    "fwd_flops_per_sample": 81626368,
+    "train_flops_per_sample": 244879104,
+    "achieved_flops_per_s": 10329371267165.588,
+    "peak_flops_per_s_per_device": 419500000000000.0,
+    "peak_flops_per_s": 5034000000000000.0,
+    "mfu": 0.002051921189345568
+  },
+  "cost": {
+    "node_count": 1,
+    "wall_s": 3.630627883016132,
+    "node_seconds": 3.630627883016132,
+    "node_hours": 0.001008507745282259
+  },
+  "curve": [
+    {
+      "epoch": 1,
+      "step": 20,
+      "elapsed_s": 3.6302242029923946,
+      "lr": 0.24000000000000005,
+      "train_loss": 2.159270477294922,
+      "val_top1": 0.1604716181755066
+    }
+  ],
+  "status": "complete",
+  "notes": [
+    "profiled 12-rank 1-node",
+    "Profiled run: torch.profiler overhead is in these timings, so throughput and MFU here are not comparable to an unprofiled run."
+  ]
+}
