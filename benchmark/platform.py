@@ -6,6 +6,7 @@ Aurora is the reference implementation; Polaris/Sophia/Crux follow the same shap
 
 from __future__ import annotations
 
+import inspect
 import os
 import re
 import socket
@@ -598,7 +599,23 @@ def init_distributed(platform: Platform, rank: int, world_size: int) -> bool:
     os.environ["RANK"] = str(rank)
     os.environ["WORLD_SIZE"] = str(world_size)
 
+    # Name the device the process group belongs to. Without it collectives run
+    # on "whatever device is current", which is right here only because the
+    # Platform constructors call set_device -- and is a documented way to get a
+    # communicator built on the wrong GPU, where the symptom is a hang rather
+    # than an error. Passing it also lets the backend eagerly initialize.
+    #
+    # Checked by signature rather than assumed: Aurora and Polaris ship
+    # different torch builds from different vendor stacks, and neither is ours
+    # to pin.
+    kwargs = {}
+    if platform.device.type != "cpu" and (
+        "device_id"
+        in inspect.signature(torch.distributed.init_process_group).parameters
+    ):
+        kwargs["device_id"] = platform.device
+
     torch.distributed.init_process_group(
-        backend=platform.dist_backend, rank=rank, world_size=world_size
+        backend=platform.dist_backend, rank=rank, world_size=world_size, **kwargs
     )
     return True

@@ -98,6 +98,38 @@ def write_profile(prof, platform, args, run_id, log):
         log(f"profiler summary table unavailable ({exc})")
 
 
+def usable_cores() -> int:
+    """Cores this process may actually run on, not the node's core count.
+
+    sched_getaffinity reports the affinity mask. A launcher that pins each rank
+    to one core -- mpiexec without --depth, which is easy to do by hand -- leaves
+    exactly one, on a node with dozens.
+    """
+    try:
+        return len(os.sched_getaffinity(0))  # Linux only
+    except AttributeError:
+        return os.cpu_count() or 1
+
+
+def default_workers() -> int:
+    """Dataloader workers, capped by the cores actually available.
+
+    Spawning four workers onto one core does not fail. It starves the device
+    and yields a throughput number that looks entirely real -- which is worse
+    than an error, because it gets written to results/ and compared against a
+    machine that was bound correctly. Cap instead, so a run launched without
+    the right flags is slow and honest rather than fast-looking and wrong.
+
+    One core means zero workers: loading in the main process beats a worker
+    fighting the training loop for the same core. Correct launcher flags
+    (--depth 8 in both submit scripts) still give the previous default of 4.
+    """
+    usable = usable_cores()
+    if usable <= 1:
+        return 0
+    return max(1, min(4, usable - 1))  # leave a core for the training process
+
+
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 
@@ -130,7 +162,13 @@ def parse_args():
     # Data / IO
     p.add_argument("--data-dir", default="./data")
     p.add_argument("--synthetic-data", action="store_true", help="random tensors; removes all filesystem I/O")
-    p.add_argument("--workers", type=int, default=4)
+    p.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="dataloader workers per rank (default: capped by CPU affinity, "
+        "at most 4)",
+    )
     p.add_argument("--results-dir", default="./results")
     p.add_argument("--peak-flops-config", default="./configs/peak_flops.json")
 
@@ -166,7 +204,13 @@ def parse_args():
         help="hash hostnames and redact the job id, so results can be published. "
         "Does NOT scrub --note text -- that is yours to keep clean.",
     )
-    return p.parse_args()
+    args = p.parse_args()
+    # Resolved here rather than left as None so the value the run actually used
+    # is what lands in config.dataloader_workers -- a result that says "4" when
+    # affinity forced 0 would misdescribe its own measurement.
+    if args.workers is None:
+        args.workers = default_workers()
+    return args
 
 
 def resolve_batch_sizes(args, world_size: int):
