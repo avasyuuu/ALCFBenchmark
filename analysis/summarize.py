@@ -24,6 +24,8 @@ COLUMNS = [
     ("world_size", "Ranks"),
     ("precision", "Prec"),
     ("global_batch", "Global BS"),
+    ("steps", "Steps"),
+    ("epochs", "Epochs"),
     ("samples_per_s", "Samples/s"),
     ("median_step_ms", "Step (ms)"),
     ("p90_step_ms", "p90 (ms)"),
@@ -44,6 +46,9 @@ ENERGY_COLUMNS = [
     ("ranks", "Ranks"),
     ("avg_watts", "Avg W"),
     ("joules", "Joules"),
+    # The numerator of Samples/J, shown beside it. Per rank, matching the
+    # per-device scope of Joules -- see the note under "Power" in the README.
+    ("samples_processed", "Samples"),
     ("samples_per_joule", "Samples/J"),
     ("joules_to_target", "J to acc"),
     ("energy_scope", "Scope"),
@@ -116,6 +121,7 @@ def flatten(blob: dict) -> dict:
     cost = blob.get("cost", {})
     energy = blob.get("energy") or {}
     power = blob.get("power") or {}
+    work = blob.get("work") or {}
 
     median = step.get("median_s")
     p90 = step.get("p90_s")
@@ -143,6 +149,18 @@ def flatten(blob: dict) -> dict:
         "global_batch": cfg.get("global_batch_size"),
         "synthetic": cfg.get("synthetic_data"),
         "samples_per_s": thr.get("samples_per_s"),
+        "steps": work.get("steps"),
+        # "3/100" reads as "stopped 97 epochs early" at a glance, where a bare
+        # 3 next to a 100-epoch run looks like a typo.
+        "epochs": (
+            f"{work['epochs_completed']}/{work['epochs_requested']}"
+            if work.get("epochs_completed") is not None
+            and work.get("epochs_requested") is not None
+            else None
+        ),
+        "samples_global": work.get("samples_global"),
+        "samples_per_rank": work.get("samples_per_rank"),
+        "stopped_early": work.get("stopped_early"),
         "median_step_ms": median * 1e3 if median else None,
         "p90_step_ms": p90 * 1e3 if p90 else None,
         # Spread of the normal case, as a share of median. Was stdev/median,
@@ -165,6 +183,11 @@ def flatten(blob: dict) -> dict:
         "ranks": cfg.get("world_size"),
         "joules": energy.get("joules"),
         "avg_watts": energy.get("avg_watts"),
+        # Prefer the recorded numerator; fall back to work for schema 3 files
+        # whose energy block predates it, and stay None on schema 2, where
+        # neither exists and a guess would be worse than a blank.
+        "samples_processed": energy.get("samples_processed")
+        or work.get("samples_per_rank"),
         "samples_per_joule": energy.get("samples_per_joule"),
         "joules_to_target": energy.get("joules_to_target_accuracy"),
         "energy_scope": energy.get("scope"),
@@ -233,6 +256,49 @@ def add_scaling_efficiency(runs):
     return runs
 
 
+def warn_unequal_work(runs) -> None:
+    """Flag energy comparisons between runs that did different amounts of work.
+
+    A Joules column invites reading down it, and that reading is only valid
+    when the rows did the same work. Two things break that quietly: a run that
+    stopped early on --target-accuracy, and a comparison group whose sample
+    counts simply differ. Neither shows up in a rate, so both are checked here
+    rather than left to the reader.
+
+    Samples/J and joules_to_target stay meaningful under unequal work -- they
+    are normalised. It is the raw Joules column that does not.
+    """
+    notes = []
+
+    early = [r for r in runs if r.get("stopped_early")]
+    for r in early:
+        notes.append(
+            f"{r['machine']} {r['when']}: stopped at epoch {r['epochs']} — its Joules "
+            "covers less training than a full run's."
+        )
+
+    # Compared within a machine+workload+ranks group, since that is the only
+    # place a raw joules comparison was ever meant to be read.
+    groups = defaultdict(list)
+    for r in runs:
+        if r.get("samples_global"):
+            groups[(r["machine"], r["workload"], r["world_size"])].append(r)
+    for (machine, _workload, ranks), members in sorted(groups.items()):
+        counts = {r["samples_global"] for r in members}
+        if len(counts) > 1:
+            lo, hi = min(counts), max(counts)
+            notes.append(
+                f"{machine} @ {ranks} ranks: sample counts differ across runs "
+                f"({lo:,} to {hi:,}) — compare Samples/J, not Joules."
+            )
+
+    if notes:
+        print("  work-volume warnings:")
+        for n in notes:
+            print(f"    * {n}")
+        print()
+
+
 def fmt(value) -> str:
     if value is None:
         return "—"
@@ -242,6 +308,11 @@ def fmt(value) -> str:
         if value >= 10:
             return f"{value:.1f}"
         return f"{value:.3f}"
+    # Sample counts run to the millions and are unreadable unseparated, but
+    # batch sizes and step counts are conventionally written bare. 10k splits
+    # those two populations without needing a per-column formatter.
+    if isinstance(value, int) and not isinstance(value, bool) and abs(value) >= 10_000:
+        return f"{value:,}"
     return str(value)
 
 
@@ -304,6 +375,7 @@ def main():
     if metered:
         print(f"energy — {len(metered)} of {len(runs)} run(s) metered")
         print_table(metered, ENERGY_COLUMNS)
+        warn_unequal_work(metered)
 
     sampled = [r for r in runs if r.get("power_joules_total")]
     if sampled:

@@ -558,6 +558,18 @@ def main():
             "warmup_steps_excluded": args.warmup_steps,
         }
         record.set_step_stats(timer, args.warmup_steps, samples_per_step=global_batch)
+        # curve is appended once per epoch unconditionally -- not only on eval
+        # epochs -- so its length is the epoch count without threading another
+        # counter out of the loop. A final epoch cut short by --max-steps still
+        # counts as one here, which is why the sample totals are derived from
+        # `step` rather than from epochs: those stay exact either way.
+        record.set_work(
+            steps=step,
+            epochs_completed=len(record.curve),
+            epochs_requested=args.epochs,
+            global_batch=global_batch,
+            local_batch=local_batch,
+        )
         record.accuracy = {
             "target": args.target_accuracy,
             "time_to_target_s": time_to_target,

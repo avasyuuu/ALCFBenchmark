@@ -19,7 +19,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 2  # 2 adds the node-wide `power` block from the sampler
+SCHEMA_VERSION = 3  # 3 adds the `work` block: how much work a run actually did
 
 
 class Stopwatch:
@@ -179,6 +179,7 @@ class RunRecord:
     )
 
     timing: dict = field(default_factory=dict)
+    work: dict = field(default_factory=dict)
     throughput: dict = field(default_factory=dict)
     accuracy: dict = field(default_factory=dict)
     memory: dict = field(default_factory=dict)
@@ -217,6 +218,42 @@ class RunRecord:
         if median:
             self.throughput["samples_per_s"] = samples_per_step / median
         self.throughput["warmup_steps_excluded"] = warmup_steps
+
+    def set_work(
+        self,
+        steps: int,
+        epochs_completed: int,
+        epochs_requested: int,
+        global_batch: int,
+        local_batch: int,
+    ):
+        """How much work the run did, as distinct from how fast it did it.
+
+        Rates alone cannot say whether two runs are comparable on energy, and
+        the run itself decides how much work it does: --target-accuracy stops
+        early once the target is hit, --max-steps truncates, and a wall-clock
+        limit can cut an epoch short. Any of those produces a joules column that
+        looks comparable and is not. Recording the volume is what lets
+        summarize.py check that instead of assuming it.
+
+        The two sample counts are deliberately both kept. `samples_global` is
+        what the job processed; `samples_per_rank` is what THIS rank processed
+        and is the numerator of energy.samples_per_joule, whose denominator is
+        this rank's device only. Reporting a global count against a per-device
+        energy would overstate efficiency by the rank count.
+        """
+        self.work = {
+            "steps": steps,
+            "epochs_completed": epochs_completed,
+            "epochs_requested": epochs_requested,
+            "samples_global": steps * global_batch,
+            "samples_per_rank": steps * local_batch,
+            # Not the same question as "did it reach the target": a run can stop
+            # early having hit target accuracy (success) or having run out of
+            # steps (truncation). This flags only that the epoch budget was not
+            # spent, and accuracy.reached_target says which case it was.
+            "stopped_early": epochs_completed < epochs_requested,
+        }
 
     def set_flops(
         self,
@@ -280,6 +317,10 @@ class RunRecord:
         self.energy = {
             "joules": joules,
             "avg_watts": joules / wall_s if wall_s else None,
+            # The numerator, kept beside the ratio it produced. Without it a
+            # samples_per_joule column cannot be checked, re-derived, or
+            # compared between runs that did different amounts of work.
+            "samples_processed": samples_processed,
             "samples_per_joule": samples_processed / joules if joules else None,
             "joules_to_target_accuracy": joules_to_target,
             "scope": scope,
