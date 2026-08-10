@@ -109,6 +109,7 @@ mpiexec -n "${NTOTRANKS}" -ppn "${RANKS_PER_NODE}" --depth="${OMP_NUM_THREADS}" 
         --precision bf16 \
         --target-accuracy 0.90 \
         --warmup-steps 20 \
+        --power-interval 0.1 \
         --data-dir ./data \
         --results-dir ./results \
         --note "aurora ${NNODES}-node bf16 strong-scaling 100ep"

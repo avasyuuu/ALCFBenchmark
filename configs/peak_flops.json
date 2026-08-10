@@ -17,9 +17,10 @@
     "fp32": null
   },
   "A100": {
-    "_source": "UNVERIFIED - check NVIDIA A100 datasheet for your SXM/PCIe variant",
-    "bf16": null,
-    "fp16": null,
+    "_source": "A100 SXM4 40GB (Polaris): 312 TFLOP/s dense BF16/FP16 tensor core. CONFIRM against NVIDIA's A100 datasheet for the SXM4 40GB part before publishing -- and note the widely quoted 624 figure is the 2:1 SPARSE number, which this file's policy excludes.",
+    "_note": "One A100 = one device here, unlike Aurora where the device is a tile. Do not compare these per-device MFU figures without saying so.",
+    "bf16": 3.12e14,
+    "fp16": 3.12e14,
     "fp32": null
   },
   "cpu": {

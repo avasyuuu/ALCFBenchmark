@@ -38,6 +38,11 @@ _WORLD_VARS = (
 _LOCAL_VARS = (
     "LOCAL_RANK",
     "PALS_LOCAL_RANKID",
+    # Polaris' MPICH sets this and none of the others. Without it _env_int falls
+    # through to the default of 0, every rank on a node binds to cuda:0, and the
+    # job runs -- four ranks oversubscribing one A100 and three idle, looking
+    # like a mysterious 4x slowdown rather than a configuration error.
+    "PMI_LOCAL_RANK",
     "MPI_LOCALRANKID",
     "OMPI_COMM_WORLD_LOCAL_RANK",
 )
