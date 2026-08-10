@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ALCF Machine Benchmark</title>
+<style>
+:root {
+  --bg:#fbfbfa; --fg:#1a1a18; --dim:#6b6b66; --line:#e2e2dd;
+  --card:#ffffff; --accent:#8a5a2b; --tag:#f0e6d8;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#16161a; --fg:#e8e8e4; --dim:#9a9a94; --line:#2c2c32;
+          --card:#1e1e23; --accent:#d9a066; --tag:#33291d; }
+}
+:root[data-theme="dark"] { --bg:#16161a; --fg:#e8e8e4; --dim:#9a9a94;
+  --line:#2c2c32; --card:#1e1e23; --accent:#d9a066; --tag:#33291d; }
+:root[data-theme="light"] { --bg:#fbfbfa; --fg:#1a1a18; --dim:#6b6b66;
+  --line:#e2e2dd; --card:#ffffff; --accent:#8a5a2b; --tag:#f0e6d8; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg);
+  font:15px/1.6 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif; }
+.wrap { max-width:1100px; margin:0 auto; padding:3rem 1.25rem 5rem; }
+h1 { font-size:1.9rem; margin:0 0 .4rem; letter-spacing:-.02em; }
+h2 { font-size:1.15rem; margin:2.75rem 0 .75rem; letter-spacing:-.01em; }
+h2::before { content:""; display:inline-block; width:3px; height:.95em;
+  background:var(--accent); margin-right:.55rem; vertical-align:-.08em; }
+.lede { color:var(--dim); margin:0 0 2rem; max-width:60ch; }
+.cards { display:grid; gap:.9rem;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); }
+.card { background:var(--card); border:1px solid var(--line);
+  border-radius:10px; padding:1.1rem 1.2rem; }
+.card h3 { margin:0 0 .7rem; font-size:.78rem; text-transform:uppercase;
+  letter-spacing:.09em; color:var(--accent); }
+.stat { display:flex; align-items:baseline; gap:.4rem; }
+.stat .v { font-size:1.6rem; font-weight:650;
+  font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+.stat .u { font-size:.8rem; color:var(--dim); }
+.sub { font-size:.76rem; color:var(--dim); margin:.1rem 0 .8rem; }
+.card .sub:last-child { margin-bottom:0; }
+.scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+table { border-collapse:collapse; width:100%; font-size:.83rem;
+  font-variant-numeric:tabular-nums; }
+th { text-align:right; font-weight:600; color:var(--dim); padding:.5rem .6rem;
+  border-bottom:1px solid var(--line); white-space:nowrap;
+  font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; }
+th:first-child, td:first-child { text-align:left; }
+td { text-align:right; padding:.45rem .6rem;
+  border-bottom:1px solid var(--line); white-space:nowrap; }
+tbody tr:last-child td { border-bottom:none; }
+.m { font-weight:600; }
+.scope { font-size:.74rem; color:var(--dim); white-space:normal; }
+.tag { background:var(--tag); color:var(--accent); font-size:.66rem;
+  padding:.1rem .35rem; border-radius:4px; letter-spacing:.03em; }
+figure { margin:0; }
+figcaption { font-size:.78rem; color:var(--dim); margin-top:.6rem;
+  max-width:70ch; }
+.note { border-left:2px solid var(--accent); padding:.15rem 0 .15rem .9rem;
+  margin:1.1rem 0; color:var(--dim); font-size:.87rem; max-width:70ch; }
+footer { margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line);
+  color:var(--dim); font-size:.78rem; }
+code { font-size:.85em; background:var(--tag); padding:.1rem .3rem;
+  border-radius:3px; }
+</style></head><body><div class="wrap">
+
+<h1>ALCF Machine Benchmark</h1>
+<p class="lede">ResNet-20 on CIFAR-10, run identically across ALCF systems and
+compared on throughput, time-to-accuracy and energy. One portable harness, one
+result schema, one table.</p>
+
+<h2>Machines</h2>
+<div class="cards">
+        <div class="card">
+          <h3>aurora</h3>
+          <div class="stat"><span class="v">111,860</span><span class="u">samples/s</span></div>
+          <div class="sub">peak, 1 node · 12 ranks</div>
+          <div class="stat"><span class="v">—</span><span class="u">samples/J</span></div>
+          <div class="sub">node-wide, best run</div>
+        </div></div>
+
+<h2>Runs</h2>
+<figure><div class="scroll"><table><thead><tr><th>When</th><th>Machine</th><th>Nodes</th><th>Ranks</th><th>Prec</th><th>Global BS</th><th>Steps</th><th>Epochs</th><th>Samples/s</th><th>Step ms</th><th>Best top-1</th><th>TTA s</th><th>MFU %</th></tr></thead><tbody><tr><td>08-04 16:33:30</td><td><span class="m">aurora</span></td><td>1</td><td>12</td><td>bf16</td><td>1,536</td><td>—</td><td>—</td><td>111,860</td><td>13.7</td><td>0.875</td><td>—</td><td>—</td></tr><tr><td>08-04 16:48:42</td><td><span class="m">aurora</span></td><td>1</td><td>12</td><td>bf16</td><td>1,536</td><td>—</td><td>—</td><td>111,018</td><td>13.8</td><td>0.868</td><td>—</td><td>—</td></tr></tbody></table></div><figcaption>Every complete run on disk, oldest first. MFU is reported for diagnosis, not as an efficiency claim — this workload runs at 0.5–1.4% of peak, so it largely measures kernel-launch overhead rather than the accelerator.</figcaption></figure>
+
+<h2>Energy — per rank</h2>
+<figure><div class="scroll"><table><thead><tr><th>When</th><th>Machine</th><th>Ranks</th><th>Avg W</th><th>Joules</th><th>Samples</th><th>Samples/J</th><th>J to acc</th><th>Scope</th></tr></thead><tbody></tbody></table></div><figcaption>Per-rank energy scopes differ by vendor — an Aurora tile is half a card, a Polaris reading covers the whole board including HBM. Compare machines on the node table, never on per-rank Samples/J.</figcaption></figure>
+
+<h2>Energy — per node</h2>
+<figure><div class="scroll"><table><thead><tr><th>When</th><th>Machine</th><th>Devices</th><th>Idle</th><th>Node J</th><th>Idle J</th><th>Idle %</th><th>Samples/J</th></tr></thead><tbody></tbody></table></div><figcaption>Node-wide sampling covers every accelerator, including devices no rank bound to. Samples/J here is the cross-machine comparison: whole-job samples over whole-node joules, the unit an allocation is billed in.</figcaption></figure>
+
+<div class="note">A device left idle still draws power. A single-rank run on a
+12-tile Aurora node spent over 90% of node energy on tiles nobody used — the
+per-rank column cannot see that, which is the reason both tables exist.</div>
+
+<h2>Reading these numbers</h2>
+<div class="note">Runs marked <span class="tag">early</span> stopped before
+their epoch budget, so their raw joules cover less training. Compare those on
+Samples/J or joules-to-accuracy, never on the Joules column.</div>
+<div class="note">Energy scope is vendor-specific and is printed with every row.
+An accelerator-only figure excludes CPU, memory, NICs and cooling, so a node
+draws well more than the sum of its accelerators.</div>
+
+<footer>
+Generated 2026-08-10 21:38 UTC from 2 run(s) · machines: aurora<br>
+Rebuild with <code>python analysis/build_site.py</code> after
+<code>git pull</code>. Numbers come from <code>results/*.json</code>; the page
+is never edited by hand.
+</footer>
+</div></body></html>
