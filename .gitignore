@@ -20,3 +20,18 @@ results/*.tmp
 
 # Profiler traces -- hundreds of MB, and regenerable with --profile
 results/traces/
+
+# AIPerf writes the whole request corpus and a per-request trace beside its
+# summary. Keep profile_export_aiperf.json, idle.json and summary.* -- those are
+# the deliverable and are small; drop the rest, which is ~700 KB per sweep point
+# and says nothing a re-run would not.
+results/aiperf/*/*/profile_export.jsonl
+results/aiperf/*/*/gpu_telemetry_export.jsonl
+results/aiperf/*/*/inputs.json
+results/aiperf/*/*/logs/
+results/aiperf/*/vllm.log
+results/aiperf/*/aiperf-c*.log
+
+# The venv for the inference sweep (vLLM + aiperf), built per machine.
+.venv-aiperf/
+.hf-cache/

@@ -37,8 +37,11 @@ configs/
   peak_flops.json   vendor peak FLOP/s for MFU — YOU MUST FILL THIS IN
 scripts/
   submit_aurora.sh  PBS batch script
+  submit_polaris_aiperf.sh  LLM inference power sweep (separate benchmark, see below)
 analysis/
   summarize.py      results/*.json -> comparison table
+  summarize_aiperf.py  AIPerf artifact dirs -> power/token/efficiency tables
+  nvml_idle.py      idle GPU power floor, to subtract from a measured run
 results/            one JSON per run
 ```
 
@@ -133,6 +136,43 @@ double count. **Scope is not comparable across machines** — an Aurora tile and
 an A100 are different measurement boundaries. Compare per node, and read
 `scope` before quoting any figure.
 
+## LLM inference power (a separate benchmark)
+
+`scripts/submit_polaris_aiperf.sh` runs NVIDIA AIPerf against vLLM on one A100
+and reports **tokens/joule**, the inference-side twin of `samples_per_joule`. It
+shares the energy methodology with the training benchmark and nothing else — its
+results do not belong in the machine-comparison table, and it only covers
+NVIDIA (AIPerf's collectors are DCGM, pynvml and amdsmi; there is no XPU path,
+so Aurora is out).
+
+```bash
+qsub scripts/submit_polaris_aiperf.sh
+python analysis/summarize_aiperf.py results/aiperf/polaris-*/c* --idle results/aiperf/polaris-*/idle.json
+```
+
+Three things this harness does deliberately, each because skipping it produced a
+wrong answer on the shakedown run:
+
+- **`ignore_eos` + `min_tokens`** pin every generation to exactly `--osl` tokens.
+  Left to stop at EOS, output length drifts with load, and a longer generation
+  amortises the fixed prefill over more decode tokens — which moves tokens/joule
+  on its own and confounds it with concurrency. Ollama cannot do this; vLLM can,
+  and that is the whole reason for vLLM here.
+- **Request count is fixed across concurrency levels**, so rows are equal work.
+  Scale requests with concurrency and absolute joules stop being comparable
+  between rows.
+- **The idle floor is sampled before the server starts**, on a quiet node.
+  Measured after a run instead it reads high, because clocks and fan state have
+  not settled.
+
+`summarize_aiperf.py` re-checks the first two on whatever it is given and prints
+a warning if either was violated.
+
+The headline result from the laptop shakedown, which is the part expected to
+survive onto real hardware: **GPU power is nearly load-invariant** (54.3 → 57.1 W
+across an 8x concurrency range while throughput rose 44%), so energy-to-solution
+is driven by finishing sooner far more than by drawing fewer watts.
+
 ## Before publishing any MFU number
 
 `configs/peak_flops.json` ships with every value `null`, so MFU is omitted
@@ -205,3 +245,20 @@ Aurora path is written but **not yet validated on hardware.** Verify on first ru
 - [ ] `ccl` backend initializes across nodes with `MASTER_ADDR` from `$PBS_NODEFILE`
 - [ ] all 12 tiles are actually busy — cross-check with `xpu-smi`
 - [ ] `ipex.optimize` plays well with DDP in this frameworks version
+
+Polaris/Sophia energy (`CudaPlatform`) is written against the NVML docs and
+**not yet validated on hardware.** Verify on first run:
+
+- [ ] `nvmlDeviceGetTotalEnergyConsumption` is present on the A100 driver, so the
+      counter path is taken rather than the power-integration fallback — check
+      `energy_scope` in the result JSON says `nvml energy counter`
+- [ ] NVML and torch device indices agree under `CUDA_DEVICE_ORDER=PCI_BUS_ID`
+- [ ] all four A100s appear in the node sampler, including any no rank bound to
+
+The AIPerf inference sweep (`submit_polaris_aiperf.sh`) is validated only on a
+consumer GPU under Ollama. Verify on first run:
+
+- [ ] the conda module and proxy hostname are still current
+- [ ] vLLM becomes healthy inside the 15-minute startup budget
+- [ ] `summarize_aiperf.py` prints **no** warnings — with `ignore_eos` the
+      achieved OSL should now match the requested one exactly
