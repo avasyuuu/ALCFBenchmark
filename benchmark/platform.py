@@ -561,12 +561,55 @@ class CudaPlatform(Platform):
         return torch.cuda.get_device_name(self.device)
 
 
+class PolarisPlatform(CudaPlatform):
+    """Polaris — 4x A100 40GB per node, PBS + MPICH.
+
+    Behaviourally identical to CudaPlatform today. It exists so a result says
+    which MACHINE produced it: `cuda` names a backend, and Polaris and Sophia
+    share one. Without the distinction both record machine="cuda", land in the
+    same filenames, and add_scaling_efficiency() groups by machine -- so two
+    different machines would silently be compared against each other as if they
+    were one system scaling up.
+    """
+
+    name = "polaris"
+
+
+class SophiaPlatform(CudaPlatform):
+    """Sophia — DGX A100, 8x A100 80GB per node, NVLink within the node.
+
+    Same backend as Polaris but twice the devices per node and a different
+    interconnect topology, so collective cost and per-node energy are not
+    comparable between the two. Separate name, separate group.
+    """
+
+    name = "sophia"
+
+
+_CUDA_MACHINES = {"polaris": PolarisPlatform, "sophia": SophiaPlatform}
+
+
+def _alcf_machine() -> str | None:
+    """Which ALCF CUDA machine this is, from the scheduler.
+
+    PBS_JOBID carries the server name -- 7405999.polaris-pbs-01.hsn.cm.polaris
+    .alcf.anl.gov -- which is more reliable than the hostname, whose compute
+    node names (x3112c0s37b0n0) say nothing about the system. Hostname is still
+    checked as a fallback for runs outside PBS.
+    """
+    haystack = f"{os.environ.get('PBS_JOBID', '')} {socket.gethostname()}".lower()
+    return next((name for name in _CUDA_MACHINES if name in haystack), None)
+
+
 def detect_platform(local_rank: int = 0, force: str | None = None) -> Platform:
     """Pick a platform, or build the one named by --platform."""
     if force and force != "auto":
-        return {"aurora": AuroraPlatform, "cuda": CudaPlatform, "cpu": Platform}[force](
-            local_rank
-        )
+        return {
+            "aurora": AuroraPlatform,
+            "cuda": CudaPlatform,
+            "cpu": Platform,
+            **_CUDA_MACHINES,
+        }[force](local_rank)
 
     try:
         import intel_extension_for_pytorch  # noqa: F401
@@ -577,7 +620,11 @@ def detect_platform(local_rank: int = 0, force: str | None = None) -> Platform:
         pass
 
     if torch.cuda.is_available():
-        return CudaPlatform(local_rank)
+        # Named machine where we can tell, generic CUDA where we cannot -- a run
+        # labelled "cuda" then means "some NVIDIA box we could not identify",
+        # which is honest, rather than a wrong machine name.
+        machine = _alcf_machine()
+        return (_CUDA_MACHINES.get(machine) or CudaPlatform)(local_rank)
 
     return Platform(local_rank)
 

@@ -133,7 +133,13 @@ def default_workers() -> int:
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    p.add_argument("--platform", default="auto", choices=["auto", "aurora", "cuda", "cpu"])
+    p.add_argument(
+        "--platform",
+        default="auto",
+        # "cuda" is the unidentified-NVIDIA fallback; name the machine where you
+        # know it, or results from Polaris and Sophia are indistinguishable.
+        choices=["auto", "aurora", "polaris", "sophia", "cuda", "cpu"],
+    )
     p.add_argument("--model", default="resnet20")
     p.add_argument("--workload", default=None, help="label for results; defaults to <model>_cifar10")
 

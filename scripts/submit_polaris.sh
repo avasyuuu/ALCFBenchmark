@@ -96,7 +96,7 @@ echo "========================"
 mpiexec -n "${NTOTRANKS}" --ppn "${RANKS_PER_NODE}" --depth="${OMP_NUM_THREADS}" \
     --cpu-bind depth \
     python -m benchmark.train \
-        --platform cuda \
+        --platform polaris \
         --model resnet20 \
         --scaling strong \
         --global-batch-size 1536 \
