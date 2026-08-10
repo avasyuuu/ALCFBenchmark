@@ -56,6 +56,11 @@ figcaption { font-size:.78rem; color:var(--dim); margin-top:.6rem;
   max-width:70ch; }
 .note { border-left:2px solid var(--accent); padding:.15rem 0 .15rem .9rem;
   margin:1.1rem 0; color:var(--dim); font-size:.87rem; max-width:70ch; }
+.takeaway { background:var(--card); border:1px solid var(--line);
+  border-radius:10px; padding:1.1rem 1.25rem; margin:.4rem 0 .8rem;
+  font-size:1.02rem; line-height:1.65; max-width:72ch; }
+.takeaway strong { color:var(--accent); }
+.fineprint { font-size:.78rem; color:var(--dim); margin:0; max-width:70ch; }
 footer { margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line);
   color:var(--dim); font-size:.78rem; }
 code { font-size:.85em; background:var(--tag); padding:.1rem .3rem;
@@ -97,6 +102,14 @@ result schema, one table.</p>
 12-tile Aurora node spent over 90% of node energy on tiles nobody used — the
 per-rank column cannot see that, which is the reason both tables exist.</div>
 
+
+<h2>The tradeoff</h2>
+<p class="takeaway"><strong>aurora</strong> is 1.60× faster, but <strong>polaris</strong> is 1.40× more energy-efficient per node. Fastest and most efficient are not the same machine — which one wins depends on whether the budget is wall-clock or joules.</p>
+<p class="fineprint">Throughput is each machine's peak samples/s; efficiency is
+its best node-wide samples/joule. Both are ratios, so runs of different lengths
+compare cleanly — but this is a handful of runs per machine on a workload at
+0.5–1.4% of peak, so read it as a direction, not a verdict.</p>
+
 <h2>Reading these numbers</h2>
 <div class="note">Runs marked <span class="tag">early</span> stopped before
 their epoch budget, so their raw joules cover less training. Compare those on
@@ -106,7 +119,7 @@ An accelerator-only figure excludes CPU, memory, NICs and cooling, so a node
 draws well more than the sum of its accelerators.</div>
 
 <footer>
-Generated 2026-08-10 22:00 UTC from 15 run(s) · machines: aurora, polaris<br>
+Generated 2026-08-10 22:12 UTC from 15 run(s) · machines: aurora, polaris<br>
 Rebuild with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the page
 is never edited by hand.

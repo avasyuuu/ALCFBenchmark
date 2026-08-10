@@ -71,6 +71,51 @@ def headline(runs: list) -> list:
     return sorted(by_machine.values(), key=lambda s: -(s["sps"] or 0))
 
 
+def takeaway(cards: list) -> str:
+    """The throughput-vs-energy sentence, derived rather than written.
+
+    Whichever machine leads on samples/s and whichever leads on node-wide
+    samples/J are found from the data, so the claim re-derives on every build
+    and cannot drift from the tables above it. Renders nothing until at least
+    two machines have both numbers -- with one machine there is no tradeoff to
+    state, and saying so would be inventing a comparison.
+    """
+    usable = [c for c in cards if c["sps"] and c["eff"]]
+    if len(usable) < 2:
+        return ""
+
+    fast = max(usable, key=lambda c: c["sps"])
+    green = max(usable, key=lambda c: c["eff"])
+
+    if fast["machine"] == green["machine"]:
+        others = [c for c in usable if c is not fast]
+        best_other = max(others, key=lambda c: c["sps"])
+        body = (
+            f"<strong>{html.escape(str(fast['machine']))}</strong> leads on both axes — "
+            f"{fast['sps'] / best_other['sps']:.2f}× the throughput of "
+            f"{html.escape(str(best_other['machine']))} and "
+            f"{fast['eff'] / best_other['eff']:.2f}× the node-wide energy efficiency. "
+            "No tradeoff to make on this workload."
+        )
+    else:
+        body = (
+            f"<strong>{html.escape(str(fast['machine']))}</strong> is "
+            f"{fast['sps'] / green['sps']:.2f}× faster, but "
+            f"<strong>{html.escape(str(green['machine']))}</strong> is "
+            f"{green['eff'] / fast['eff']:.2f}× more energy-efficient per node. "
+            "Fastest and most efficient are not the same machine — which one "
+            "wins depends on whether the budget is wall-clock or joules."
+        )
+
+    return f"""
+<h2>The tradeoff</h2>
+<p class="takeaway">{body}</p>
+<p class="fineprint">Throughput is each machine's peak samples/s; efficiency is
+its best node-wide samples/joule. Both are ratios, so runs of different lengths
+compare cleanly — but this is a handful of runs per machine on a workload at
+0.5–1.4% of peak, so read it as a direction, not a verdict.</p>"""
+
+
 def num(value, places=0, dash="—"):
     if value is None:
         return dash
@@ -95,8 +140,9 @@ def table(headers: list, rows: list, caption: str = "") -> str:
 
 
 def build(runs: list) -> str:
+    machine_stats = headline(runs)
     cards = ""
-    for h in headline(runs):
+    for h in machine_stats:
         eff = f"{h['eff']:,.1f}" if h["eff"] else "—"
         cards += f"""
         <div class="card">
@@ -220,6 +266,11 @@ figcaption {{ font-size:.78rem; color:var(--dim); margin-top:.6rem;
   max-width:70ch; }}
 .note {{ border-left:2px solid var(--accent); padding:.15rem 0 .15rem .9rem;
   margin:1.1rem 0; color:var(--dim); font-size:.87rem; max-width:70ch; }}
+.takeaway {{ background:var(--card); border:1px solid var(--line);
+  border-radius:10px; padding:1.1rem 1.25rem; margin:.4rem 0 .8rem;
+  font-size:1.02rem; line-height:1.65; max-width:72ch; }}
+.takeaway strong {{ color:var(--accent); }}
+.fineprint {{ font-size:.78rem; color:var(--dim); margin:0; max-width:70ch; }}
 footer {{ margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line);
   color:var(--dim); font-size:.78rem; }}
 code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
@@ -263,6 +314,8 @@ result schema, one table.</p>
 <div class="note">A device left idle still draws power. A single-rank run on a
 12-tile Aurora node spent over 90% of node energy on tiles nobody used — the
 per-rank column cannot see that, which is the reason both tables exist.</div>
+
+{takeaway(machine_stats)}
 
 <h2>Reading these numbers</h2>
 <div class="note">Runs marked <span class="tag">early</span> stopped before
