@@ -138,7 +138,7 @@ def parse_args():
         default="auto",
         # "cuda" is the unidentified-NVIDIA fallback; name the machine where you
         # know it, or results from Polaris and Sophia are indistinguishable.
-        choices=["auto", "aurora", "polaris", "sophia", "cuda", "cpu"],
+        choices=["auto", "aurora", "polaris", "sophia", "cuda", "crux", "cpu"],
     )
     p.add_argument("--model", default="resnet20")
     p.add_argument("--workload", default=None, help="label for results; defaults to <model>_cifar10")
@@ -320,7 +320,14 @@ def main():
         model, optimizer = platform.optimize(model, optimizer, dtype)
 
     if distributed:
-        model = DistributedDataParallel(model, device_ids=None if platform.name == "cpu" else [platform.device])
+        # Keyed off the device, not the platform name. DDP rejects device_ids on
+        # a CPU module, and `name` is a machine label -- the moment a CPU machine
+        # is called something other than "cpu" (crux), a name test routes it
+        # down the accelerator branch and the run dies at construction.
+        model = DistributedDataParallel(
+            model,
+            device_ids=None if platform.device.type == "cpu" else [platform.device],
+        )
 
     criterion = nn.CrossEntropyLoss()
     platform.reset_peak_memory()

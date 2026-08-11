@@ -591,11 +591,29 @@ class SophiaPlatform(CudaPlatform):
     name = "sophia"
 
 
+class CruxPlatform(Platform):
+    """Crux — dual AMD EPYC 7742 (Rome), 128 cores per node, no accelerator.
+
+    Behaviourally identical to the CPU base class, and it exists for the reason
+    PolarisPlatform does: `cpu` names a device, not a machine. A result labelled
+    cpu could have come from a laptop, and every CPU machine would group
+    together under it.
+
+    Nothing here reads energy. The base class returns None and Crux exposes no
+    accelerator counter to read, so its rows carry timing only and are absent
+    from both energy tables rather than sitting in them full of zeros -- which
+    would read as "measured nothing" rather than "nothing to measure".
+    """
+
+    name = "crux"
+
+
 _CUDA_MACHINES = {"polaris": PolarisPlatform, "sophia": SophiaPlatform}
+_CPU_MACHINES = {"crux": CruxPlatform}
 
 
-def _alcf_machine() -> str | None:
-    """Which ALCF CUDA machine this is, from the scheduler.
+def _alcf_machine(known: dict) -> str | None:
+    """Which of `known` this machine is, from the scheduler.
 
     PBS_JOBID carries the server name -- 7405999.polaris-pbs-01.hsn.cm.polaris
     .alcf.anl.gov -- which is more reliable than the hostname, whose compute
@@ -603,7 +621,7 @@ def _alcf_machine() -> str | None:
     checked as a fallback for runs outside PBS.
     """
     haystack = f"{os.environ.get('PBS_JOBID', '')} {socket.gethostname()}".lower()
-    return next((name for name in _CUDA_MACHINES if name in haystack), None)
+    return next((name for name in known if name in haystack), None)
 
 
 def detect_platform(local_rank: int = 0, force: str | None = None) -> Platform:
@@ -614,6 +632,7 @@ def detect_platform(local_rank: int = 0, force: str | None = None) -> Platform:
             "cuda": CudaPlatform,
             "cpu": Platform,
             **_CUDA_MACHINES,
+            **_CPU_MACHINES,
         }[force](local_rank)
 
     try:
@@ -628,10 +647,13 @@ def detect_platform(local_rank: int = 0, force: str | None = None) -> Platform:
         # Named machine where we can tell, generic CUDA where we cannot -- a run
         # labelled "cuda" then means "some NVIDIA box we could not identify",
         # which is honest, rather than a wrong machine name.
-        machine = _alcf_machine()
+        machine = _alcf_machine(_CUDA_MACHINES)
         return (_CUDA_MACHINES.get(machine) or CudaPlatform)(local_rank)
 
-    return Platform(local_rank)
+    # Same rule with no accelerator: name the machine when the scheduler says
+    # which it is, fall back to the honest "cpu" when it does not.
+    machine = _alcf_machine(_CPU_MACHINES)
+    return (_CPU_MACHINES.get(machine) or Platform)(local_rank)
 
 
 def init_distributed(platform: Platform, rank: int, world_size: int) -> bool:

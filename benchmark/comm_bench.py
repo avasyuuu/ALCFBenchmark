@@ -36,7 +36,7 @@ def main():
     p.add_argument(
         "--platform",
         default="auto",
-        choices=["auto", "aurora", "polaris", "sophia", "cuda", "cpu"],
+        choices=["auto", "aurora", "polaris", "sophia", "cuda", "crux", "cpu"],
     )
     p.add_argument("--iters", type=int, default=20)
     p.add_argument("--warmup", type=int, default=5)
