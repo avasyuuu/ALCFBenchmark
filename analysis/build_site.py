@@ -578,7 +578,7 @@ def main() -> None:
     # Optional: a checkout without the config still builds, just without the
     # specs table, rather than failing on a file that carries no measurements.
     specs_path = Path(args.machines)
-    specs = json.loads(specs_path.read_text()) if specs_path.exists() else {}
+    specs = json.loads(specs_path.read_text(encoding="utf-8")) if specs_path.exists() else {}
     out.write_text(build(runs, logo, specs), encoding="utf-8")
     # Said out loud because an inlined image is the one thing here that can bloat
     # the page, and a silently-missing logo otherwise looks like a CSS bug.

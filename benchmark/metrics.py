@@ -98,7 +98,7 @@ def pbs_environment() -> dict:
     nodefile = os.environ.get("PBS_NODEFILE", "")
     nodes = []
     if nodefile and Path(nodefile).exists():
-        nodes = [n.strip() for n in Path(nodefile).read_text().split() if n.strip()]
+        nodes = [n.strip() for n in Path(nodefile).read_text(encoding="utf-8").split() if n.strip()]
     return {
         "pbs_jobid": os.environ.get("PBS_JOBID", "interactive-or-local"),
         "pbs_queue": os.environ.get("PBS_QUEUE", "unset"),
@@ -378,7 +378,7 @@ class RunRecord:
         out = Path(results_dir)
         out.mkdir(parents=True, exist_ok=True)
         path = out / f"{self.machine}_{self.workload}_{self.run_id}.json"
-        path.write_text(json.dumps(asdict(self), indent=2, sort_keys=False))
+        path.write_text(json.dumps(asdict(self), indent=2, sort_keys=False), encoding="utf-8")
         return path
 
 
@@ -392,7 +392,7 @@ def load_peak_flops(config_path: str, device_name: str, precision: str):
     path = Path(config_path)
     if not path.exists():
         return None
-    table = json.loads(path.read_text())
+    table = json.loads(path.read_text(encoding="utf-8"))
     for key, entry in table.items():
         if key.lower() in device_name.lower():
             value = entry.get(precision)

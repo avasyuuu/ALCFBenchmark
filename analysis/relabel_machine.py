@@ -40,7 +40,7 @@ def plan(results_dir: Path, old: str, new: str):
     jobs = []
     for path in sorted(results_dir.glob("*.json")):
         try:
-            blob = json.loads(path.read_text())
+            blob = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
         if blob.get("machine") != old:
@@ -85,9 +85,9 @@ def main():
             continue
 
         for src, dst in sidecars:
-            side = json.loads(src.read_text())
+            side = json.loads(src.read_text(encoding="utf-8"))
             side["machine"] = args.new
-            dst.write_text(json.dumps(side, separators=(",", ":")))
+            dst.write_text(json.dumps(side, separators=(",", ":")), encoding="utf-8")
             if dst != src:
                 src.unlink()
 
@@ -97,7 +97,7 @@ def main():
                 rename_to(results_dir / "power" / n, args.old, args.new).name
                 for n in blob["power"]["timeline_files"]
             ]
-        new_path.write_text(json.dumps(blob, indent=2, sort_keys=False))
+        new_path.write_text(json.dumps(blob, indent=2, sort_keys=False), encoding="utf-8")
         if new_path != path:
             path.unlink()
 

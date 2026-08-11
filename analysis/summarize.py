@@ -99,7 +99,7 @@ def short_when(timestamp: str | None) -> str | None:
 def load_runs(results_dir: str):
     runs = []
     for path in sorted(Path(results_dir).glob("*.json")):
-        blob = json.loads(path.read_text())
+        blob = json.loads(path.read_text(encoding="utf-8"))
         if blob.get("kind") in ("allreduce_microbenchmark", "power_timeline"):
             continue
         if blob.get("status") != "complete":

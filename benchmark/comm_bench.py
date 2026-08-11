@@ -108,7 +108,7 @@ def main():
             "results": results,
         }
         path = out / f"comm_{platform.name}_ws{world_size}.json"
-        path.write_text(json.dumps(payload, indent=2))
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         print(f"[comm] wrote {path}")
 
     torch.distributed.destroy_process_group()

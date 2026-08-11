@@ -279,7 +279,8 @@ class PowerTimeline:
                     ],
                 },
                 separators=(",", ":"),
-            )
+            ),
+            encoding="utf-8",
         )
         return path
 
