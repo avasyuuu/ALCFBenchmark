@@ -116,6 +116,29 @@ compare cleanly — but this is a handful of runs per machine on a workload at
 0.5–1.4% of peak, so read it as a direction, not a verdict.</p>"""
 
 
+def when_cell(run: dict) -> str:
+    """'Aug 10', with the full UTC timestamp on hover.
+
+    summarize.py's `when` carries seconds down to "08-10 17:12:04", because two
+    runs of the same config land in the same minute and a terminal table has no
+    other way to tell them apart. A page does: the rows are already in order,
+    and the exact stamp rides along in a title attribute. So the visible column
+    drops to the part anyone actually reads, and nothing is lost.
+
+    Day is zero-padded to keep the column aligned under tabular-nums.
+    """
+    stamp = run.get("timestamp_utc")
+    label = run.get("when") or "—"
+    if stamp:
+        try:
+            label = datetime.fromisoformat(stamp).strftime("%b %d")
+        except ValueError:
+            pass  # keep summarize.py's label rather than invent a date
+    if not stamp:
+        return html.escape(label)
+    return f'<span title="{html.escape(stamp)}">{html.escape(label)}</span>'
+
+
 def num(value, places=0, dash="—"):
     if value is None:
         return dash
@@ -159,7 +182,7 @@ def build(runs: list) -> str:
         if r.get("stopped_early"):
             flag = ' <span class="tag">early</span>'
         run_rows.append([
-            html.escape(r.get("when") or "—"),
+            when_cell(r),
             f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
             num(r.get("nodes")), num(r.get("ranks")),
             html.escape(str(r.get("precision") or "—")),
@@ -178,7 +201,7 @@ def build(runs: list) -> str:
         if not r.get("joules"):
             continue
         energy_rows.append([
-            html.escape(r.get("when") or "—"),
+            when_cell(r),
             f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
             num(r.get("ranks")),
             num(r.get("avg_watts"), 1),
@@ -195,7 +218,7 @@ def build(runs: list) -> str:
             continue
         eff = node_efficiency(r)
         node_rows.append([
-            html.escape(r.get("when") or "—"),
+            when_cell(r),
             f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
             num(r.get("power_devices")),
             num(r.get("power_devices_idle")),
@@ -216,16 +239,18 @@ def build(runs: list) -> str:
 <style>
 :root {{
   --bg:#fbfbfa; --fg:#1a1a18; --dim:#6b6b66; --line:#e2e2dd;
-  --card:#ffffff; --accent:#8a5a2b; --tag:#f0e6d8;
+  --card:#ffffff; --accent:#8a5a2b; --tag:#f0e6d8; --stripe:#f4f4f1;
 }}
 @media (prefers-color-scheme: dark) {{
   :root {{ --bg:#16161a; --fg:#e8e8e4; --dim:#9a9a94; --line:#2c2c32;
-          --card:#1e1e23; --accent:#d9a066; --tag:#33291d; }}
+          --card:#1e1e23; --accent:#d9a066; --tag:#33291d; --stripe:#1c1c21; }}
 }}
 :root[data-theme="dark"] {{ --bg:#16161a; --fg:#e8e8e4; --dim:#9a9a94;
-  --line:#2c2c32; --card:#1e1e23; --accent:#d9a066; --tag:#33291d; }}
+  --line:#2c2c32; --card:#1e1e23; --accent:#d9a066; --tag:#33291d;
+  --stripe:#1c1c21; }}
 :root[data-theme="light"] {{ --bg:#fbfbfa; --fg:#1a1a18; --dim:#6b6b66;
-  --line:#e2e2dd; --card:#ffffff; --accent:#8a5a2b; --tag:#f0e6d8; }}
+  --line:#e2e2dd; --card:#ffffff; --accent:#8a5a2b; --tag:#f0e6d8;
+  --stripe:#f4f4f1; }}
 * {{ box-sizing:border-box; }}
 body {{ margin:0; background:var(--bg); color:var(--fg);
   font:15px/1.6 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif; }}
@@ -253,10 +278,20 @@ table {{ border-collapse:collapse; width:100%; font-size:.83rem;
 th {{ text-align:right; font-weight:600; color:var(--dim); padding:.5rem .6rem;
   border-bottom:1px solid var(--line); white-space:nowrap;
   font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; }}
-th:first-child, td:first-child {{ text-align:left; }}
 td {{ text-align:right; padding:.45rem .6rem;
   border-bottom:1px solid var(--line); white-space:nowrap; }}
 tbody tr:last-child td {{ border-bottom:none; }}
+/* These tables are 9-13 columns wide and scroll sideways on anything narrower
+   than a laptop. Pinning the date column means a row stays identifiable while
+   the numbers slide past it -- otherwise the far-right columns are unlabelled.
+   The pinned cell needs an opaque background of its own, or the scrolled
+   content shows through it. */
+th:first-child, td:first-child {{ text-align:left;
+  position:sticky; left:0; background:var(--bg); }}
+th:first-child {{ z-index:1; }}
+/* After the sticky rule, so even rows repaint the pinned cell too. */
+tbody tr:nth-child(even) td {{ background:var(--stripe); }}
+tbody tr:hover td {{ background:var(--tag); }}
 .m {{ font-weight:600; }}
 .scope {{ font-size:.74rem; color:var(--dim); white-space:normal; }}
 .tag {{ background:var(--tag); color:var(--accent); font-size:.66rem;
