@@ -576,11 +576,16 @@ class PolarisPlatform(CudaPlatform):
 
 
 class SophiaPlatform(CudaPlatform):
-    """Sophia — DGX A100, 8x A100 80GB per node, NVLink within the node.
+    """Sophia — DGX A100, 8x A100 per node, NVLink within the node.
 
     Same backend as Polaris but twice the devices per node and a different
     interconnect topology, so collective cost and per-node energy are not
     comparable between the two. Separate name, separate group.
+
+    The `by-node`/`by-gpu` queues serve 40GB A100s, same part as Polaris; only
+    the two `bigmem` nodes are 80GB. So the "A100" entry in peak_flops.json (a
+    40GB SXM4 figure) is the right one for MFU here, but a bigmem run would need
+    its own key before its MFU means anything.
     """
 
     name = "sophia"

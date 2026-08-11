@@ -30,7 +30,14 @@ SIZES_MB = [0.001, 0.01, 0.1, 1, 4, 16, 64, 256]
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--platform", default="auto", choices=["auto", "aurora", "cuda", "cpu"])
+    # Same choices as train.py: "cuda" is the unidentified-NVIDIA fallback, so
+    # name the machine where you know it or the interconnect numbers from
+    # Polaris and Sophia land under one label and read as one system.
+    p.add_argument(
+        "--platform",
+        default="auto",
+        choices=["auto", "aurora", "polaris", "sophia", "cuda", "cpu"],
+    )
     p.add_argument("--iters", type=int, default=20)
     p.add_argument("--warmup", type=int, default=5)
     p.add_argument("--results-dir", default="./results")
