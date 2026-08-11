@@ -2,7 +2,7 @@
 #PBS -A datascience_collab
 #PBS -N alcf_bench_resnet
 #PBS -l select=1:system=crux
-#PBS -l walltime=03:00:00
+#PBS -l walltime=01:00:00
 #PBS -l filesystems=home:eagle
 #PBS -l place=scatter
 #PBS -q workq-route
@@ -37,19 +37,26 @@
 #                      sampling nothing at 10 Hz only adds overhead. Crux will
 #                      be absent from both energy tables rather than sitting in
 #                      them full of zeros.
-#   walltime 03:00:00  measured, not guessed. A 1-node 8-rank smoke test on
-#                      2026-08-11 gave a 1.429 s median step; 100 epochs is
-#                      3,200 steps at global batch 1536, so ~76 min of stepping
-#                      and ~83 min with the per-epoch eval and the dataloader
-#                      respawn at each epoch boundary. Booked at roughly 2x
-#                      that, because a run killed at walltime writes no result
-#                      at all -- the JSON lands after the last epoch, so the
-#                      whole allocation is lost rather than the tail of it.
+#   walltime 01:00:00  from a completed run, not from a smoke test. The full
+#                      100-epoch run on 2026-08-11 held a 285.6 ms median step
+#                      -- 3,200 steps, about 15 min of stepping and ~25 min
+#                      wall including the per-epoch eval.
 #
-# Queue: workq-route (1-184 nodes, up to 24 h). debug caps at 2 h, which the
-# ~83-minute run does fit -- with only ~30% headroom. Worth taking when the
-# queue is busy and you would rather gamble than wait, but the default here is
-# the one that cannot lose a finished run to a walltime kill.
+#                      A 30-step smoke test on the same node reported 1.429 s,
+#                      5x slower, and sizing off it booked six hours for a
+#                      25-minute job. Thirty steps on a CPU are all cold: the
+#                      OpenMP pool, the allocator and the page cache are still
+#                      warming, and --warmup-steps can only exclude 15 of them.
+#                      Size a CPU walltime from a finished run, or from a smoke
+#                      test long enough to reach steady state.
+#
+#                      An hour is still ~2.4x measured, because the JSON lands
+#                      after the last epoch: a walltime kill loses the whole
+#                      run rather than its tail.
+#
+# Queue: workq-route (1-184 nodes, up to 24 h). At ~25 min the debug queue's
+# 2 h cap is now comfortable, and its turnaround is better -- worth switching
+# to when workq-route is busy.
 
 set -euo pipefail
 
