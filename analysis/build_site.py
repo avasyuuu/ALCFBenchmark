@@ -34,21 +34,35 @@ REPO_URL = "https://github.com/avasyuuu/ALCFBenchmark"
 # docstring -- one self-contained file that renders offline and inside
 # restricted networks -- so the bytes go into the page rather than beside it.
 # Absent is fine: the byline just renders without it.
-LOGO_NAMES = (("argonne-logo.svg", "image/svg+xml"),
-              ("argonne-logo.png", "image/png"))
+LOGO_STEM = "argonne-logo"
+
+# Sniffed from the bytes rather than taken from the file extension, because a
+# logo saved from a browser routinely arrives as a JPEG named .png. Declaring
+# the wrong type in a data: URI leaves the image at the mercy of each browser's
+# sniffing, which is not a thing to rely on for the one image on the page.
+_MAGIC = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF8", "image/gif"),
+)
 
 
 def logo_data_uri(out_dir: Path) -> str | None:
     """Read a logo from out_dir and return it as a data: URI, or None.
 
-    SVG first: it is typically smaller than a PNG and stays sharp on the
-    high-DPI displays where a 26px bitmap goes soft.
+    SVG is preferred explicitly when several exist -- plain alphabetical order
+    would pick .jpg -- because it is usually smaller than a bitmap and stays
+    sharp on the high-DPI displays where a 26px raster goes soft.
     """
-    for name, mime in LOGO_NAMES:
-        path = out_dir / name
-        if path.exists():
-            encoded = base64.b64encode(path.read_bytes()).decode("ascii")
-            return f"data:{mime};base64,{encoded}"
+    prefer_svg = lambda p: (p.suffix.lower() != ".svg", p.name)
+    for path in sorted(out_dir.glob(f"{LOGO_STEM}.*"), key=prefer_svg):
+        blob = path.read_bytes()
+        mime = next((m for sig, m in _MAGIC if blob.startswith(sig)), None)
+        if mime is None and blob.lstrip()[:1] == b"<":
+            mime = "image/svg+xml"  # <svg> or an XML declaration ahead of it
+        if mime is None:
+            continue  # not an image we can name; a wrong label is worse
+        return f"data:{mime};base64,{base64.b64encode(blob).decode('ascii')}"
     return None
 
 
@@ -364,7 +378,13 @@ h2::before {{ content:""; display:inline-block; width:3px; height:.95em;
   justify-content:space-between; flex-wrap:wrap; }}
 .ident {{ margin-left:auto; text-align:right; flex-shrink:0; padding-top:.4rem;
   font-size:.72rem; line-height:1.55; color:var(--dim); }}
-.ident .logo {{ height:26px; width:auto; display:block; margin:0 0 .45rem auto; }}
+/* Rounded, because a JPEG has no alpha: the mark arrives on an opaque white
+   square, which is invisible against the light theme and a bright rectangle
+   against the dark one. Rounding it makes that square read as a deliberate
+   badge in both, and leaves the mark itself untouched -- keying the white out
+   would alter a trademark to guess at how it is meant to sit on dark. */
+.ident .logo {{ height:28px; width:auto; display:block; margin:0 0 .45rem auto;
+  border-radius:5px; }}
 .ident .who {{ color:var(--fg); opacity:.8; font-weight:600; }}
 .ident a {{ color:var(--dim); text-decoration:none;
   border-bottom:1px solid var(--line); }}
