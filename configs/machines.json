@@ -1,0 +1,46 @@
+{
+  "_comment": [
+    "Node specs for the machines this benchmark targets, rendered as the specs",
+    "table on the site. Descriptive only -- nothing here is computed against,",
+    "unlike peak_flops.json, so a wrong value misleads a reader rather than",
+    "corrupting a number. Same rule applies anyway: record where it came from",
+    "in _source, and say so when a field was not read off an ALCF page.",
+    "Per NODE, since that is the unit the benchmark and the allocation both use."
+  ],
+  "aurora": {
+    "_source": "ALCF Aurora machine overview, https://docs.alcf.anl.gov/aurora/ (retrieved 2026-08-11)",
+    "nodes": "10,624",
+    "accelerator": "6× Intel Data Center GPU Max (Ponte Vecchio), 12 tiles",
+    "accelerator_memory": "768 GB HBM",
+    "cpu": "2× Intel Xeon CPU Max (Sapphire Rapids), 104 cores",
+    "memory": "1 TB DDR5 + 128 GB CPU HBM",
+    "interconnect": "8× Slingshot-11, dragonfly"
+  },
+  "polaris": {
+    "_source": "ALCF Polaris machine overview, https://docs.alcf.anl.gov/polaris/ (retrieved 2026-08-11)",
+    "nodes": "560",
+    "accelerator": "4× NVIDIA A100, NVLink",
+    "accelerator_memory": "160 GB HBM2 (40 GB per GPU)",
+    "cpu": "1× AMD EPYC Milan 7543P, 32 cores",
+    "memory": "512 GB DDR4",
+    "interconnect": "2× Slingshot-11"
+  },
+  "sophia": {
+    "_source": "ALCF Sophia running-jobs page (node count, 40/80 GB split) https://docs.alcf.anl.gov/sophia/queueing-and-running-jobs/running-jobs/ (retrieved 2026-08-11). CPU and memory are the DGX A100 platform spec, corroborated by pbsnodes reporting ncpus=256 and 1tb per node -- NOT read off an ALCF page. Confirm the CPU model before publishing anything that turns on it.",
+    "nodes": "24 (22 × 40 GB, 2 × 80 GB bigmem)",
+    "accelerator": "8× NVIDIA A100, NVLink",
+    "accelerator_memory": "320 GB HBM2 (40 GB per GPU)",
+    "cpu": "2× AMD EPYC 7742, 128 cores",
+    "memory": "1 TB (2 TB on bigmem)",
+    "interconnect": "NVLink/NVSwitch within the node"
+  },
+  "crux": {
+    "_source": "ALCF Crux machine overview, https://docs.alcf.anl.gov/crux/ (retrieved 2026-08-11)",
+    "nodes": "256",
+    "accelerator": "none — CPU only",
+    "accelerator_memory": "—",
+    "cpu": "2× AMD EPYC 7742 (Rome), 128 cores, 8 NUMA domains",
+    "memory": "256 GB",
+    "interconnect": "Slingshot"
+  }
+}

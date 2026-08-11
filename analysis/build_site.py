@@ -228,6 +228,35 @@ def legend() -> str:
     return f'<div class="legend">{blocks}</div>'
 
 
+SPEC_COLUMNS = [
+    ("nodes", "Nodes"),
+    ("accelerator", "Accelerator"),
+    ("accelerator_memory", "Accel. memory"),
+    ("cpu", "CPU"),
+    ("memory", "Node memory"),
+    ("interconnect", "Interconnect"),
+]
+
+
+def spec_rows(specs: dict, measured: set) -> list:
+    """One row per configured machine, in the config's own order.
+
+    Machines with no runs yet are listed and tagged rather than hidden: the
+    table answers "what is being compared", and a system that is targeted but
+    unmeasured is part of that answer.
+    """
+    rows = []
+    for machine, spec in specs.items():
+        if machine.startswith("_"):
+            continue  # _comment and friends
+        tag = "" if machine in measured else ' <span class="tag">no runs yet</span>'
+        rows.append(
+            [f'<span class="m">{html.escape(machine)}</span>{tag}']
+            + [html.escape(str(spec.get(key, "—"))) for key, _ in SPEC_COLUMNS]
+        )
+    return rows
+
+
 def when_cell(run: dict) -> str:
     """'Aug 10', with the full UTC timestamp on hover.
 
@@ -274,8 +303,20 @@ def table(headers: list, rows: list, caption: str = "") -> str:
     )
 
 
-def build(runs: list, logo_uri: str | None = None) -> str:
+def build(runs: list, logo_uri: str | None = None, specs: dict | None = None) -> str:
     machine_stats = headline(runs)
+    measured = {r.get("machine") for r in runs if r.get("machine")}
+    spec_table = (
+        table(
+            ["Machine"] + [label for _, label in SPEC_COLUMNS],
+            spec_rows(specs, measured),
+            "Per node, which is both the unit this benchmark scales in and the "
+            "unit an allocation is billed in. Where each figure came from is "
+            "recorded in the _source fields of configs/machines.json.",
+        )
+        if specs
+        else ""
+    )
     cards = ""
     for h in machine_stats:
         eff = f"{h['eff']:,.1f}" if h["eff"] else "—"
@@ -461,6 +502,7 @@ table.</p>
 
 <h2>Machines</h2>
 <div class="cards">{cards}</div>
+{spec_table}
 
 <h2>Runs</h2>
 {table(
@@ -519,6 +561,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--results-dir", default="./results")
     ap.add_argument("--out", default="docs/index.html")
+    ap.add_argument("--machines", default="./configs/machines.json",
+                    help="node specs for the machines table; skipped if absent")
     ap.add_argument("--include-synthetic", action="store_true")
     args = ap.parse_args()
 
@@ -531,7 +575,11 @@ def main() -> None:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     logo = logo_data_uri(out.parent)
-    out.write_text(build(runs, logo), encoding="utf-8")
+    # Optional: a checkout without the config still builds, just without the
+    # specs table, rather than failing on a file that carries no measurements.
+    specs_path = Path(args.machines)
+    specs = json.loads(specs_path.read_text()) if specs_path.exists() else {}
+    out.write_text(build(runs, logo, specs), encoding="utf-8")
     # Said out loud because an inlined image is the one thing here that can bloat
     # the page, and a silently-missing logo otherwise looks like a CSS bug.
     print(f"logo: {'inlined, ' + str(len(logo) // 1024) + ' KB' if logo else 'none found'}")
