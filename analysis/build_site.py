@@ -21,6 +21,7 @@ import argparse
 import base64
 import html
 import json
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -78,6 +79,51 @@ SCOPE_WARNING = (
     "a Polaris reading covers the whole board including HBM. Compare machines "
     "on the node table, never on per-rank Samples/J."
 )
+
+
+def equal_work_note(runs: list) -> str:
+    """State the machines that did byte-for-byte identical work, if any.
+
+    Raw joules are only comparable when the runs behind them did the same
+    amount of training, which is exactly what summarize.py warns about and what
+    every ratio on this page exists to work around. Under strong scaling with a
+    fixed global batch and a fixed epoch budget, several machines land on the
+    same sample count exactly -- and for those the joules columns can be read
+    straight across with no normalisation at all.
+
+    Derived rather than written, so it cannot drift from the results: the
+    sentence disappears on its own if no two machines share a sample count.
+    """
+    groups: dict = defaultdict(dict)
+    for r in runs:
+        samples, joules = r.get("samples_global"), r.get("power_joules_total")
+        if not samples or not joules:
+            continue
+        machine = r.get("machine")
+        # One run per machine -- the most recent, matching the cards.
+        prior = groups[samples].get(machine)
+        if not prior or (r.get("timestamp_utc") or "") > (prior.get("timestamp_utc") or ""):
+            groups[samples][machine] = r
+    best = max(groups.items(), key=lambda kv: len(kv[1]), default=(None, {}))
+    samples, members = best
+    if len(members) < 2:
+        return ""
+
+    ordered = sorted(members.values(), key=lambda r: r["power_joules_total"])
+    named = ", ".join(
+        f"{html.escape(str(r['machine']))} {r['power_joules_total']:,.0f} J" for r in ordered
+    )
+    lo, hi = ordered[0], ordered[-1]
+    ratio = hi["power_joules_total"] / lo["power_joules_total"]
+    return (
+        f'<p class="fineprint">Every machine here runs a fixed global batch for a '
+        f"fixed epoch budget, so several land on <strong>exactly the same "
+        f"{samples:,} samples</strong> — identical work, not merely comparable. For "
+        f"those the node-energy column reads straight across with no normalising: "
+        f"{named}. {html.escape(str(hi['machine']))} spent {ratio:.2f}× the energy of "
+        f"{html.escape(str(lo['machine']))} to train the same model to the same "
+        f"accuracy.</p>"
+    )
 
 
 def node_efficiency(run: dict):
@@ -596,6 +642,7 @@ table.</p>
     "bound to. Samples/J here is the cross-machine comparison: whole-job "
     "samples over whole-node joules, the unit an allocation is billed in.",
 )}
+{equal_work_note(runs)}
 
 <div class="note">A device left idle still draws power. A single-rank run on a
 12-tile Aurora node spent over 90% of node energy on tiles nobody used — the
