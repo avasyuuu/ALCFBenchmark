@@ -1,0 +1,132 @@
+{
+  "machine": "crux",
+  "workload": "resnet20_cifar10",
+  "config": {
+    "model": "resnet20",
+    "scaling": "strong",
+    "nodes": 1,
+    "world_size": 8,
+    "ranks_per_node": 8,
+    "global_batch_size": 1536,
+    "local_batch_size": 192,
+    "precision": "fp32",
+    "epochs": 1,
+    "base_lr": 0.1,
+    "warmup_epochs": 5,
+    "seed": 1234,
+    "synthetic_data": false,
+    "target_accuracy": 0.9,
+    "dataloader_workers": 4,
+    "ipex_optimize": true
+  },
+  "environment": {
+    "platform": "crux",
+    "hostname": "x1000c5s5b0n1",
+    "device_name": "cpu",
+    "torch_version": "2.13.0+cpu",
+    "pbs_jobid": "245995.crux-pbs-0001.head.cm.crux.alcf.anl.gov",
+    "pbs_queue": "debug",
+    "pbs_nodes": [
+      "x1000c5s5b0n1.hostmgmt2000.cm.crux.alcf.anl.gov"
+    ],
+    "pbs_node_count": 1,
+    "git_commit": "2b11275"
+  },
+  "run_id": "f756029b39cf",
+  "schema_version": 3,
+  "timestamp_utc": "2026-08-11T19:23:43.984464+00:00",
+  "timing": {
+    "startup_s": 0.739167642999746,
+    "data_setup_s": 2.78779057400061,
+    "total_train_s": 44.918019325001296,
+    "warmup_steps_excluded": 20
+  },
+  "work": {
+    "steps": 30,
+    "epochs_completed": 1,
+    "epochs_requested": 1,
+    "samples_global": 46080,
+    "samples_per_rank": 5760,
+    "stopped_early": false
+  },
+  "throughput": {
+    "step_time": {
+      "count": 15,
+      "mean_s": 1.4443235643999894,
+      "median_s": 1.428748144000565,
+      "min_s": 1.376751633000822,
+      "max_s": 1.5647868209998705,
+      "p90_s": 1.5169877730004373,
+      "p99_s": 1.5647868209998705,
+      "stdev_s": 0.051715135645740824
+    },
+    "data_wait": {
+      "count": 15,
+      "mean_s": 0.0019126845333327462,
+      "median_s": 0.0018177339989051688,
+      "min_s": 0.0014682080000056885,
+      "max_s": 0.002780554999844753,
+      "p90_s": 0.0026208569997834275,
+      "p99_s": 0.002780554999844753,
+      "stdev_s": 0.0003638267248744316
+    },
+    "compute": {
+      "count": 15,
+      "mean_s": 1.4424108798666566,
+      "median_s": 1.4271013110010244,
+      "min_s": 1.3741307760010386,
+      "max_s": 1.5629690870009654,
+      "p90_s": 1.5142072180005925,
+      "p99_s": 1.5629690870009654,
+      "stdev_s": 0.05167717128242697
+    },
+    "samples_per_s": 1075.0670133499698,
+    "warmup_steps_excluded": 15
+  },
+  "accuracy": {
+    "target": 0.9,
+    "time_to_target_s": null,
+    "epoch_to_target": null,
+    "reached_target": false,
+    "final_top1": 0.2842000126838684,
+    "best_top1": 0.2842000126838684
+  },
+  "memory": {
+    "peak_bytes_per_device": 0
+  },
+  "flops": {
+    "fwd_flops_per_sample": 81626368,
+    "train_flops_per_sample": 244879104,
+    "achieved_flops_per_s": 263261446969.09665,
+    "peak_flops_per_s_per_device": null,
+    "peak_flops_per_s": null,
+    "mfu": null
+  },
+  "energy": {
+    "joules": null,
+    "scope": "unsupported"
+  },
+  "power": {},
+  "cost": {
+    "node_count": 1,
+    "wall_s": 44.918019325001296,
+    "node_seconds": 44.918019325001296,
+    "node_hours": 0.012477227590278138
+  },
+  "curve": [
+    {
+      "epoch": 1,
+      "step": 30,
+      "elapsed_s": 44.91791717800152,
+      "lr": 0.24000000000000005,
+      "train_loss": 2.03080864350001,
+      "val_top1": 0.2842000126838684
+    }
+  ],
+  "status": "complete",
+  "notes": [
+    "crux smoke",
+    "MFU not computed: no peak FLOP/s configured for this device in configs/peak_flops.json",
+    "Energy not recorded: unsupported"
+  ]
+}
