@@ -378,13 +378,9 @@ h2::before {{ content:""; display:inline-block; width:3px; height:.95em;
   justify-content:space-between; flex-wrap:wrap; }}
 .ident {{ margin-left:auto; text-align:right; flex-shrink:0; padding-top:.4rem;
   font-size:.72rem; line-height:1.55; color:var(--dim); }}
-/* Rounded, because a JPEG has no alpha: the mark arrives on an opaque white
-   square, which is invisible against the light theme and a bright rectangle
-   against the dark one. Rounding it makes that square read as a deliberate
-   badge in both, and leaves the mark itself untouched -- keying the white out
-   would alter a trademark to guess at how it is meant to sit on dark. */
-.ident .logo {{ height:28px; width:auto; display:block; margin:0 0 .45rem auto;
-  border-radius:5px; }}
+/* No plate or rounding: the mark is a transparent PNG, so the page background
+   shows through its hollow centre on either theme. */
+.ident .logo {{ height:28px; width:auto; display:block; margin:0 0 .45rem auto; }}
 .ident .who {{ color:var(--fg); opacity:.8; font-weight:600; }}
 .ident a {{ color:var(--dim); text-decoration:none;
   border-bottom:1px solid var(--line); }}
