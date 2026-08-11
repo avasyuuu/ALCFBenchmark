@@ -77,6 +77,17 @@ footer { margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line)
   color:var(--dim); font-size:.78rem; }
 code { font-size:.85em; background:var(--tag); padding:.1rem .3rem;
   border-radius:3px; }
+/* Reference material, so it sits quieter than the tables it explains. The
+   column-width form collapses to one column on a phone instead of squeezing
+   two unreadable ones. */
+.legend { font-size:.74rem; color:var(--dim); line-height:1.5;
+  columns:19rem 2; column-gap:2.5rem; margin-top:.4rem; }
+.legend section { break-inside:avoid; margin:0 0 1rem; }
+.legend h3 { font-size:.67rem; text-transform:uppercase; letter-spacing:.08em;
+  margin:0 0 .4rem; font-weight:600; color:var(--accent); opacity:.75; }
+.legend dl { margin:0; }
+.legend dt { color:var(--fg); opacity:.7; font-weight:600; }
+.legend dd { margin:0 0 .35rem; }
 </style></head><body><div class="wrap">
 
 <h1>Power and Performance Across ALCF Machines</h1>
@@ -131,8 +142,11 @@ Samples/J or joules-to-accuracy, never on the Joules column.</div>
 An accelerator-only figure excludes CPU, memory, NICs and cooling, so a node
 draws well more than the sum of its accelerators.</div>
 
+<h2>Legend</h2>
+<div class="legend"><section><h3>Shared by every table</h3><dl><dt>When</dt><dd>when the run started, UTC — hover for the exact timestamp</dd><dt>Machine</dt><dd>the ALCF system the run executed on</dd><dt>Nodes</dt><dd>compute nodes in the job</dd><dt>Ranks</dt><dd>worker processes, one bound to each accelerator</dd></dl></section><section><h3>Runs</h3><dl><dt>Prec</dt><dd>numeric precision the model trained in</dd><dt>Global BS</dt><dd>samples per optimizer step, summed across all ranks</dd><dt>Steps</dt><dd>optimizer steps completed</dd><dt>Epochs</dt><dd>completed of requested — fewer means the run stopped early</dd><dt>Samples/s</dt><dd>global batch ÷ median step time, aggregate over all ranks</dd><dt>Step ms</dt><dd>median time for one training step, warmup excluded</dd><dt>Best top-1</dt><dd>highest validation accuracy reached, 0–1</dd><dt>TTA s</dt><dd>seconds of training to first cross the accuracy target; blank means it never did</dd><dt>MFU %</dt><dd>achieved FLOP/s as a share of the vendor&#x27;s dense peak</dd></dl></section><section><h3>Energy — per rank</h3><dl><dt>Avg W</dt><dd>this rank&#x27;s device energy ÷ the seconds it was measured over</dd><dt>Joules</dt><dd>energy drawn by this rank&#x27;s own accelerator</dd><dt>Samples</dt><dd>samples this rank processed — the numerator of Samples/J</dd><dt>Samples/J</dt><dd>samples per joule, one rank on one device</dd><dt>J to acc</dt><dd>energy spent getting to the accuracy target</dd><dt>Scope</dt><dd>what the counter physically covered — vendor-specific, which is why these rows do not compare across machines</dd></dl></section><section><h3>Energy — per node</h3><dl><dt>Devices</dt><dd>accelerators on the node, used or not</dd><dt>Idle</dt><dd>accelerators no rank bound to</dd><dt>Node J</dt><dd>energy across every accelerator on the node</dd><dt>Idle J</dt><dd>the share of Node J spent on accelerators nobody used</dd><dt>Idle %</dt><dd>Idle J as a percentage of Node J</dd><dt>Samples/J</dt><dd>whole-job samples ÷ whole-node joules — the one energy ratio that compares across machines</dd></dl></section></div>
+
 <footer>
-Generated 2026-08-11 16:48 UTC from 15 run(s) · machines: aurora, polaris<br>
+Generated 2026-08-11 17:09 UTC from 15 run(s) · machines: aurora, polaris<br>
 Rebuild with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the page
 is never edited by hand.

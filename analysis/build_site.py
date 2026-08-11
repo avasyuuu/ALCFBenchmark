@@ -116,6 +116,63 @@ compare cleanly — but this is a handful of runs per machine on a workload at
 0.5–1.4% of peak, so read it as a direction, not a verdict.</p>"""
 
 
+# Every column on the page, in the words of the code that produces it. Kept
+# here rather than in the table captions because a caption explains what a
+# table is for, and this answers the narrower question of what one number is --
+# and because a reader who needs "what is MFU" needs it once, not three times.
+LEGEND = [
+    ("Shared by every table", [
+        ("When", "when the run started, UTC — hover for the exact timestamp"),
+        ("Machine", "the ALCF system the run executed on"),
+        ("Nodes", "compute nodes in the job"),
+        ("Ranks", "worker processes, one bound to each accelerator"),
+    ]),
+    ("Runs", [
+        ("Prec", "numeric precision the model trained in"),
+        ("Global BS", "samples per optimizer step, summed across all ranks"),
+        ("Steps", "optimizer steps completed"),
+        ("Epochs", "completed of requested — fewer means the run stopped early"),
+        ("Samples/s", "global batch ÷ median step time, aggregate over all ranks"),
+        ("Step ms", "median time for one training step, warmup excluded"),
+        ("Best top-1", "highest validation accuracy reached, 0–1"),
+        ("TTA s", "seconds of training to first cross the accuracy target; "
+                  "blank means it never did"),
+        ("MFU %", "achieved FLOP/s as a share of the vendor's dense peak"),
+    ]),
+    ("Energy — per rank", [
+        ("Avg W", "this rank's device energy ÷ the seconds it was measured over"),
+        ("Joules", "energy drawn by this rank's own accelerator"),
+        ("Samples", "samples this rank processed — the numerator of Samples/J"),
+        ("Samples/J", "samples per joule, one rank on one device"),
+        ("J to acc", "energy spent getting to the accuracy target"),
+        ("Scope", "what the counter physically covered — vendor-specific, which "
+                  "is why these rows do not compare across machines"),
+    ]),
+    ("Energy — per node", [
+        ("Devices", "accelerators on the node, used or not"),
+        ("Idle", "accelerators no rank bound to"),
+        ("Node J", "energy across every accelerator on the node"),
+        ("Idle J", "the share of Node J spent on accelerators nobody used"),
+        ("Idle %", "Idle J as a percentage of Node J"),
+        ("Samples/J", "whole-job samples ÷ whole-node joules — the one energy "
+                      "ratio that compares across machines"),
+    ]),
+]
+
+
+def legend() -> str:
+    blocks = ""
+    for heading, terms in LEGEND:
+        items = "".join(
+            f"<dt>{html.escape(term)}</dt><dd>{html.escape(meaning)}</dd>"
+            for term, meaning in terms
+        )
+        blocks += (
+            f"<section><h3>{html.escape(heading)}</h3><dl>{items}</dl></section>"
+        )
+    return f'<div class="legend">{blocks}</div>'
+
+
 def when_cell(run: dict) -> str:
     """'Aug 10', with the full UTC timestamp on hover.
 
@@ -310,6 +367,17 @@ footer {{ margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line
   color:var(--dim); font-size:.78rem; }}
 code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
   border-radius:3px; }}
+/* Reference material, so it sits quieter than the tables it explains. The
+   column-width form collapses to one column on a phone instead of squeezing
+   two unreadable ones. */
+.legend {{ font-size:.74rem; color:var(--dim); line-height:1.5;
+  columns:19rem 2; column-gap:2.5rem; margin-top:.4rem; }}
+.legend section {{ break-inside:avoid; margin:0 0 1rem; }}
+.legend h3 {{ font-size:.67rem; text-transform:uppercase; letter-spacing:.08em;
+  margin:0 0 .4rem; font-weight:600; color:var(--accent); opacity:.75; }}
+.legend dl {{ margin:0; }}
+.legend dt {{ color:var(--fg); opacity:.7; font-weight:600; }}
+.legend dd {{ margin:0 0 .35rem; }}
 </style></head><body><div class="wrap">
 
 <h1>Power and Performance Across ALCF Machines</h1>
@@ -360,6 +428,9 @@ Samples/J or joules-to-accuracy, never on the Joules column.</div>
 <div class="note">Energy scope is vendor-specific and is printed with every row.
 An accelerator-only figure excludes CPU, memory, NICs and cooling, so a node
 draws well more than the sum of its accelerators.</div>
+
+<h2>Legend</h2>
+{legend()}
 
 <footer>
 Generated {generated} from {len(runs)} run(s) · machines: {html.escape(", ".join(machines)) or "none"}<br>
