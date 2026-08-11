@@ -27,7 +27,8 @@ from pathlib import Path
 
 # `legend` here is the column glossary further down; the chart key is
 # imported under its own name so the two never shadow each other.
-from charts import accuracy_chart, canonical_runs, series_legend, tail_chart
+from charts import (accuracy_chart, canonical_runs, efficiency_chart,
+                    series_legend, tail_chart)
 from summarize import load_runs
 
 AUTHOR = "Avasyu Chukkapalli"
@@ -367,6 +368,34 @@ def build(runs: list, logo_uri: str | None = None, specs: dict | None = None,
           'multiples, not lengths.</p>'
         if tta_svg else ""
     )
+    # Runs that actually trained the model to target. A three-epoch run has a
+    # node-wide efficiency too, but almost all of its energy is startup
+    # amortised over no training, so it would sit on the chart looking like a
+    # slow machine rather than a short run.
+    eff_rows = [
+        {
+            "machine": r["machine"],
+            "ranks": r["world_size"],
+            "eff": node_efficiency(r),
+            "samples": r["samples_global"],
+            "joules": r["power_joules_total"],
+        }
+        for r in runs
+        if node_efficiency(r) and r.get("tta_s")
+    ]
+    eff_svg = efficiency_chart(eff_rows)
+    eff_section = (
+        "<h2>Energy per sample</h2>" + eff_svg
+        + '<p class="fineprint">Whole-job samples over whole-node joules — the '
+          'one energy figure on this page that compares across machines, since '
+          'both sides cover a node. Filling the node matters far more than '
+          'which node it is: the same Aurora hardware is an order of magnitude '
+          'less efficient at one rank than at twelve, while the gap between '
+          'two fully subscribed machines is well under 2×. Runs that never '
+          'reached the accuracy target are left out — their energy is mostly '
+          'startup amortised over no training.</p>'
+        if eff_svg else ""
+    )
     tail_svg = tail_chart(curves)
     tail_section = (
         "<h2>Step-time tail</h2>" + tail_svg
@@ -626,6 +655,8 @@ table.</p>
 )}
 
 {tail_section}
+
+{eff_section}
 
 <h2>Energy — per rank</h2>
 {table(

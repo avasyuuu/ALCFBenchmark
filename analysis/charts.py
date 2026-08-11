@@ -231,3 +231,58 @@ def series_legend(runs: dict) -> str:
             f"{_esc(machine)}{value}</span>"
         )
     return f'<div class="legend-row">{items}</div>'
+
+
+def efficiency_chart(rows: list) -> str:
+    """Node-wide samples per joule, one bar per run.
+
+    The only energy ratio on this page that compares across machines: whole-job
+    samples over whole-node joules, both sides covering a node. The per-rank
+    figure cannot be charted this way -- an Aurora tile is half a card and a
+    Polaris reading covers a whole board, so bars drawn side by side would
+    invite a comparison the measurement does not support.
+
+    Every run that reached the accuracy target is shown rather than one per
+    machine, because the repeats are the argument: two Aurora runs at 64.7 and
+    66.9 and two Polaris at 91.4 and 93.9 establish the spread, which is what
+    makes the single-rank 6.1 read as a result rather than as noise.
+    """
+    if len(rows) < 2:
+        return ""
+    rows = sorted(rows, key=lambda r: -r["eff"])
+
+    BAR, GAP, L, R, T, BOT = 18, 12, 118, 52, 8, 28
+    W = 720
+    H = T + len(rows) * (BAR + GAP) + BOT
+    pw = W - L - R
+    hi = max(r["eff"] for r in rows) * 1.1
+
+    parts = [
+        f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label='
+        f'"Node-wide samples per joule, one bar per run">'
+    ]
+    for i, row in enumerate(rows):
+        y = T + i * (BAR + GAP)
+        w = max(row["eff"] / hi * pw, 1.0)
+        r = min(4.0, w)
+        label = f'{row["machine"]} · {row["ranks"]} rank' + ("" if row["ranks"] == 1 else "s")
+        parts.append(
+            f'<path class="bar s{_slot(row["machine"])}" d="M{L},{y} H{L+w-r:.1f} '
+            f'a{r},{r} 0 0 1 {r},{r} V{y+BAR-r:.1f} a{r},{r} 0 0 1 -{r},{r} H{L} Z">'
+            f'<title>{_esc(label)}: {row["eff"]:.1f} samples per joule, '
+            f'{row["samples"]:,} samples over {row["joules"]:,.0f} node J</title></path>'
+        )
+        parts.append(
+            f'<text class="tick" x="{L-8}" y="{y+BAR/2+4:.1f}" text-anchor="end">'
+            f"{_esc(label)}</text>"
+        )
+        parts.append(
+            f'<text class="val" x="{L+w+8:.1f}" y="{y+BAR/2+4:.1f}">{row["eff"]:.1f}</text>'
+        )
+    parts.append(f'<line class="axis" x1="{L}" y1="{T}" x2="{L}" y2="{H-BOT}"/>')
+    parts.append(
+        f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-8}" text-anchor="middle">'
+        "samples per joule, whole node</text>"
+    )
+    parts.append("</svg>")
+    return "".join(parts)
