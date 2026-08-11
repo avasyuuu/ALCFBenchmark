@@ -18,6 +18,7 @@ Stdlib only, so it runs on a login node.
 from __future__ import annotations
 
 import argparse
+import base64
 import html
 import json
 from datetime import datetime, timezone
@@ -25,19 +26,36 @@ from pathlib import Path
 
 from summarize import load_runs
 
+AUTHOR = "Avasyu Chukkapalli"
+REPO_URL = "https://github.com/avasyuuu/ALCFBenchmark"
+
+# Dropped next to the output file, and inlined into it at build time. A logo
+# left as <img src="argonne-logo.png"> would break the promise in this module's
+# docstring -- one self-contained file that renders offline and inside
+# restricted networks -- so the bytes go into the page rather than beside it.
+# Absent is fine: the byline just renders without it.
+LOGO_NAMES = (("argonne-logo.svg", "image/svg+xml"),
+              ("argonne-logo.png", "image/png"))
+
+
+def logo_data_uri(out_dir: Path) -> str | None:
+    """Read a logo from out_dir and return it as a data: URI, or None.
+
+    SVG first: it is typically smaller than a PNG and stays sharp on the
+    high-DPI displays where a 26px bitmap goes soft.
+    """
+    for name, mime in LOGO_NAMES:
+        path = out_dir / name
+        if path.exists():
+            encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+            return f"data:{mime};base64,{encoded}"
+    return None
+
+
 # Scope strings name a measurement boundary, not a machine. An Aurora tile is
 # half a card; a Polaris reading covers the whole board including HBM. Ratios
 # built from them are not comparable, which is why the per-rank Samples/J is
 # kept out of the headline and the node table carries the comparison instead.
-AUTHOR = "Avasyu Chukkapalli"
-REPO_URL = "https://github.com/avasyuuu/ALCFBenchmark"
-
-# Set to a data: URI to show a logo beside the byline. A path or an http URL
-# would break the promise in this module's docstring -- the page is one file
-# that renders offline and inside restricted networks -- so the image has to be
-# inlined, not referenced.
-LOGO_DATA_URI: str | None = None
-
 SCOPE_WARNING = (
     "Per-rank energy scopes differ by vendor — an Aurora tile is half a card, "
     "a Polaris reading covers the whole board including HBM. Compare machines "
@@ -169,12 +187,12 @@ LEGEND = [
 ]
 
 
-def identity() -> str:
+def identity(logo_uri: str | None) -> str:
     """Byline block for the top corner: logo, name, repo link."""
     logo = (
-        f'<img class="logo" src="{LOGO_DATA_URI}" '
+        f'<img class="logo" src="{logo_uri}" '
         f'alt="Argonne National Laboratory">'
-        if LOGO_DATA_URI
+        if logo_uri
         else ""
     )
     return f"""<aside class="ident">{logo}
@@ -242,7 +260,7 @@ def table(headers: list, rows: list, caption: str = "") -> str:
     )
 
 
-def build(runs: list) -> str:
+def build(runs: list, logo_uri: str | None = None) -> str:
     machine_stats = headline(runs)
     cards = ""
     for h in machine_stats:
@@ -422,7 +440,7 @@ every ALCF system and compared on throughput, time-to-accuracy and energy, down
 to the accelerators nobody was using. One harness, one result schema, one
 table.</p>
 </div>
-{identity()}
+{identity(logo_uri)}
 </header>
 
 <h2>Machines</h2>
@@ -496,7 +514,11 @@ def main() -> None:
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(build(runs), encoding="utf-8")
+    logo = logo_data_uri(out.parent)
+    out.write_text(build(runs, logo), encoding="utf-8")
+    # Said out loud because an inlined image is the one thing here that can bloat
+    # the page, and a silently-missing logo otherwise looks like a CSS bug.
+    print(f"logo: {'inlined, ' + str(len(logo) // 1024) + ' KB' if logo else 'none found'}")
     machines = sorted({r.get("machine") for r in runs if r.get("machine")})
     print(f"wrote {out} — {len(runs)} run(s), machines: {', '.join(machines)}")
 
