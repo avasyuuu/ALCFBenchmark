@@ -112,8 +112,12 @@ def main() -> None:
         filled += 1
         if args.apply:
             blob["work"] = work
+            # newline="\n" so a run on Windows does not rewrite every result
+            # with CRLF for .gitattributes to normalise straight back.
             path.write_text(
-                json.dumps(blob, indent=2, sort_keys=False), encoding="utf-8"
+                json.dumps(blob, indent=2, sort_keys=False),
+                encoding="utf-8",
+                newline="\n",
             )
 
     print()

@@ -87,7 +87,11 @@ def main():
         for src, dst in sidecars:
             side = json.loads(src.read_text(encoding="utf-8"))
             side["machine"] = args.new
-            dst.write_text(json.dumps(side, separators=(",", ":")), encoding="utf-8")
+            dst.write_text(
+                json.dumps(side, separators=(",", ":")),
+                encoding="utf-8",
+                newline="\n",
+            )
             if dst != src:
                 src.unlink()
 
@@ -97,7 +101,13 @@ def main():
                 rename_to(results_dir / "power" / n, args.old, args.new).name
                 for n in blob["power"]["timeline_files"]
             ]
-        new_path.write_text(json.dumps(blob, indent=2, sort_keys=False), encoding="utf-8")
+        # newline="\n" so a rewrite on Windows does not flip every result to
+        # CRLF for .gitattributes to normalise straight back.
+        new_path.write_text(
+            json.dumps(blob, indent=2, sort_keys=False),
+            encoding="utf-8",
+            newline="\n",
+        )
         if new_path != path:
             path.unlink()
 
