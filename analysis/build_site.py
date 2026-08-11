@@ -82,6 +82,35 @@ SCOPE_WARNING = (
 )
 
 
+# Slug -> display name. The results carry "resnet20_cifar10"; a reader wants
+# "ResNet-20 on CIFAR-10". Anything unrecognised falls back to its own slug
+# rather than to a guessed prettification.
+WORKLOAD_NAMES = {"resnet20_cifar10": "<strong>ResNet-20</strong> on <strong>CIFAR-10</strong>"}
+
+
+def workload_strip(runs: list) -> str:
+    """Name the experiment, once, above everything it applies to.
+
+    What is being trained is the first question a reader has and the page only
+    answered it in passing, halfway through a sentence of prose. It is stated
+    here instead -- and only while every run agrees on it, so the line can
+    never claim a uniformity the results have stopped having.
+    """
+    workloads = {r.get("workload") for r in runs if r.get("workload")}
+    batches = {r.get("global_batch") for r in runs if r.get("global_batch")}
+    targets = {r.get("target_top1") for r in runs if r.get("target_top1")}
+    if len(workloads) != 1 or len(batches) != 1:
+        return ""
+
+    slug = workloads.pop()
+    name = WORKLOAD_NAMES.get(slug, html.escape(slug))
+    bits = [name, f"global batch {batches.pop():,}"]
+    if len(targets) == 1:
+        bits.append(f"target top-1 {targets.pop():.2f}")
+    bits.append("identical on every machine")
+    return '<p class="workload">' + " · ".join(bits) + "</p>"
+
+
 def equal_work_note(runs: list) -> str:
     """State the machines that did byte-for-byte identical work, if any.
 
@@ -512,7 +541,12 @@ h1 {{ font-size:1.9rem; margin:0 0 .4rem; letter-spacing:-.02em; }}
 h2 {{ font-size:1.15rem; margin:2.75rem 0 .75rem; letter-spacing:-.01em; }}
 h2::before {{ content:""; display:inline-block; width:3px; height:.95em;
   background:var(--accent); margin-right:.55rem; vertical-align:-.08em; }}
-.lede {{ color:var(--dim); margin:0 0 2rem; max-width:60ch; }}
+.lede {{ color:var(--dim); margin:0 0 .55rem; max-width:60ch; }}
+/* Names the experiment above everything it applies to. Sits between the lede
+   and the cards, so "what is being trained" is answered before any number. */
+.workload {{ margin:0 0 1.9rem; font-size:.83rem; color:var(--dim);
+  border-left:2px solid var(--accent); padding:.1rem 0 .1rem .7rem; }}
+.workload strong {{ color:var(--fg); font-weight:650; }}
 /* Byline sits opposite the title and wraps under it on a phone, where a
    right-aligned column beside a headline would leave both too narrow. */
 .head {{ display:flex; gap:2rem; align-items:flex-start;
@@ -630,10 +664,10 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
 <header class="head">
 <div>
 <h1>Power and Performance Across ALCF Machines</h1>
-<p class="lede">A portable benchmark — ResNet-20 on CIFAR-10 — run identically on
-every ALCF system and compared on throughput, time-to-accuracy and energy, down
-to the accelerators nobody was using. One harness, one result schema, one
-table.</p>
+<p class="lede">One portable benchmark, run identically on every ALCF system and
+compared on throughput, time-to-accuracy and energy — down to the accelerators
+nobody was using. One harness, one result schema, one table.</p>
+{workload_strip(runs)}
 </div>
 {identity(logo_uri)}
 </header>

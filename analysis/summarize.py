@@ -195,6 +195,7 @@ def flatten(blob: dict) -> dict:
         # one above: every rank waits on the slowest at each all-reduce, so a
         # rare terrible step is worth seeing, not averaging away.
         "tail_ratio": (slowest / median) if median and slowest else None,
+        "target_top1": acc.get("target"),
         "best_top1": acc.get("best_top1"),
         "tta_s": acc.get("time_to_target_s"),
         "mfu_pct": (flops.get("mfu") * 100) if flops.get("mfu") else None,
