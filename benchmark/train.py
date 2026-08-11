@@ -268,6 +268,39 @@ def evaluate(model, loader, platform, dtype, distributed: bool) -> float:
     return (correct / total).item()
 
 
+def ensure_short_tmpdir(log) -> None:
+    """Move TMPDIR somewhere short if it is long enough to break DataLoader.
+
+    Workers talk to the parent over an AF_UNIX socket created under TMPDIR, and
+    the kernel caps that path at 108 bytes. PBS sets TMPDIR to
+    /var/spool/pbs/tmpdir/<jobid>.<long.fully.qualified.host>/, which spends
+    most of the budget before multiprocessing appends its own
+    pymp-XXXXXXXX/listener-XXXXXXXX.
+
+    Every submit script exports TMPDIR=/tmp for this reason, but a run launched
+    by hand inside an interactive job inherits the long one. The symptom is not
+    an error: every worker dies at startup and the parent then waits on an empty
+    queue until walltime, which reads as a hang.
+
+    Fixed rather than only warned about, because the failure costs an entire
+    allocation and the fix is what the scripts already do -- but it says so, so
+    a changed TMPDIR is never a silent surprise.
+    """
+    current = os.environ.get("TMPDIR", "/tmp")
+    # 108-byte cap, less roughly 50 for multiprocessing's own suffix.
+    if len(current) <= 58:
+        return
+    fallback = "/tmp"
+    if not os.path.isdir(fallback) or not os.access(fallback, os.W_OK):
+        log(f"WARNING: TMPDIR is {len(current)} chars and {fallback} is not "
+            "writable. DataLoader workers may fail with 'AF_UNIX path too "
+            "long'; pass --workers 0 if they do.")
+        return
+    os.environ["TMPDIR"] = fallback
+    log(f"TMPDIR was {len(current)} chars ({current}) -- too long for the "
+        f"DataLoader worker socket, using {fallback} instead.")
+
+
 def main():
     args = parse_args()
     workload = args.workload or f"{args.model}_cifar10"
@@ -292,6 +325,8 @@ def main():
     log(f"scaling={args.scaling} global_batch={global_batch} local_batch={local_batch} precision={args.precision}")
 
     # --- data -------------------------------------------------------------
+    # Before any worker is spawned: the socket path is fixed at that point.
+    ensure_short_tmpdir(log)
     data_setup = Stopwatch()
     with data_setup:
         train_loader, val_loader, train_sampler = data_mod.build_loaders(

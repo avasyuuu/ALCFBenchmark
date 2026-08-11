@@ -140,7 +140,10 @@ mpiexec -n "${NTOTRANKS}" --ppn "${RANKS_PER_NODE}" --depth="${OMP_NUM_THREADS}"
 #
 #   qsub -q debug -l select=1:system=crux -l walltime=00:20:00 \
 #        -l filesystems=home:eagle -A datascience_collab -I
-#   # then, on the node:
+#   # then, on the node -- TMPDIR first, PBS sets a path long enough to break
+#   # the DataLoader worker socket. train.py now corrects this itself and says
+#   # so, but setting it is still the honest way to run what the script runs:
+#   export TMPDIR=/tmp
 #   mpiexec -n 8 --ppn 8 --depth=16 --cpu-bind depth python -m benchmark.train \
 #       --platform crux --precision fp32 --max-steps 30 --epochs 1 \
 #       --power-interval 0 --results-dir ./results/smoke --note "crux smoke"
