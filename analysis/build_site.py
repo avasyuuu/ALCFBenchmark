@@ -235,7 +235,7 @@ def build(runs: list) -> str:
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ALCF Machine Benchmark</title>
+<title>Power and Performance Across ALCF Machines</title>
 <style>
 :root {{
   --bg:#fbfbfa; --fg:#1a1a18; --dim:#6b6b66; --line:#e2e2dd;
@@ -312,10 +312,11 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
   border-radius:3px; }}
 </style></head><body><div class="wrap">
 
-<h1>ALCF Machine Benchmark</h1>
-<p class="lede">ResNet-20 on CIFAR-10, run identically across ALCF systems and
-compared on throughput, time-to-accuracy and energy. One portable harness, one
-result schema, one table.</p>
+<h1>Power and Performance Across ALCF Machines</h1>
+<p class="lede">A portable benchmark — ResNet-20 on CIFAR-10 — run identically on
+every ALCF system and compared on throughput, time-to-accuracy and energy, down
+to the accelerators nobody was using. One harness, one result schema, one
+table.</p>
 
 <h2>Machines</h2>
 <div class="cards">{cards}</div>
