@@ -55,11 +55,25 @@ conda activate base
 set -u
 
 NNODES=$(sort -u "${PBS_NODEFILE}" | wc -l)
-RANKS_PER_NODE=8                       # one rank per A100; a DGX node has eight
+
+# One rank per A100 -- eight on a whole DGX node, but asked of torch rather than
+# hardcoded. A `by-gpu` allocation hands back fewer GPUs and sets
+# CUDA_VISIBLE_DEVICES accordingly, and a fixed 8 would then bind every rank to
+# cuda:0 through the `local_rank % device_count` rule: eight processes fighting
+# over one A100, producing a number that looks like a result and is not.
+# Overridable for the same reason it is detected.
+RANKS_PER_NODE="${RANKS_PER_NODE:-$(python -c 'import torch; print(torch.cuda.device_count() or 8)' 2>/dev/null || echo 8)}"
 NTOTRANKS=$(( NNODES * RANKS_PER_NODE ))
 
-# Two 64-core EPYC 7742 per DGX node, 128 cores over 8 ranks.
-export OMP_NUM_THREADS=16
+# Two 64-core EPYC 7742 per DGX node: 128 cores split over the ranks, capped so
+# a single-rank run does not ask for 128 OpenMP threads.
+OMP_NUM_THREADS=$(( 128 / RANKS_PER_NODE ))
+# An `if` rather than `(( ... )) && ...`, which returns non-zero when the test
+# is false and would abort the script under `set -e`.
+if (( OMP_NUM_THREADS > 16 )); then
+    OMP_NUM_THREADS=16
+fi
+export OMP_NUM_THREADS
 
 # Same AF_UNIX ceiling as Aurora and Polaris: PBS builds a long TMPDIR,
 # DataLoader workers open a multiprocessing socket under it, and the path can
