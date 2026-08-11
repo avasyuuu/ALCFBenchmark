@@ -26,8 +26,7 @@ from pathlib import Path
 
 # `legend` here is the column glossary further down; the chart key is
 # imported under its own name so the two never shadow each other.
-from charts import (accuracy_chart, canonical_runs, idle_power_run, power_chart,
-                    series_legend, tail_chart)
+from charts import accuracy_chart, canonical_runs, series_legend, tail_chart
 from summarize import load_runs
 
 AUTHOR = "Avasyu Chukkapalli"
@@ -308,7 +307,7 @@ def table(headers: list, rows: list, caption: str = "") -> str:
 
 
 def build(runs: list, logo_uri: str | None = None, specs: dict | None = None,
-          curves: dict | None = None, idle_run: dict | None = None) -> str:
+          curves: dict | None = None) -> str:
     machine_stats = headline(runs)
     curves = curves or {}
     tta_svg = accuracy_chart(curves)
@@ -321,19 +320,6 @@ def build(runs: list, logo_uri: str | None = None, specs: dict | None = None,
           'whole comparison. The x-axis is logarithmic: read the gaps as '
           'multiples, not lengths.</p>'
         if tta_svg else ""
-    )
-    power_svg = power_chart(idle_run)
-    ranks = ((idle_run or {}).get("config") or {}).get("world_size")
-    devices = ((idle_run or {}).get("power") or {}).get("devices_total")
-    power_section = (
-        "<h2>What an idle accelerator costs</h2>" + power_svg
-        + '<p class="fineprint">Mean watts per accelerator during a single '
-          f'{ranks}-rank run on a {devices}-device node. The device doing all '
-          'of the work draws barely more than the ones doing none — at this '
-          "workload's 0.5% of peak, almost all of the node's energy is floor "
-          'rather than computation. That is why the node table exists: a '
-          'per-rank figure cannot see the eleven devices nobody asked for.</p>'
-        if power_svg else ""
     )
     tail_svg = tail_chart(curves)
     tail_section = (
@@ -555,10 +541,6 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
    passes under it -- and so the hit target beats the 8px mark. */
 .dot {{ fill:var(--c); stroke:var(--bg); stroke-width:2; }}
 .bar {{ fill:var(--c); }}
-/* Context marks in emphasis charts: the muted text token at reduced
-   weight, so eleven bars recede and one reads as the subject. */
-.bar-mute {{ fill:var(--dim); opacity:.32; }}
-.sw-mute {{ background:var(--dim); opacity:.32; }}
 /* Text never wears the series colour; identity comes from the mark beside it. */
 .tick, .axis-title, .val {{ fill:var(--dim); font-size:11px;
   font-variant-numeric:tabular-nums; }}
@@ -599,8 +581,6 @@ table.</p>
 
 {tail_section}
 
-{power_section}
-
 <h2>Energy — per rank</h2>
 {table(
     ["When","Machine","Ranks","Avg W","Joules","Samples","Samples/J","J to acc","Scope"],
@@ -622,14 +602,6 @@ table.</p>
 per-rank column cannot see that, which is the reason both tables exist.</div>
 
 {takeaway(machine_stats)}
-
-<h2>Reading these numbers</h2>
-<div class="note">Runs marked <span class="tag">early</span> stopped before
-their epoch budget, so their raw joules cover less training. Compare those on
-Samples/J or joules-to-accuracy, never on the Joules column.</div>
-<div class="note">Energy scope is vendor-specific and is printed with every row.
-An accelerator-only figure excludes CPU, memory, NICs and cooling, so a node
-draws well more than the sum of its accelerators.</div>
 
 <h2>Legend</h2>
 {legend()}
@@ -667,8 +639,7 @@ def main() -> None:
     specs_path = Path(args.machines)
     specs = json.loads(specs_path.read_text(encoding="utf-8")) if specs_path.exists() else {}
     curves = canonical_runs(args.results_dir)
-    idle_run = idle_power_run(args.results_dir)
-    out.write_text(build(runs, logo, specs, curves, idle_run), encoding="utf-8")
+    out.write_text(build(runs, logo, specs, curves), encoding="utf-8")
     # Said out loud because an inlined image is the one thing here that can bloat
     # the page, and a silently-missing logo otherwise looks like a CSS bug.
     print(f"logo: {'inlined, ' + str(len(logo) // 1024) + ' KB' if logo else 'none found'}")
