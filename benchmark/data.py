@@ -36,7 +36,20 @@ class SyntheticDataset(Dataset):
 
 
 def _cifar_datasets(data_dir: str, download: bool):
-    from torchvision import datasets, transforms
+    # torchvision is a separate wheel from torch, and a hand-built venv -- which
+    # is the only option on Crux -- gets one without the other unless you ask.
+    # The bare ModuleNotFoundError names the module but not the fix, and it
+    # surfaces once per rank, so eight tracebacks scroll the useful line away.
+    try:
+        from torchvision import datasets, transforms
+    except ModuleNotFoundError as exc:
+        raise SystemExit(
+            "torchvision is required for CIFAR-10 and is not installed.\n"
+            "  crux (CPU):  pip install torchvision --index-url "
+            "https://download.pytorch.org/whl/cpu\n"
+            "  elsewhere:   pip install torchvision\n"
+            "Or run with --synthetic-data, which needs no dataset at all."
+        ) from exc
 
     train_tf = transforms.Compose(
         [

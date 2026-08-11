@@ -66,7 +66,19 @@ fi
 #   module use /soft/modulefiles && module load conda && conda activate base
 #   python -m venv --system-site-packages ~/venvs/crux-bench
 #   . ~/venvs/crux-bench/bin/activate
-#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#
+# torchvision is not optional and is not pulled in by torch: benchmark/data.py
+# needs it for CIFAR-10, and it fails at the first batch rather than at import,
+# which on eight ranks is eight tracebacks deep into a job you have queued for.
+# Build the venv on a LOGIN node -- it persists, and the wheels take longer to
+# download than a short interactive session is worth spending on.
+#
+# Compute nodes have no direct outbound network, so pip and the dataset
+# download both need the proxy:
+#   export HTTP_PROXY=http://proxy.alcf.anl.gov:3128 \
+#          HTTPS_PROXY=http://proxy.alcf.anl.gov:3128 \
+#          http_proxy=$HTTP_PROXY https_proxy=$HTTPS_PROXY
 #
 VENV="${BENCH_VENV:-${HOME}/venvs/crux-bench}"
 if [[ ! -f "${VENV}/bin/activate" ]]; then
