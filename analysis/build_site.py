@@ -24,6 +24,9 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+# `legend` here is the column glossary further down; the chart key is
+# imported under its own name so the two never shadow each other.
+from charts import accuracy_chart, canonical_runs, series_legend, tail_chart
 from summarize import load_runs
 
 AUTHOR = "Avasyu Chukkapalli"
@@ -303,8 +306,30 @@ def table(headers: list, rows: list, caption: str = "") -> str:
     )
 
 
-def build(runs: list, logo_uri: str | None = None, specs: dict | None = None) -> str:
+def build(runs: list, logo_uri: str | None = None, specs: dict | None = None,
+          curves: dict | None = None) -> str:
     machine_stats = headline(runs)
+    curves = curves or {}
+    tta_svg = accuracy_chart(curves)
+    tta_section = (
+        "<h2>Time to accuracy</h2>" + tta_svg + series_legend(curves)
+        + '<p class="fineprint">Validation top-1 against wall-clock, for the '
+          'full 100-epoch run on each machine. Every machine crosses 0.90 '
+          'within three epochs of the others — same global batch, same '
+          'schedule — so the horizontal distance between the curves is the '
+          'whole comparison. The x-axis is logarithmic: read the gaps as '
+          'multiples, not lengths.</p>'
+        if tta_svg else ""
+    )
+    tail_svg = tail_chart(curves)
+    tail_section = (
+        "<h2>Step-time tail</h2>" + tail_svg
+        + '<p class="fineprint">Slowest training step as a multiple of the '
+          'median, from the same runs. Every rank waits on the slowest at each '
+          'all-reduce, so the tail is what a rare bad step actually costs. The '
+          'CPU machine is the steadiest thing on this page.</p>'
+        if tail_svg else ""
+    )
     measured = {r.get("machine") for r in runs if r.get("machine")}
     spec_table = (
         table(
@@ -487,6 +512,44 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
 .legend dl {{ margin:0; }}
 .legend dt {{ color:var(--fg); opacity:.7; font-weight:600; }}
 .legend dd {{ margin:0 0 .35rem; }}
+
+/* Categorical series slots. Assigned to machines by entity in charts.py, so a
+   colour never moves when a machine is added. Both modes are selected steps of
+   the same hues, validated against this page's own surfaces rather than
+   flipped automatically. */
+:root {{ --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a;
+  --series-4:#eda100; }}
+@media (prefers-color-scheme: dark) {{
+  :root {{ --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
+    --series-4:#c98500; }}
+}}
+:root[data-theme="dark"] {{ --series-1:#3987e5; --series-2:#d95926;
+  --series-3:#199e70; --series-4:#c98500; }}
+:root[data-theme="light"] {{ --series-1:#2a78d6; --series-2:#eb6834;
+  --series-3:#1baf7a; --series-4:#eda100; }}
+.s1 {{ --c:var(--series-1); }} .s2 {{ --c:var(--series-2); }}
+.s3 {{ --c:var(--series-3); }} .s4 {{ --c:var(--series-4); }}
+.chart {{ display:block; width:100%; height:auto; overflow:visible; }}
+/* Grid and axes: hairline, solid, one step off the surface. Never dashed --
+   dashing reads as "projection" when it is only a grid. */
+.grid {{ stroke:var(--line); stroke-width:1; }}
+.axis {{ stroke:var(--line); stroke-width:1; }}
+.target {{ stroke:var(--dim); stroke-width:1; opacity:.7; }}
+.ln {{ fill:none; stroke:var(--c); stroke-width:2;
+  stroke-linejoin:round; stroke-linecap:round; }}
+/* 2px ring in the surface colour, so a marker stays legible where a line
+   passes under it -- and so the hit target beats the 8px mark. */
+.dot {{ fill:var(--c); stroke:var(--bg); stroke-width:2; }}
+.bar {{ fill:var(--c); }}
+/* Text never wears the series colour; identity comes from the mark beside it. */
+.tick, .axis-title, .val {{ fill:var(--dim); font-size:11px;
+  font-variant-numeric:tabular-nums; }}
+.val {{ fill:var(--fg); opacity:.75; font-weight:600; }}
+.legend-row {{ display:flex; flex-wrap:wrap; gap:.35rem 1.4rem;
+  margin:.7rem 0 .2rem; font-size:.78rem; color:var(--dim); }}
+.key {{ display:inline-flex; align-items:center; gap:.45rem; }}
+.sw {{ width:14px; height:3px; border-radius:2px; background:var(--c);
+  flex:none; }}
 </style></head><body><div class="wrap">
 
 <header class="head">
@@ -504,6 +567,8 @@ table.</p>
 <div class="cards">{cards}</div>
 {spec_table}
 
+{tta_section}
+
 <h2>Runs</h2>
 {table(
     ["When","Machine","Nodes","Ranks","Prec","Global BS","Steps","Epochs",
@@ -513,6 +578,8 @@ table.</p>
     "not as an efficiency claim — this workload runs at 0.5–1.4% of peak, so it "
     "largely measures kernel-launch overhead rather than the accelerator.",
 )}
+
+{tail_section}
 
 <h2>Energy — per rank</h2>
 {table(
@@ -579,7 +646,8 @@ def main() -> None:
     # specs table, rather than failing on a file that carries no measurements.
     specs_path = Path(args.machines)
     specs = json.loads(specs_path.read_text(encoding="utf-8")) if specs_path.exists() else {}
-    out.write_text(build(runs, logo, specs), encoding="utf-8")
+    curves = canonical_runs(args.results_dir)
+    out.write_text(build(runs, logo, specs, curves), encoding="utf-8")
     # Said out loud because an inlined image is the one thing here that can bloat
     # the page, and a silently-missing logo otherwise looks like a CSS bug.
     print(f"logo: {'inlined, ' + str(len(logo) // 1024) + ' KB' if logo else 'none found'}")
