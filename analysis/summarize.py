@@ -112,6 +112,27 @@ def load_runs(results_dir: str):
     return runs
 
 
+def idle_joules(power: dict):
+    """Idle energy, filling in the zero that older results left null.
+
+    power.py used to write `idle or None`, so every run that used all of its
+    node's accelerators recorded null here rather than 0.0 -- and then printed a
+    dash beside an Idle % of 0.0. It is fixed at the source, but the results
+    already on disk keep the null, and they are measurements: re-running them to
+    correct a display bug is not on.
+
+    Zero idle devices means zero idle joules by definition, so this is a
+    derivation rather than a guess. Anything else stays null -- a run with idle
+    devices and no idle figure really is missing one.
+    """
+    joules = power.get("joules_idle")
+    if joules is not None:
+        return joules
+    if power.get("devices_idle") == 0 and power.get("joules_total"):
+        return 0.0
+    return None
+
+
 def flatten(blob: dict) -> dict:
     cfg = blob.get("config", {})
     thr = blob.get("throughput", {})
@@ -195,7 +216,7 @@ def flatten(blob: dict) -> dict:
         "power_devices_idle": power.get("devices_idle"),
         "power_joules_total": power.get("joules_total"),
         "power_joules_bound": power.get("joules_bound"),
-        "power_joules_idle": power.get("joules_idle"),
+        "power_joules_idle": idle_joules(power),
         "power_idle_pct": (
             power.get("idle_fraction") * 100
             if power.get("idle_fraction") is not None
@@ -303,6 +324,11 @@ def fmt(value) -> str:
     if value is None:
         return "—"
     if isinstance(value, float):
+        # An exact zero is exact at every precision, and "0.000" in a joules
+        # column beside "810,841" reads as a rounded-down small number rather
+        # than as nothing.
+        if value == 0:
+            return "0"
         if value >= 1000:
             return f"{value:,.0f}"
         if value >= 10:

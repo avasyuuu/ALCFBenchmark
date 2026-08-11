@@ -215,14 +215,21 @@ class PowerTimeline:
         used = sum(r["joules"] for r in per_device if r["bound"])
         idle = sum(r["joules"] for r in per_device if r["bound"] is False)
         total = used + idle
+        # "Nothing was readable" and "measured, and it came to zero" are
+        # different answers and must not share a null. `idle or None` gave both
+        # the same one, so a fully subscribed node printed a dash under Idle J
+        # beside an Idle % of 0.0 -- one fact rendered two ways, reading as if
+        # the columns disagreed. Zero idle joules on a node where every device
+        # had a rank is a measurement, and the honest report of it is 0.
+        measured = bool(per_device)
         return {
             "devices": rows,
             "device_count": len(per_device),
             "devices_bound": sum(1 for r in per_device if r["bound"]),
             "devices_idle": sum(1 for r in per_device if r["bound"] is False),
-            "joules_total": total or None,
-            "joules_bound": used or None,
-            "joules_idle": idle or None,
+            "joules_total": total if measured else None,
+            "joules_bound": used if measured else None,
+            "joules_idle": idle if measured else None,
             # The headline: share of the node's accelerator energy spent on
             # devices this job never used.
             "idle_fraction": (idle / total) if total else None,
