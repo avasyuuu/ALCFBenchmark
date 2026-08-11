@@ -2,7 +2,7 @@
 #PBS -A datascience_collab
 #PBS -N alcf_bench_resnet
 #PBS -l select=1:system=crux
-#PBS -l walltime=06:00:00
+#PBS -l walltime=03:00:00
 #PBS -l filesystems=home:eagle
 #PBS -l place=scatter
 #PBS -q workq-route
@@ -37,15 +37,19 @@
 #                      sampling nothing at 10 Hz only adds overhead. Crux will
 #                      be absent from both energy tables rather than sitting in
 #                      them full of zeros.
-#   walltime 06:00:00  a CPU epoch is far slower than a GPU one, and a run
-#                      killed at walltime writes no result at all -- the JSON is
-#                      written after the last epoch. Better to over-book here
-#                      than to lose the whole run. Use the debug queue with
-#                      --max-steps for a quick check; see the smoke test at the
-#                      bottom of this file.
+#   walltime 03:00:00  measured, not guessed. A 1-node 8-rank smoke test on
+#                      2026-08-11 gave a 1.429 s median step; 100 epochs is
+#                      3,200 steps at global batch 1536, so ~76 min of stepping
+#                      and ~83 min with the per-epoch eval and the dataloader
+#                      respawn at each epoch boundary. Booked at roughly 2x
+#                      that, because a run killed at walltime writes no result
+#                      at all -- the JSON lands after the last epoch, so the
+#                      whole allocation is lost rather than the tail of it.
 #
-# Queue: workq-route is the routing queue (1-184 nodes, up to 24 h). debug caps
-# at 2 h, which the full 100-epoch config will not fit into.
+# Queue: workq-route (1-184 nodes, up to 24 h). debug caps at 2 h, which the
+# ~83-minute run does fit -- with only ~30% headroom. Worth taking when the
+# queue is busy and you would rather gamble than wait, but the default here is
+# the one that cannot lose a finished run to a walltime kill.
 
 set -euo pipefail
 
