@@ -27,6 +27,17 @@ h2 { font-size:1.15rem; margin:2.75rem 0 .75rem; letter-spacing:-.01em; }
 h2::before { content:""; display:inline-block; width:3px; height:.95em;
   background:var(--accent); margin-right:.55rem; vertical-align:-.08em; }
 .lede { color:var(--dim); margin:0 0 2rem; max-width:60ch; }
+/* Byline sits opposite the title and wraps under it on a phone, where a
+   right-aligned column beside a headline would leave both too narrow. */
+.head { display:flex; gap:2rem; align-items:flex-start;
+  justify-content:space-between; flex-wrap:wrap; }
+.ident { margin-left:auto; text-align:right; flex-shrink:0; padding-top:.4rem;
+  font-size:.72rem; line-height:1.55; color:var(--dim); }
+.ident .logo { height:26px; width:auto; display:block; margin:0 0 .45rem auto; }
+.ident .who { color:var(--fg); opacity:.8; font-weight:600; }
+.ident a { color:var(--dim); text-decoration:none;
+  border-bottom:1px solid var(--line); }
+.ident a:hover { color:var(--accent); border-bottom-color:var(--accent); }
 .cards { display:grid; gap:.9rem;
   grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); }
 .card { background:var(--card); border:1px solid var(--line);
@@ -90,11 +101,19 @@ code { font-size:.85em; background:var(--tag); padding:.1rem .3rem;
 .legend dd { margin:0 0 .35rem; }
 </style></head><body><div class="wrap">
 
+<header class="head">
+<div>
 <h1>Power and Performance Across ALCF Machines</h1>
 <p class="lede">A portable benchmark — ResNet-20 on CIFAR-10 — run identically on
 every ALCF system and compared on throughput, time-to-accuracy and energy, down
 to the accelerators nobody was using. One harness, one result schema, one
 table.</p>
+</div>
+<aside class="ident">
+<div class="who">Avasyu Chukkapalli</div>
+<a href="https://github.com/avasyuuu/ALCFBenchmark">github.com/avasyuuu/ALCFBenchmark</a>
+</aside>
+</header>
 
 <h2>Machines</h2>
 <div class="cards">
@@ -146,7 +165,7 @@ draws well more than the sum of its accelerators.</div>
 <div class="legend"><section><h3>Shared by every table</h3><dl><dt>When</dt><dd>when the run started, UTC — hover for the exact timestamp</dd><dt>Machine</dt><dd>the ALCF system the run executed on</dd><dt>Nodes</dt><dd>compute nodes in the job</dd><dt>Ranks</dt><dd>worker processes, one bound to each accelerator</dd></dl></section><section><h3>Runs</h3><dl><dt>Prec</dt><dd>numeric precision the model trained in</dd><dt>Global BS</dt><dd>samples per optimizer step, summed across all ranks</dd><dt>Steps</dt><dd>optimizer steps completed</dd><dt>Epochs</dt><dd>completed of requested — fewer means the run stopped early</dd><dt>Samples/s</dt><dd>global batch ÷ median step time, aggregate over all ranks</dd><dt>Step ms</dt><dd>median time for one training step, warmup excluded</dd><dt>Best top-1</dt><dd>highest validation accuracy reached, 0–1</dd><dt>TTA s</dt><dd>seconds of training to first cross the accuracy target; blank means it never did</dd><dt>MFU %</dt><dd>achieved FLOP/s as a share of the vendor&#x27;s dense peak</dd></dl></section><section><h3>Energy — per rank</h3><dl><dt>Avg W</dt><dd>this rank&#x27;s device energy ÷ the seconds it was measured over</dd><dt>Joules</dt><dd>energy drawn by this rank&#x27;s own accelerator</dd><dt>Samples</dt><dd>samples this rank processed — the numerator of Samples/J</dd><dt>Samples/J</dt><dd>samples per joule, one rank on one device</dd><dt>J to acc</dt><dd>energy spent getting to the accuracy target</dd><dt>Scope</dt><dd>what the counter physically covered — vendor-specific, which is why these rows do not compare across machines</dd></dl></section><section><h3>Energy — per node</h3><dl><dt>Devices</dt><dd>accelerators on the node, used or not</dd><dt>Idle</dt><dd>accelerators no rank bound to</dd><dt>Node J</dt><dd>energy across every accelerator on the node</dd><dt>Idle J</dt><dd>the share of Node J spent on accelerators nobody used</dd><dt>Idle %</dt><dd>Idle J as a percentage of Node J</dd><dt>Samples/J</dt><dd>whole-job samples ÷ whole-node joules — the one energy ratio that compares across machines</dd></dl></section></div>
 
 <footer>
-Generated 2026-08-11 17:23 UTC from 15 run(s) · machines: aurora, polaris<br>
+Generated 2026-08-11 17:26 UTC from 15 run(s) · machines: aurora, polaris<br>
 Rebuild with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the page
 is never edited by hand.

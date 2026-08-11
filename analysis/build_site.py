@@ -29,6 +29,15 @@ from summarize import load_runs
 # half a card; a Polaris reading covers the whole board including HBM. Ratios
 # built from them are not comparable, which is why the per-rank Samples/J is
 # kept out of the headline and the node table carries the comparison instead.
+AUTHOR = "Avasyu Chukkapalli"
+REPO_URL = "https://github.com/avasyuuu/ALCFBenchmark"
+
+# Set to a data: URI to show a logo beside the byline. A path or an http URL
+# would break the promise in this module's docstring -- the page is one file
+# that renders offline and inside restricted networks -- so the image has to be
+# inlined, not referenced.
+LOGO_DATA_URI: str | None = None
+
 SCOPE_WARNING = (
     "Per-rank energy scopes differ by vendor — an Aurora tile is half a card, "
     "a Polaris reading covers the whole board including HBM. Compare machines "
@@ -158,6 +167,20 @@ LEGEND = [
                       "ratio that compares across machines"),
     ]),
 ]
+
+
+def identity() -> str:
+    """Byline block for the top corner: logo, name, repo link."""
+    logo = (
+        f'<img class="logo" src="{LOGO_DATA_URI}" '
+        f'alt="Argonne National Laboratory">'
+        if LOGO_DATA_URI
+        else ""
+    )
+    return f"""<aside class="ident">{logo}
+<div class="who">{html.escape(AUTHOR)}</div>
+<a href="{html.escape(REPO_URL)}">{html.escape(REPO_URL.split("//")[-1])}</a>
+</aside>"""
 
 
 def legend() -> str:
@@ -317,6 +340,17 @@ h2 {{ font-size:1.15rem; margin:2.75rem 0 .75rem; letter-spacing:-.01em; }}
 h2::before {{ content:""; display:inline-block; width:3px; height:.95em;
   background:var(--accent); margin-right:.55rem; vertical-align:-.08em; }}
 .lede {{ color:var(--dim); margin:0 0 2rem; max-width:60ch; }}
+/* Byline sits opposite the title and wraps under it on a phone, where a
+   right-aligned column beside a headline would leave both too narrow. */
+.head {{ display:flex; gap:2rem; align-items:flex-start;
+  justify-content:space-between; flex-wrap:wrap; }}
+.ident {{ margin-left:auto; text-align:right; flex-shrink:0; padding-top:.4rem;
+  font-size:.72rem; line-height:1.55; color:var(--dim); }}
+.ident .logo {{ height:26px; width:auto; display:block; margin:0 0 .45rem auto; }}
+.ident .who {{ color:var(--fg); opacity:.8; font-weight:600; }}
+.ident a {{ color:var(--dim); text-decoration:none;
+  border-bottom:1px solid var(--line); }}
+.ident a:hover {{ color:var(--accent); border-bottom-color:var(--accent); }}
 .cards {{ display:grid; gap:.9rem;
   grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); }}
 .card {{ background:var(--card); border:1px solid var(--line);
@@ -380,11 +414,16 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
 .legend dd {{ margin:0 0 .35rem; }}
 </style></head><body><div class="wrap">
 
+<header class="head">
+<div>
 <h1>Power and Performance Across ALCF Machines</h1>
 <p class="lede">A portable benchmark — ResNet-20 on CIFAR-10 — run identically on
 every ALCF system and compared on throughput, time-to-accuracy and energy, down
 to the accelerators nobody was using. One harness, one result schema, one
 table.</p>
+</div>
+{identity()}
+</header>
 
 <h2>Machines</h2>
 <div class="cards">{cards}</div>
