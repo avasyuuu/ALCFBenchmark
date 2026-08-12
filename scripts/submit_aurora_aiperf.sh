@@ -2,7 +2,7 @@
 #PBS -A datascience_collab
 #PBS -N alcf_aiperf_power
 #PBS -l select=1
-#PBS -l walltime=02:00:00
+#PBS -l walltime=01:00:00
 #PBS -l filesystems=flare:home
 #PBS -l place=scatter
 #PBS -q debug
@@ -15,6 +15,11 @@
 #
 #   qsub scripts/submit_aurora_aiperf.sh
 #   MODEL=meta-llama/Llama-3.3-70B-Instruct TP=8 qsub -v MODEL,TP scripts/submit_aurora_aiperf.sh
+#
+# Queue: `debug`, which is where a 1-node Aurora job belongs -- it caps at
+# nodect 2 and walltime 01:00:00, and the sweep below is sized to fit that hour.
+# It also allows one running job per user, so an interactive allocation you are
+# still sitting in will block this one rather than run beside it.
 #
 # NOT YET RUN ON HARDWARE. Written against ALCF's Aurora vLLM page
 # (docs.alcf.anl.gov/aurora/data-science/inference/vllm/, vLLM 0.15.0 in the
@@ -74,7 +79,19 @@ CONCURRENCIES="${CONCURRENCIES:-1 2 4 8 16 32}"
 # Fixed across every concurrency level ON PURPOSE. Scaling requests with
 # concurrency makes each row a different amount of work, and then absolute
 # joules and durations cannot be compared between rows -- only ratios can.
-REQUESTS="${REQUESTS:-256}"
+#
+# 128 rather than the 256 submit_polaris_aiperf.sh uses, because a 1-node Aurora
+# job runs in `debug` and that queue caps at one hour. Sized from the first run's
+# measured 0.676 req/s at concurrency 4: 128 requests is ~23 min of profiling
+# across the six levels, ~7 min of AIPerf startup and warmup, ~3 min of vLLM load
+# and 30 s of idle floor -- about 34 minutes. 256 is ~57 min of profiling alone
+# and does not fit.
+#
+# The cost is that absolute joules here are not comparable to a Polaris sweep at
+# 256. Rates and ratios still are, and those are what the comparison rests on --
+# but if the two ever need to sit in one table, run both at the same count on a
+# queue that allows it.
+REQUESTS="${REQUESTS:-128}"
 
 # vLLM rejects a request longer than this, and AIPerf's ISL is a prompt length
 # it will actually send. Sized from the sweep rather than pinned, so raising ISL
