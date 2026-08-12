@@ -34,12 +34,22 @@
 #        source .venv-aiperf/bin/activate
 #        pip install vllm aiperf nvidia-ml-py
 #   3. pre-download the model while you still have easy outbound network.
-#      meta-llama is GATED: accept the licence on huggingface.co once, then use
-#      a token. ~16 GB, and compute nodes cannot fetch it themselves.
-#        export HF_HOME=/eagle/<project>/$USER/hf
-#        export HF_TOKEN=hf_...
+#      meta-llama is GATED: accept the licence on huggingface.co once, then
+#      `huggingface-cli login`. Compute nodes cannot fetch it themselves.
+#
+#        export HF_HUB_CACHE=$PWD/.hf-cache/hub
 #        python -c "from huggingface_hub import snapshot_download as d; \
-#                   d('meta-llama/Llama-3.1-8B-Instruct')"
+#          d('meta-llama/Llama-3.1-8B-Instruct', ignore_patterns=['original/*'])"
+#
+#      HF_HUB_CACHE, not HF_HOME. HF_HOME relocates the token too, so setting it
+#      before logging in sends an anonymous request and the gate returns 401 --
+#      which reads as "access not granted" when access is fine. This puts the
+#      weights where HF_HOME below will look for them ($HF_HOME/hub) and leaves
+#      the credential in ~/.cache/huggingface, outside this repo.
+#
+#      ignore_patterns skips original/consolidated.00.pth: 16 GB of Meta's own
+#      checkpoint format that vLLM never reads. Without it the download is twice
+#      the size for no benefit -- the safetensors shards are the whole model.
 #
 #      Aurora needs none of this -- ALCF stages the weights under
 #      /flare/datasets/model-weights and the run sets HF_HUB_OFFLINE=1. Polaris
