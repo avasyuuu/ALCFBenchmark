@@ -34,4 +34,11 @@ results/aiperf/*/aiperf-c*.log
 
 # The venv for the inference sweep (vLLM + aiperf), built per machine.
 .venv-aiperf/
+.venv-aiperf-aurora/
 .hf-cache/
+
+# vLLM's model-info cache on Aurora, and the ALCF workaround script that fills
+# it. Rebuildable with scripts/vllm_prepopulate_aurora.sh, and the script is
+# fetched from ALCF's frameworks-sdk rather than vendored so it stays theirs.
+.vllm_cache/
+vllm_build_all_modelinfo_caches.py

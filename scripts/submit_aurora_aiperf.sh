@@ -134,6 +134,21 @@ export VLLM_HOST_IP=$(getent hosts "$(hostname).hsn.cm.aurora.alcf.anl.gov" \
     | awk '{ print $1 }' | tr ' ' '\n' | sort | head -n 1)
 export no_proxy="localhost,127.0.0.1"
 
+# vLLM's model-info cache. Must match the root scripts/vllm_prepopulate_aurora.sh
+# filled, because the cache is keyed to it. Checked rather than assumed: without
+# it, `vllm serve` dies several minutes in with a pydantic ValidationError that
+# names neither the cache nor the segfault behind it, and the job has by then
+# spent its startup budget to learn nothing.
+export VLLM_CACHE_ROOT="${VLLM_CACHE_ROOT:-${PWD}/.vllm_cache}"
+if ! find "${VLLM_CACHE_ROOT}" -type f -print -quit 2>/dev/null | grep -q .; then
+    echo "error: vLLM model-info cache is empty at ${VLLM_CACHE_ROOT}" >&2
+    echo "       vllm serve will fail on Aurora without it -- model inspection" >&2
+    echo "       segfaults and surfaces as a ModelConfig validation error." >&2
+    echo "       Fill it once, on a compute node:" >&2
+    echo "         bash scripts/vllm_prepopulate_aurora.sh" >&2
+    exit 1
+fi
+
 # Tiles vLLM will occupy, for the sidecar's bound/idle split. vLLM takes the
 # first TP devices, so this is 0..TP-1. Everything else on the node is powered
 # and unused, and saying so explicitly is what makes the idle columns mean
