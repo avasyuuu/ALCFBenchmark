@@ -285,6 +285,79 @@ class PowerTimeline:
         return path
 
 
+def joules_from_series(series: dict, tail_s: float | None = None,
+                       bound_devices=frozenset()) -> dict | None:
+    """Re-integrate a written timeline, optionally over just its last tail_s.
+
+    Exists because the thing being measured and the thing being sampled do not
+    always start together. A training run owns its own loop and brackets exactly
+    the work; a sidecar around an external command brackets the command, and the
+    command may spend most of its life doing something it does not report. The
+    inference sweep is the case in point: AIPerf's token counts describe only its
+    profiling phase, so dividing them by the whole process's joules understates
+    tokens/joule by whatever fraction of the run was startup and warmup.
+
+    Positive deltas only, matching PowerTimeline._joules -- and sharing that rule
+    is the reason this lives here rather than in the analysis script. A counter
+    that resets mid-run would otherwise produce a large negative number in one
+    code path and not the other, and the two would disagree for a reason nobody
+    would think to look for.
+
+    tail_s is taken from the END of the series. The profiling phase is AIPerf's
+    last, so this brackets it plus whatever teardown followed -- an over-estimate
+    of the window rather than an under-estimate, and teardown is short next to a
+    profiling run. Returns None when the window holds fewer than two samples,
+    because one sample is not a measurement of anything.
+    """
+    times = series.get("t_s") or []
+    columns = series.get("joules") or []
+    sources = series.get("sources") or []
+    if len(times) < 2 or not columns:
+        return None
+
+    start = times[0] if tail_s is None else max(times[0], times[-1] - tail_s)
+    # The first index at or after the window start, minus one -- the delta into
+    # the window needs the sample before it. Without that, a 47 s window loses
+    # its first sampling interval of energy.
+    first = next((i for i, t in enumerate(times) if t >= start), 0)
+    first = max(0, first - 1)
+    if len(times) - first < 2:
+        return None
+
+    total = bound = idle = 0.0
+    counted = 0
+    for index, source in enumerate(sources):
+        if index >= len(columns):
+            break
+        column = columns[index]
+        joules = 0.0
+        for i in range(first, len(times) - 1):
+            a, b = column[i], column[i + 1]
+            if a is None or b is None or b < a:
+                continue
+            joules += b - a
+        if source.get("aggregate"):
+            continue  # covers silicon a per-device counter already reported
+        counted += 1
+        total += joules
+        if source.get("device_index") in bound_devices:
+            bound += joules
+        else:
+            idle += joules
+
+    span = times[-1] - times[first]
+    return {
+        "joules_total": total,
+        "joules_bound": bound,
+        "joules_idle": idle,
+        "idle_fraction": (idle / total) if total else None,
+        "device_count": counted,
+        "span_s": span,
+        "watts": (total / span) if span else None,
+        "windowed": tail_s is not None and start > times[0],
+    }
+
+
 def _quantile(values: list, q: float):
     if not values:
         return None

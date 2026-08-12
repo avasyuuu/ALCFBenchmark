@@ -25,7 +25,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+# analysis/ is a directory of scripts, not a package; the energy integration
+# lives with the sampler that wrote the series so both use one delta rule.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from benchmark.power import joules_from_series  # noqa: E402
 
 EXPORT = "profile_export_aiperf.json"
 
@@ -83,20 +90,22 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
     # that no counter has. `energy_src` says which one a row used, because
     # tokens/joule from the two is not the same ratio.
     energy_src = "aiperf nvml" if avg_w is not None else None
-    idle_devices = idle_share = None
+    idle_devices = idle_share = wall_j = None
+    windowed = False
     total_j = val(d.get("nvidia_total_gpu_energy"))
-    side = _sidecar(directory)
+    side = _sidecar(directory, profiling_s=dur)
     if avg_w is None and side is not None:
         total_j = side.get("joules")
-        # Watts over the window the command ran in, which is the AIPerf process
-        # start to exit -- slightly longer than benchmark_duration, since that
-        # excludes warmup and startup. Reported as measured rather than rescaled
-        # onto the shorter window, which would assume a flat power draw across a
-        # phase the sidecar can see is not flat.
+        # Narrowed to the profiling window by _sidecar() when the series is on
+        # disk, so these divide the same stretch of time AIPerf's tokens came
+        # from. Re-integrated from the samples in that window rather than
+        # rescaled from the whole-run average, which would assume a flat draw
+        # across a phase the series can see is not flat.
         avg_w = side.get("watts")
         dur = side.get("wall_s") or dur
         energy_src = f"sidecar {side.get('machine') or '?'}"
         idle_devices, idle_share = side.get("devices_idle"), side.get("idle_fraction")
+        wall_j, windowed = side.get("wall_joules"), side.get("windowed")
 
     dyn_w = avg_w - idle_w if (avg_w is not None and idle_w is not None) else None
     dyn_j = dyn_w * dur if (dyn_w is not None and dur is not None) else None
@@ -122,6 +131,8 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
         "energy_src": energy_src,
         "idle_devices": idle_devices,
         "idle_share": idle_share,
+        "wall_energy_j": wall_j,
+        "windowed": windowed,
         "concurrency": profiling.get("concurrency"),
         "requested_osl": _requested(cfg, "osl"),
         "requested_isl": _requested(cfg, "isl"),
@@ -152,12 +163,18 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
     }
 
 
-def _sidecar(directory: Path) -> dict | None:
+def _sidecar(directory: Path, profiling_s: float | None = None) -> dict | None:
     """Joules, mean watts and wall time from a sidecar run in this directory.
 
     Returns None rather than raising when the file is absent, which is the
     normal case on NVIDIA -- there AIPerf measures its own power and the sidecar
     is not run at all.
+
+    When profiling_s is given and the full series is on disk, the energy is
+    re-integrated over just that window. The sidecar brackets the whole aiperf
+    process; AIPerf's tokens describe only its profiling phase. Dividing one by
+    the other is the difference between 0.07 and 0.15 tokens/joule on the first
+    Aurora run, so the window is narrowed rather than the mismatch noted.
     """
     path = directory / SIDECAR
     if not path.exists():
@@ -168,7 +185,7 @@ def _sidecar(directory: Path) -> dict | None:
         return None
     power = blob.get("power") or {}
     joules, span = power.get("joules_total"), power.get("span_s")
-    return {
+    row = {
         "joules": joules,
         # From the sampler's own span, not from wall_s: the counters bound what
         # was actually measured, and if sampling stopped early the honest watts
@@ -179,7 +196,36 @@ def _sidecar(directory: Path) -> dict | None:
         "devices": power.get("device_count"),
         "devices_idle": power.get("devices_idle"),
         "idle_fraction": power.get("idle_fraction"),
+        # Kept alongside the windowed figures. The whole-process cost is a real
+        # number and the one an allocation is billed for -- it is the wrong
+        # denominator for tokens/joule, not a wrong measurement.
+        "wall_joules": joules,
+        "windowed": False,
     }
+
+    series_name = blob.get("series_file")
+    if not profiling_s or not series_name:
+        return row
+    series_path = directory / series_name
+    if not series_path.exists():
+        return row
+    try:
+        series = json.loads(series_path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return row
+
+    bound = frozenset(blob.get("bound_devices") or [])
+    windowed = joules_from_series(series, tail_s=profiling_s, bound_devices=bound)
+    if not windowed or not windowed.get("joules_total"):
+        return row
+    row.update(
+        joules=windowed["joules_total"],
+        watts=windowed["watts"],
+        wall_s=windowed["span_s"],
+        idle_fraction=windowed["idle_fraction"],
+        windowed=windowed["windowed"],
+    )
+    return row
 
 
 def _dig(node, *keys):
@@ -309,6 +355,23 @@ def _warn(rows: list[dict]) -> None:
     # NVML enumerates; the sidecar's covers every accelerator counter on the
     # node. A table with both would put two different denominators under one
     # tokens/joule column and read as a machine comparison.
+    # A sidecar row whose series could not be narrowed is divided by the whole
+    # process's joules -- startup and warmup included -- while its tokens cover
+    # only the profiling phase. On the first Aurora run that was the difference
+    # between 0.07 and 0.15 tokens/joule, so it is stated rather than left to be
+    # noticed.
+    unwindowed = [
+        r for r in rows
+        if (r["energy_src"] or "").startswith("sidecar") and not r.get("windowed")
+    ]
+    if unwindowed:
+        notes.append(
+            f"{len(unwindowed)} sidecar row(s) not narrowed to the profiling window "
+            "(no series file, or sampling was shorter than benchmark_duration). Their "
+            "energy covers AIPerf startup and warmup too, so tok/J is understated. "
+            "tok/J_dyn is unaffected -- the excess is idle and subtracts out."
+        )
+
     sources = {r["energy_src"] for r in rows if r["energy_src"]}
     if len(sources) > 1:
         notes.append(
