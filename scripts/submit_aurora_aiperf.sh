@@ -197,6 +197,44 @@ print(f'hwmon: {len(s)} counter(s),', sum(1 for x in s if not x.aggregate), 'per
 assert s, 'no readable i915 energy counters -- the sidecar would measure nothing'"
 echo "========================"
 
+# --- provenance ---------------------------------------------------------------
+# What the comparison needs to stay honest about. The vLLM version is the reason
+# this exists: Aurora's frameworks module carries 0.15.0 and Polaris' conda
+# carries 0.11.0rc2 -- four minor versions and a release candidate apart, across
+# which vLLM's scheduler and batching changed. It appears nowhere else in the
+# committed artifacts, since vllm.log is gitignored, so a reader comparing the
+# two machines would have no way to know. Same for the eager flag and the model.
+python -c '
+import json, socket, subprocess, sys
+def ver(dist):
+    # importlib.metadata over __version__: it works for a package that never
+    # exposes one, and it keeps the local tag -- Aurora reports "0.15.0+xpu",
+    # which says more than "0.15.0" about which build produced the numbers.
+    try:
+        from importlib.metadata import version
+        return version(dist)
+    except Exception:
+        try:
+            return __import__(dist).__version__
+        except Exception:
+            return None
+machine, model, tp, isl, osl, reqs, conc, eager, job = sys.argv[1:10]
+try:
+    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                            capture_output=True, text=True).stdout.strip() or None
+except Exception:
+    commit = None
+print(json.dumps({
+    "kind": "aiperf_run_meta", "machine": machine, "hostname": socket.gethostname(),
+    "pbs_jobid": job or None, "git_commit": commit,
+    "vllm": ver("vllm"), "torch": ver("torch"), "aiperf": ver("aiperf"),
+    "model": model, "tensor_parallel": int(tp), "isl": int(isl), "osl": int(osl),
+    "requests_per_level": int(reqs), "concurrencies": [int(c) for c in conc.split()],
+    "enforce_eager": eager == "1",
+}, indent=2))
+' "aurora" "${MODEL}" "${TP}" "${ISL}" "${OSL}" "${REQUESTS}"   "${CONCURRENCIES}" "${ENFORCE_EAGER:-1}" "${PBS_JOBID:-}"   > "${OUTROOT}/run_meta.json"
+echo "provenance -> ${OUTROOT}/run_meta.json"
+
 # --- idle floor ---------------------------------------------------------------
 # Measured BEFORE vLLM starts and with nothing else on the node. Taken after a
 # run instead it reads high, because clocks and fan state have not settled.

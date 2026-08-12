@@ -28,11 +28,27 @@
 #
 # Before the first run, on a LOGIN node:
 #   1. set -A above to your real project name (my.alcf.anl.gov)
-#   2. build the venv (vLLM is not in the conda module):
+#   2. build the venv. The conda module DOES carry vLLM and torch -- the
+#      2025-09-25 module has vLLM 0.11.0rc2.dev147 and torch 2.8.0, alongside
+#      sglang -- so the venv exists for aiperf, and pip will report vllm as
+#      already satisfied rather than installing it:
 #        module use /soft/modulefiles && module load conda && conda activate base
 #        python -m venv --system-site-packages .venv-aiperf
 #        source .venv-aiperf/bin/activate
 #        pip install vllm aiperf nvidia-ml-py
+#
+#      `which vllm` should then point into the conda tree, not the venv. That is
+#      what keeps vLLM on the module's stack: its shebang is conda's python, so
+#      the packages aiperf downgrades in the venv (pyzmq, psutil, pillow) are
+#      invisible to the server. AIPerf runs on the venv's python, vLLM on the
+#      module's, and neither disturbs the other.
+#
+#      NOTE FOR THE COMPARISON: Aurora's frameworks module carries vLLM 0.15.0.
+#      Four minor versions and a release candidate apart, across which vLLM's
+#      scheduler and batching changed. Forcing a match by pip-installing 0.15.0
+#      here would drag its own torch in and risk the CUDA stack, so the version
+#      is recorded in run_meta.json instead and treated as a stated confound --
+#      the same way --enforce-eager is.
 #   3. pre-download the model while you still have easy outbound network.
 #      meta-llama is GATED: accept the licence on huggingface.co once, then
 #      `huggingface-cli login`. Compute nodes cannot fetch it themselves.
@@ -153,6 +169,44 @@ python -c "import torch; print('torch', torch.__version__, '|', torch.cuda.devic
 python -c "import pynvml; pynvml.nvmlInit(); print('pynvml OK |', pynvml.nvmlDeviceGetCount(), 'GPUs visible to NVML')" \
     || echo "WARNING: pynvml missing -- no power data at all. pip install nvidia-ml-py"
 echo "========================"
+
+# --- provenance ---------------------------------------------------------------
+# What the comparison needs to stay honest about. The vLLM version is the reason
+# this exists: Aurora's frameworks module carries 0.15.0 and Polaris' conda
+# carries 0.11.0rc2 -- four minor versions and a release candidate apart, across
+# which vLLM's scheduler and batching changed. It appears nowhere else in the
+# committed artifacts, since vllm.log is gitignored, so a reader comparing the
+# two machines would have no way to know. Same for the eager flag and the model.
+python -c '
+import json, socket, subprocess, sys
+def ver(dist):
+    # importlib.metadata over __version__: it works for a package that never
+    # exposes one, and it keeps the local tag -- Aurora reports "0.15.0+xpu",
+    # which says more than "0.15.0" about which build produced the numbers.
+    try:
+        from importlib.metadata import version
+        return version(dist)
+    except Exception:
+        try:
+            return __import__(dist).__version__
+        except Exception:
+            return None
+machine, model, tp, isl, osl, reqs, conc, eager, job = sys.argv[1:10]
+try:
+    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                            capture_output=True, text=True).stdout.strip() or None
+except Exception:
+    commit = None
+print(json.dumps({
+    "kind": "aiperf_run_meta", "machine": machine, "hostname": socket.gethostname(),
+    "pbs_jobid": job or None, "git_commit": commit,
+    "vllm": ver("vllm"), "torch": ver("torch"), "aiperf": ver("aiperf"),
+    "model": model, "tensor_parallel": int(tp), "isl": int(isl), "osl": int(osl),
+    "requests_per_level": int(reqs), "concurrencies": [int(c) for c in conc.split()],
+    "enforce_eager": eager == "1",
+}, indent=2))
+' "polaris" "${MODEL}" "${TP}" "${ISL}" "${OSL}" "${REQUESTS}"   "${CONCURRENCIES}" "${ENFORCE_EAGER:-1}" "${PBS_JOBID:-}"   > "${OUTROOT}/run_meta.json"
+echo "provenance -> ${OUTROOT}/run_meta.json"
 
 # --- idle floor ---------------------------------------------------------------
 # Measured BEFORE vLLM starts and with nothing else on the node. Taken after a
