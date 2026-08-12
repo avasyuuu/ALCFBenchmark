@@ -159,7 +159,10 @@ BOUND="$(seq -s, 0 $(( TP - 1 )))"
 echo "=== job ${PBS_JOBID} ==="
 echo "model=${MODEL}  TP=${TP}  isl=${ISL} osl=${OSL} max_len=${MAX_MODEL_LEN}"
 echo "requests=${REQUESTS}  concurrencies=${CONCURRENCIES}"
-echo "bound tiles=${BOUND}   out=${OUTROOT}"
+# Spelled out because "bound tiles=0" at TP=1 reads as "no tiles are bound"
+# when it means "tile index 0" -- the one number on this line where the correct
+# value and an alarming misreading are the same character.
+echo "tiles serving=[${BOUND}] (${TP} of 12, $(( 12 - TP )) idle)   out=${OUTROOT}"
 python -c "import vllm; print('vllm', vllm.__version__)"
 python -c "import torch; print('torch', torch.__version__, '| xpu devices', torch.xpu.device_count())"
 python -c "

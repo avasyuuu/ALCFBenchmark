@@ -83,6 +83,7 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
     # that no counter has. `energy_src` says which one a row used, because
     # tokens/joule from the two is not the same ratio.
     energy_src = "aiperf nvml" if avg_w is not None else None
+    idle_devices = idle_share = None
     total_j = val(d.get("nvidia_total_gpu_energy"))
     side = _sidecar(directory)
     if avg_w is None and side is not None:
@@ -95,6 +96,7 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
         avg_w = side.get("watts")
         dur = side.get("wall_s") or dur
         energy_src = f"sidecar {side.get('machine') or '?'}"
+        idle_devices, idle_share = side.get("devices_idle"), side.get("idle_fraction")
 
     dyn_w = avg_w - idle_w if (avg_w is not None and idle_w is not None) else None
     dyn_j = dyn_w * dur if (dyn_w is not None and dur is not None) else None
@@ -118,6 +120,8 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
     return {
         "name": directory.name,
         "energy_src": energy_src,
+        "idle_devices": idle_devices,
+        "idle_share": idle_share,
         "concurrency": profiling.get("concurrency"),
         "requested_osl": _requested(cfg, "osl"),
         "requested_isl": _requested(cfg, "isl"),
@@ -172,6 +176,9 @@ def _sidecar(directory: Path) -> dict | None:
         "watts": (joules / span) if joules and span else None,
         "wall_s": blob.get("wall_s"),
         "machine": blob.get("machine"),
+        "devices": power.get("device_count"),
+        "devices_idle": power.get("devices_idle"),
+        "idle_fraction": power.get("idle_fraction"),
     }
 
 
@@ -250,12 +257,14 @@ def main() -> None:
     table(
         "Load and power",
         ["conc", "dur_s", "req/s", "outTok/s", "allTok/s", "TTFT_ms", "ITL_ms",
-         "avg_W", "dyn_W", "energy_J", "src"],
+         "avg_W", "dyn_W", "energy_J", "idleDev", "idle%", "src"],
         [
             [r["concurrency"], fmt(r["duration_s"]), fmt(r["req_per_s"]),
              fmt(r["out_tok_per_s"], 1), fmt(r["all_tok_per_s"], 1), fmt(r["ttft_ms"], 1),
              fmt(r["itl_ms"], 2), fmt(r["avg_gpu_w"], 1), fmt(r["dynamic_w"], 1),
-             fmt(r["total_energy_j"], 1), r["energy_src"] or "none"]
+             fmt(r["total_energy_j"], 1), fmt(r["idle_devices"], 0),
+             fmt(r["idle_share"] * 100, 1) if r["idle_share"] is not None else "n/a",
+             r["energy_src"] or "none"]
             for r in rows
         ],
     )
