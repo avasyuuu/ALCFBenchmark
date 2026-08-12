@@ -46,7 +46,11 @@
 
 set -euo pipefail
 
-cd "${PBS_O_WORKDIR}"
+# PBS_O_WORKDIR only exists under qsub. Falling back to $PWD lets the same
+# script run inside an interactive allocation, which is where anything gets run
+# the first time on new hardware -- a queued job that fails in the first ten
+# seconds costs a queue wait to learn what a shell says immediately.
+cd "${PBS_O_WORKDIR:-$PWD}"
 if [[ ! -d analysis ]]; then
     echo "error: no analysis/ package in ${PBS_O_WORKDIR}" >&2
     echo "       submit from the repo root: cd <repo> && qsub scripts/submit_aurora_aiperf.sh" >&2
