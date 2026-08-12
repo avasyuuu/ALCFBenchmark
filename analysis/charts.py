@@ -316,3 +316,103 @@ def efficiency_chart(rows: list) -> str:
     )
     parts.append("</svg>")
     return "".join(parts)
+
+
+def inference_chart(rows: list) -> str:
+    """Throughput against dynamic power as concurrency rises, both normalised.
+
+    Two series on one axis because the finding is the gap between them, and the
+    gap only reads as a gap when they share a scale. Absolute units cannot do
+    that -- 631 tokens/s and 114 watts on one axis makes the watts a flat line
+    at the bottom whatever they do, which would look like the same picture if
+    power had tripled.
+
+    Normalised to concurrency 1, so both start at 1.0 and the y-axis is "times
+    the single-request value". Throughput ends at 12.6x and dynamic power at
+    0.94x, and that divergence is the whole result: the accelerator draws what
+    it draws, and serving more at once is nearly free in watts.
+    """
+    rows = [r for r in rows if r.get("concurrency") and r.get("out_tok_per_s")]
+    if len(rows) < 3:
+        return ""
+    rows = sorted(rows, key=lambda r: r["concurrency"])
+    base_tok = rows[0]["out_tok_per_s"]
+    base_w = rows[0].get("dynamic_w")
+    if not base_tok or not base_w:
+        return ""
+
+    W, H = 720, 330
+    L, R, T, B = 46, 20, 14, 46
+    pw, ph = W - L - R, H - T - B
+
+    concs = [r["concurrency"] for r in rows]
+    ratios = [r["out_tok_per_s"] / base_tok for r in rows]
+    ratios += [(r.get("dynamic_w") or 0) / base_w for r in rows]
+    y_hi = math.ceil(max(ratios) / 2) * 2
+
+    def px(c: float) -> float:
+        # Log x: the sweep doubles each step, so linear would crowd every low
+        # level into the first eighth and spend half the width between 16 and 32.
+        f = (math.log2(c) - math.log2(concs[0])) / (math.log2(concs[-1]) - math.log2(concs[0]))
+        return L + f * pw
+
+    def py(v: float) -> float:
+        return T + (1 - v / y_hi) * ph
+
+    parts = [
+        f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Output '
+        f'throughput and dynamic power against concurrency, both relative to '
+        f'concurrency 1">'
+    ]
+    for v in range(0, y_hi + 1, 2):
+        y = py(v)
+        parts.append(f'<line class="grid" x1="{L}" y1="{y:.1f}" x2="{L+pw}" y2="{y:.1f}"/>')
+        parts.append(
+            f'<text class="tick" x="{L-8}" y="{y+3.5:.1f}" text-anchor="end">{v}x</text>'
+        )
+    for c in concs:
+        x = px(c)
+        parts.append(f'<line class="grid" x1="{x:.1f}" y1="{T}" x2="{x:.1f}" y2="{T+ph}"/>')
+        parts.append(
+            f'<text class="tick" x="{x:.1f}" y="{T+ph+18}" text-anchor="middle">{c}</text>'
+        )
+    # The 1.0 line: what concurrency 1 did. Power sits on it the whole way and
+    # throughput leaves it, which is the sentence this chart is making.
+    parts.append(f'<line class="target" x1="{L}" y1="{py(1):.1f}" x2="{L+pw}" y2="{py(1):.1f}"/>')
+
+    for slot, key, label, unit in (
+        (1, "out_tok_per_s", "output tokens/s", "tok/s"),
+        (2, "dynamic_w", "dynamic power", "W"),
+    ):
+        base = base_tok if key == "out_tok_per_s" else base_w
+        pts, dots = [], []
+        for r in rows:
+            v = r.get(key)
+            if not v:
+                continue
+            x, y = px(r["concurrency"]), py(v / base)
+            pts.append(f"{x:.1f},{y:.1f}")
+            dots.append(
+                f'<circle class="dot s{slot}" cx="{x:.1f}" cy="{y:.1f}" r="4">'
+                f'<title>concurrency {r["concurrency"]}: {v:,.1f} {unit} '
+                f'({v / base:.2f}x)</title></circle>'
+            )
+        parts.append(f'<polyline class="ln s{slot}" points="{" ".join(pts)}">'
+                     f"<title>{label}</title></polyline>")
+        parts.extend(dots)
+
+    parts.append(
+        f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6}" text-anchor="middle">'
+        "concurrent requests (log scale)</text>"
+    )
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def inference_legend() -> str:
+    return (
+        '<div class="legend-row">'
+        '<span class="key"><span class="sw s1"></span>output tokens/s</span>'
+        '<span class="key"><span class="sw s2"></span>dynamic power</span>'
+        "</div>"
+    )

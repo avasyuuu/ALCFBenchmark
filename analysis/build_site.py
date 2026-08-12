@@ -34,7 +34,8 @@ from pathlib import Path
 # `legend` here is the column glossary further down; the chart key is
 # imported under its own name so the two never shadow each other.
 from charts import (SERIES_SLOT, accuracy_chart, canonical_runs,
-                    efficiency_chart, series_legend, tail_chart)
+                    efficiency_chart, inference_chart, inference_legend,
+                    series_legend, tail_chart)
 from summarize import load_runs
 
 AUTHOR = "Avasyu Chukkapalli"
@@ -786,6 +787,148 @@ per-rank column cannot see that, which is the reason both tables exist.</div>
 """
 
 
+def load_aiperf(results_dir: str) -> list:
+    """Every AIPerf sweep under results/aiperf/, newest first.
+
+    A sweep is a directory of concurrency levels plus the summary.json that
+    summarize_aiperf.py wrote. Machine comes from the directory prefix, matching
+    timeline_counts(); the served model and sequence lengths come from one
+    level's own export, because a sweep that changed model midway is not a sweep
+    and the page should not average over one.
+    """
+    sweeps = []
+    for path in sorted(Path(results_dir).glob("aiperf/*/summary.json"), reverse=True):
+        try:
+            blob = json.loads(path.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            continue
+        rows = [r for r in (blob.get("runs") or []) if r.get("concurrency")]
+        if len(rows) < 2:
+            continue  # a single level is a validation run, not a sweep
+        sweeps.append({
+            "name": path.parent.name,
+            "machine": path.parent.name.split("-")[0],
+            "idle_w": blob.get("idle_w"),
+            "rows": sorted(rows, key=lambda r: r["concurrency"]),
+            **_aiperf_config(path.parent),
+        })
+    return sweeps
+
+
+def _aiperf_config(sweep_dir: Path) -> dict:
+    """Model, ISL and OSL as the run itself recorded them.
+
+    Read from an export rather than from the submit script's defaults, so a
+    sweep launched with MODEL= overridden describes what it actually served.
+    """
+    for export in sorted(sweep_dir.glob("c*/profile_export_aiperf.json")):
+        try:
+            cfg = (json.loads(export.read_text(encoding="utf-8-sig"))
+                   .get("input_config") or {})
+        except (OSError, ValueError):
+            continue
+        datasets = cfg.get("datasets") or [{}]
+        prompts = (datasets[0].get("prompts") or {}) if datasets else {}
+        return {
+            "model": (cfg.get("tokenizer") or {}).get("name"),
+            "isl": (prompts.get("isl") or {}).get("mean"),
+            "osl": (prompts.get("osl") or {}).get("mean"),
+            "streaming": (cfg.get("endpoint") or {}).get("streaming"),
+        }
+    return {"model": None, "isl": None, "osl": None, "streaming": None}
+
+
+def inference_section(sweeps: list) -> str:
+    """The inference sweeps, kept apart from the training numbers on purpose.
+
+    Same node, same counters, same sampler as the training profiles above --
+    and a different benchmark. Tokens per joule and samples per joule answer
+    different questions and share no denominator, so they share a page and
+    nothing else.
+    """
+    if not sweeps:
+        return ""
+
+    blocks = ""
+    for sweep in sweeps:
+        rows = sweep["rows"]
+        first, last = rows[0], rows[-1]
+        chart = inference_chart(rows)
+        table_rows = [
+            [
+                num(r.get("concurrency")),
+                num(r.get("out_tok_per_s"), 1),
+                num(r.get("ttft_ms"), 0),
+                num(r.get("itl_ms"), 1),
+                num(r.get("avg_gpu_w"), 0),
+                num(r.get("dynamic_w"), 0),
+                num(r.get("total_energy_j")),
+                f'<strong>{r["tok_per_joule"]:.2f}</strong>'
+                if r.get("tok_per_joule") else "—",
+                num(r.get("tok_per_joule_dynamic"), 2),
+            ]
+            for r in rows
+        ]
+        served = " · ".join(
+            bit for bit in (
+                f"<strong>{html.escape(str(sweep['model']))}</strong>" if sweep["model"] else None,
+                f"ISL {sweep['isl']:,.0f}" if sweep["isl"] else None,
+                f"OSL {sweep['osl']:,.0f}" if sweep["osl"] else None,
+                f"idle floor {sweep['idle_w']:,.0f} W" if sweep["idle_w"] else None,
+            ) if bit
+        )
+        blocks += f"""
+<div class="mhead"><h2>{html.escape(sweep["machine"])} — inference</h2>
+<span class="key s{SERIES_SLOT.get(sweep["machine"], 8)}"><span class="sw"></span></span></div>
+<p class="workload">{served}</p>
+{chart}
+{inference_legend()}
+{_inference_takeaway(first, last)}
+{table(
+    ["Conc", "Out tok/s", "TTFT ms", "ITL ms", "Node W", "Dyn W", "Joules",
+     "Tok/J", "Tok/J dyn"],
+    table_rows,
+    "Every row served the same 128 requests for the same 32,768 output tokens, "
+    "with generation pinned to exactly OSL by ignore_eos and min_tokens — so the "
+    "Joules column reads straight across rather than needing a ratio. Node W "
+    "covers all twelve tiles; Dyn W subtracts the idle floor measured on a quiet "
+    "node before the server started.",
+)}"""
+    return f"""
+<h2>Serving, not training</h2>
+<p class="fineprint">The same node, the same counters and the same sampler as the
+profiles above, measuring a different thing: vLLM answering requests instead of a
+model being trained. Tokens per joule and samples per joule share no denominator
+and never belong in one table, which is why this sits beside the training
+profiles rather than among them. AIPerf collects power through DCGM, pynvml and
+amdsmi and cannot read Intel counters at all, so the energy here comes from
+<code>analysis/power_sidecar.py</code> sampling from beside the run.</p>
+{blocks}"""
+
+
+def _inference_takeaway(first: dict, last: dict) -> str:
+    """The throughput-versus-power sentence, derived from the two end rows."""
+    tok = first.get("out_tok_per_s"), last.get("out_tok_per_s")
+    watts = first.get("dynamic_w"), last.get("dynamic_w")
+    joules = first.get("total_energy_j"), last.get("total_energy_j")
+    if not all(tok) or not all(watts) or not all(joules):
+        return ""
+    return (
+        f'<p class="takeaway">From {first["concurrency"]} concurrent request to '
+        f'{last["concurrency"]}, output throughput rises '
+        f'<strong>{tok[1] / tok[0]:.1f}×</strong> while dynamic power goes '
+        f'{watts[0]:,.0f} W to {watts[1]:,.0f} W — '
+        f'<strong>{watts[1] / watts[0]:.2f}×</strong>. The same work costs '
+        f'{joules[0] / joules[1]:.1f}× less energy, almost entirely by finishing '
+        f'sooner rather than by drawing less.</p>'
+        f'<p class="fineprint">Paid for in latency: time to first token goes '
+        f'{first["ttft_ms"]:,.0f} ms to {last["ttft_ms"]:,.0f} ms and inter-token '
+        f'latency {first["itl_ms"]:,.1f} ms to {last["itl_ms"]:,.1f} ms. Tok/J is '
+        f'the figure to budget with; Tok/J dyn explains why it moves, and depends '
+        f'on an idle floor that varies about 5% between nodes.</p>'
+    )
+
+
 def timeline_counts(results_dir: str) -> dict:
     """How many node power timelines are on disk, per machine.
 
@@ -860,7 +1003,7 @@ def machine_section(machine: str, spec: dict, tag: str, state: str) -> str:
 <div class="todo">{state}</div>"""
 
 
-def power_body(specs: dict, runs: list, timelines: dict) -> str:
+def power_body(specs: dict, runs: list, timelines: dict, sweeps: list) -> str:
     """The power page: one section per targeted machine, in config order."""
     sections = ""
     for machine, spec in specs.items():
@@ -879,7 +1022,9 @@ is recorded in the <code>_source</code> fields of
 <a href="index.html">data and analysis</a> page.</p>
 {sections}
 
-<h2>What a profile will show</h2>
+{inference_section(sweeps)}
+
+<h2>What a training profile will show</h2>
 <p class="fineprint">One line per accelerator on the node, sampled by
 <code>benchmark/power.py</code> at <code>--power-interval</code> seconds, plotted
 as watts from consecutive energy-counter deltas. Devices no rank bound to get a
@@ -947,7 +1092,8 @@ def main() -> None:
             heading="Power Profiles",
             lede="What each machine actually draws while it trains, per node and "
                  "per accelerator. One section per system the benchmark targets.",
-            body=power_body(specs, runs, timeline_counts(args.results_dir)),
+            body=power_body(specs, runs, timeline_counts(args.results_dir),
+                            load_aiperf(args.results_dir)),
             footer=footer,
             logo_uri=logo,
             here="power.html",
