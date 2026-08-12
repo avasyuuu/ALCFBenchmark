@@ -47,7 +47,10 @@
 
 set -euo pipefail
 
-cd "${PBS_O_WORKDIR}"
+# PBS_O_WORKDIR only exists under qsub. Falling back to $PWD lets the same
+# script run inside an interactive allocation, which is where anything gets
+# run the first time on new hardware.
+cd "${PBS_O_WORKDIR:-$PWD}"
 if [[ ! -d analysis ]]; then
     echo "error: no analysis/ package in ${PBS_O_WORKDIR}" >&2
     echo "       submit from the repo root: cd <repo> && qsub scripts/submit_polaris_aiperf.sh" >&2
@@ -83,6 +86,24 @@ CONCURRENCIES="${CONCURRENCIES:-1 2 4 8 16 32}"
 # leave room -- but equal work across machines is worth more than a tighter fit.
 REQUESTS="${REQUESTS:-128}"
 
+# GPUs this job serves on, of the node's four. One by default, matching Aurora's
+# TP=1 and leaving three powered and idle -- which is the cost this benchmark
+# exists to expose, and the reason the collector below still reads all four.
+TP="${TP:-1}"
+
+# vLLM rejects a request longer than this. Sized from the sweep rather than
+# pinned at 4096, so raising ISL does not silently start failing every request.
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-$(( ISL + OSL + 512 ))}"
+if (( MAX_MODEL_LEN < 8192 )); then MAX_MODEL_LEN=8192; fi
+
+# On by default, and the reason is comparability rather than correctness here.
+# ALCF's Aurora vLLM page uses --enforce-eager in every example, so the Aurora
+# sweep runs eager; CUDA graphs would make Polaris faster and the two machines
+# would then be measuring different things. Set ENFORCE_EAGER=0 for vLLM's real
+# number on an A100 -- a legitimate run, just not one to put beside Aurora's.
+EAGER=()
+if [[ "${ENFORCE_EAGER:-1}" == "1" ]]; then EAGER=(--enforce-eager); fi
+
 STAMP="$(date +%Y%m%d-%H%M%S)"
 OUTROOT="results/aiperf/polaris-${STAMP}"
 mkdir -p "${OUTROOT}" logs
@@ -114,7 +135,8 @@ export HF_HOME="${HF_HOME:-${PWD}/.hf-cache}"
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 
 echo "=== job ${PBS_JOBID} ==="
-echo "model=${MODEL}  isl=${ISL} osl=${OSL}  requests=${REQUESTS}"
+echo "model=${MODEL}  TP=${TP}  isl=${ISL} osl=${OSL} max_len=${MAX_MODEL_LEN}"
+echo "requests=${REQUESTS}  eager=${ENFORCE_EAGER:-1}"
 echo "concurrencies=${CONCURRENCIES}"
 echo "out=${OUTROOT}"
 python -c "import torch; print('torch', torch.__version__, '|', torch.cuda.device_count(), 'GPUs')"
@@ -133,15 +155,20 @@ import json; d=json.load(open('${OUTROOT}/idle.json'))
 print(f\"idle: {d['node_idle_w']} W over {d['device_count']} GPU(s)\")"
 
 # --- serve --------------------------------------------------------------------
-# vLLM is pinned to GPU 0 while AIPerf's collector still reads all four. That
-# asymmetry is deliberate: the other three A100s are idle but powered, and a
+# vLLM sees the first TP GPUs while AIPerf's collector still reads all four. That
+# asymmetry is deliberate: the remaining A100s are idle but powered, and a
 # node-hour bills for them too. Masking them in the collector as well would hide
-# exactly the cost this benchmark exists to expose.
-echo "starting vLLM on GPU 0..."
-CUDA_VISIBLE_DEVICES=0 vllm serve "${MODEL}" \
+# exactly the cost this benchmark exists to expose -- on Aurora that unused share
+# came to 82.5% of node energy at TP=1, and four GPUs should show the same shape
+# less starkly than twelve tiles.
+echo "starting vLLM on GPU(s) $(seq -s, 0 $(( TP - 1 ))) of 4..."
+CUDA_VISIBLE_DEVICES="$(seq -s, 0 $(( TP - 1 )))" vllm serve "${MODEL}" \
     --port "${PORT}" \
-    --max-model-len 4096 \
-    --disable-log-requests \
+    --tensor-parallel-size "${TP}" \
+    --dtype bfloat16 \
+    --max-model-len "${MAX_MODEL_LEN}" \
+    --trust-remote-code \
+    "${EAGER[@]}" \
     > "${OUTROOT}/vllm.log" 2>&1 &
 VLLM_PID=$!
 
@@ -157,7 +184,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo -n "waiting for /health"
-for _ in $(seq 1 180); do
+for _ in $(seq 1 360); do
     if curl -sf "http://localhost:${PORT}/health" >/dev/null 2>&1; then
         echo " -- up"
         break

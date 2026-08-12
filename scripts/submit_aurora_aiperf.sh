@@ -80,17 +80,16 @@ CONCURRENCIES="${CONCURRENCIES:-1 2 4 8 16 32}"
 # concurrency makes each row a different amount of work, and then absolute
 # joules and durations cannot be compared between rows -- only ratios can.
 #
-# 128 rather than the 256 submit_polaris_aiperf.sh uses, because a 1-node Aurora
-# job runs in `debug` and that queue caps at one hour. Sized from the first run's
-# measured 0.676 req/s at concurrency 4: 128 requests is ~23 min of profiling
-# across the six levels, ~7 min of AIPerf startup and warmup, ~3 min of vLLM load
-# and 30 s of idle floor -- about 34 minutes. 256 is ~57 min of profiling alone
-# and does not fit.
+# 128 because a 1-node Aurora job runs in `debug` and that queue caps at one
+# hour. Sized from the first run's measured 0.676 req/s at concurrency 4: 128
+# requests is ~23 min of profiling across the six levels, ~7 min of AIPerf
+# startup and warmup, ~3 min of vLLM load and 30 s of idle floor -- about 34
+# minutes. 256 is ~57 min of profiling alone and does not fit.
 #
-# The cost is that absolute joules here are not comparable to a Polaris sweep at
-# 256. Rates and ratios still are, and those are what the comparison rests on --
-# but if the two ever need to sit in one table, run both at the same count on a
-# queue that allows it.
+# submit_polaris_aiperf.sh takes the same 128, which is what makes the absolute
+# joules comparable between the two rather than only the ratios. An A100 will
+# likely finish sooner and could afford more; equal work is worth more than a
+# tighter fit.
 REQUESTS="${REQUESTS:-128}"
 
 # vLLM rejects a request longer than this, and AIPerf's ISL is a prompt length
@@ -173,6 +172,15 @@ fi
 # of its peak and it never sees vLLM's placement.
 BOUND="$(seq -s, 0 $(( TP - 1 )))"
 
+# ALCF's Aurora vLLM page uses --enforce-eager in every example, so it is on by
+# default and the Polaris sweep takes it too, for comparability rather than
+# because an A100 needs it. A knob rather than a hardcoded flag so a future
+# frameworks module that no longer needs it can be measured without editing --
+# but turning it off here departs from ALCF's documented configuration, and
+# turning it off on one machine and not the other ends the comparison.
+EAGER=()
+if [[ "${ENFORCE_EAGER:-1}" == "1" ]]; then EAGER=(--enforce-eager); fi
+
 echo "=== job ${PBS_JOBID} ==="
 echo "model=${MODEL}  TP=${TP}  isl=${ISL} osl=${OSL} max_len=${MAX_MODEL_LEN}"
 echo "requests=${REQUESTS}  concurrencies=${CONCURRENCIES}"
@@ -202,9 +210,10 @@ python analysis/power_sidecar.py \
     -- sleep 30
 
 # --- serve --------------------------------------------------------------------
-# --enforce-eager per ALCF's page. It costs throughput, so treat these numbers as
-# eager-mode numbers rather than as vLLM's best -- and do not compare them to a
-# Polaris run made without it.
+# Eager by default, per ALCF's page. It costs throughput, so these are eager-mode
+# numbers rather than vLLM's best -- true of the Polaris sweep too, which takes
+# the flag for that reason alone. A run with ENFORCE_EAGER=0 on one machine and
+# not the other is not a comparison.
 echo "starting vLLM (TP=${TP})..."
 vllm serve "${MODEL}" \
     --port "${PORT}" \
@@ -212,7 +221,7 @@ vllm serve "${MODEL}" \
     --dtype bfloat16 \
     --max-model-len "${MAX_MODEL_LEN}" \
     --trust-remote-code \
-    --enforce-eager \
+    "${EAGER[@]}" \
     > "${OUTROOT}/vllm.log" 2>&1 &
 VLLM_PID=$!
 
