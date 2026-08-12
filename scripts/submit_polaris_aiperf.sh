@@ -33,9 +33,17 @@
 #        python -m venv --system-site-packages .venv-aiperf
 #        source .venv-aiperf/bin/activate
 #        pip install vllm aiperf nvidia-ml-py
-#   3. pre-download the model while you still have easy outbound network:
-#        HF_HOME=/eagle/<project>/$USER/hf python -c \
-#          "from huggingface_hub import snapshot_download as d; d('ibm-granite/granite-4.0-350m')"
+#   3. pre-download the model while you still have easy outbound network.
+#      meta-llama is GATED: accept the licence on huggingface.co once, then use
+#      a token. ~16 GB, and compute nodes cannot fetch it themselves.
+#        export HF_HOME=/eagle/<project>/$USER/hf
+#        export HF_TOKEN=hf_...
+#        python -c "from huggingface_hub import snapshot_download as d; \
+#                   d('meta-llama/Llama-3.1-8B-Instruct')"
+#
+#      Aurora needs none of this -- ALCF stages the weights under
+#      /flare/datasets/model-weights and the run sets HF_HUB_OFFLINE=1. Polaris
+#      has no equivalent, so this is the one manual step the two do not share.
 
 set -euo pipefail
 
@@ -47,21 +55,33 @@ if [[ ! -d analysis ]]; then
 fi
 
 # --- knobs -------------------------------------------------------------------
-# Default model matches the laptop shakedown run so the two are directly
-# comparable. It is far too small to saturate an A100 -- for a number that says
-# something about the hardware rather than about launch overhead, override with
-# a 7B+ model, which is also where the ~40 GB of HBM starts to matter.
-MODEL="${MODEL:-ibm-granite/granite-4.0-350m}"
+# Every value below matches submit_aurora_aiperf.sh, for the same reason the
+# training scripts keep their flags identical: the point is a machine
+# comparison, and a different model or sequence length makes the columns
+# incomparable. Change one here and change it there.
+#
+# These were the laptop shakedown's settings until 2026-08-12 -- a 350M model at
+# ISL 256 / OSL 128, far too small to say anything about an A100. Aurora ran
+# Llama-3.1-8B at ISL 1024 / OSL 256, so that is the experiment now.
+#
+# The model is NOT pre-staged on Polaris the way ALCF stages it on Aurora under
+# /flare/datasets/model-weights, and meta-llama is gated on HuggingFace. It has
+# to be downloaded once from a login node with a token -- see the header.
+MODEL="${MODEL:-meta-llama/Llama-3.1-8B-Instruct}"
 PORT="${PORT:-8000}"
-ISL="${ISL:-256}"
-OSL="${OSL:-128}"
+ISL="${ISL:-1024}"
+OSL="${OSL:-256}"
 CONCURRENCIES="${CONCURRENCIES:-1 2 4 8 16 32}"
 
 # Fixed across every concurrency level ON PURPOSE. Scaling requests with
 # concurrency makes each row a different amount of work, and then absolute
 # joules and durations cannot be compared between rows -- only ratios can. Equal
 # work costs wall time at low concurrency and is worth it.
-REQUESTS="${REQUESTS:-256}"
+#
+# 128 rather than 256 to match Aurora, where the debug queue's one-hour cap set
+# the number. An A100 at TP=1 should be quicker than an Aurora tile, so this may
+# leave room -- but equal work across machines is worth more than a tighter fit.
+REQUESTS="${REQUESTS:-128}"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 OUTROOT="results/aiperf/polaris-${STAMP}"
