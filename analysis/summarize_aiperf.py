@@ -226,6 +226,14 @@ def main() -> None:
         # one. Mixing a per-device floor with node-wide draw understates nothing
         # quietly -- it just makes "dynamic" watts too large.
         idle_w = blob.get("node_idle_w") or blob.get("power_w_avg")
+        if idle_w is None and blob.get("kind") == "power_sidecar":
+            # An idle floor taken by the sidecar itself, which is how Aurora
+            # gets one -- nvml_idle.py needs NVML and there is none. Same
+            # node-wide scope as the sidecar's measured rows, so the two
+            # subtract cleanly.
+            power = blob.get("power") or {}
+            joules, span = power.get("joules_total"), power.get("span_s")
+            idle_w = (joules / span) if joules and span else None
 
     rows = [r for d in args.dirs if (r := load(Path(d), idle_w)) is not None]
     if not rows:
