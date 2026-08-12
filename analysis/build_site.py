@@ -1,12 +1,18 @@
-"""Render results/*.json into docs/index.html for GitHub Pages.
+"""Render results/*.json into the docs/ site for GitHub Pages.
 
-    python analysis/build_site.py                      # writes docs/index.html
-    python analysis/build_site.py --results-dir ./results --out docs/index.html
+    python analysis/build_site.py                      # writes the whole site
+    python analysis/build_site.py --results-dir ./results --out-dir docs
     python analysis/build_site.py --include-synthetic
 
-Serve it by setting Pages to "main branch /docs" in the repo settings. The page
-is self-contained -- no CDN, no fonts, no scripts -- so it renders offline and
-inside restricted networks.
+Two pages, both written by this script:
+
+    index.html   the comparison -- specs, runs, energy tables, charts
+    power.html   per-machine power profiles, one section per system
+
+Serve them by setting Pages to "main branch /docs" in the repo settings; Pages
+serves whatever static files are in that folder, so a second page needs no
+configuration beyond existing. Each page is self-contained -- no CDN, no fonts,
+no scripts -- so it renders offline and inside restricted networks.
 
 Numbers are never written by hand here. Everything comes from the result JSON,
 so the page is only as current as the last `git pull`, and a stale page is
@@ -27,8 +33,8 @@ from pathlib import Path
 
 # `legend` here is the column glossary further down; the chart key is
 # imported under its own name so the two never shadow each other.
-from charts import (accuracy_chart, canonical_runs, efficiency_chart,
-                    series_legend, tail_chart)
+from charts import (SERIES_SLOT, accuracy_chart, canonical_runs,
+                    efficiency_chart, series_legend, tail_chart)
 from summarize import load_runs
 
 AUTHOR = "Avasyu Chukkapalli"
@@ -382,142 +388,48 @@ def table(headers: list, rows: list, caption: str = "") -> str:
     )
 
 
-def build(runs: list, logo_uri: str | None = None, specs: dict | None = None,
-          curves: dict | None = None) -> str:
-    machine_stats = headline(runs)
-    curves = curves or {}
-    tta_svg = accuracy_chart(curves)
-    tta_section = (
-        "<h2>Time to accuracy</h2>" + tta_svg + series_legend(curves)
-        + '<p class="fineprint">Validation top-1 against wall-clock, for the '
-          'full 100-epoch run on each machine. Every machine crosses 0.90 '
-          'within three epochs of the others — same global batch, same '
-          'schedule — so the horizontal distance between the curves is the '
-          'whole comparison. The x-axis is logarithmic: read the gaps as '
-          'multiples, not lengths.</p>'
-        if tta_svg else ""
-    )
-    # Runs that actually trained the model to target. A three-epoch run has a
-    # node-wide efficiency too, but almost all of its energy is startup
-    # amortised over no training, so it would sit on the chart looking like a
-    # slow machine rather than a short run.
-    eff_rows = [
-        {
-            "machine": r["machine"],
-            "ranks": r["world_size"],
-            "eff": node_efficiency(r),
-            "samples": r["samples_global"],
-            "joules": r["power_joules_total"],
-        }
-        for r in runs
-        if node_efficiency(r) and r.get("tta_s")
-    ]
-    eff_svg = efficiency_chart(eff_rows)
-    eff_section = (
-        "<h2>Energy per sample</h2>" + eff_svg
-        + '<p class="fineprint">Whole-job samples over whole-node joules — the '
-          'one energy figure on this page that compares across machines, since '
-          'both sides cover a node. Filling the node matters far more than '
-          'which node it is: the same Aurora hardware is an order of magnitude '
-          'less efficient at one rank than at twelve, while the gap between '
-          'two fully subscribed machines is well under 2×. Runs that never '
-          'reached the accuracy target are left out — their energy is mostly '
-          'startup amortised over no training.</p>'
-        if eff_svg else ""
-    )
-    tail_svg = tail_chart(curves)
-    tail_section = (
-        "<h2>Step-time tail</h2>" + tail_svg
-        + '<p class="fineprint">Slowest training step as a multiple of the '
-          'median, from the same runs. Every rank waits on the slowest at each '
-          'all-reduce, so the tail is what a rare bad step actually costs. The '
-          'CPU machine is the steadiest thing on this page.</p>'
-        if tail_svg else ""
-    )
-    measured = {r.get("machine") for r in runs if r.get("machine")}
-    spec_table = (
-        table(
-            ["Machine"] + [label for _, label in SPEC_COLUMNS],
-            spec_rows(specs, measured),
-            "Per node, which is both the unit this benchmark scales in and the "
-            "unit an allocation is billed in. Where each figure came from is "
-            "recorded in the _source fields of configs/machines.json.",
-        )
-        if specs
-        else ""
-    )
-    cards = ""
-    for h in machine_stats:
-        eff = f"{h['eff']:,.1f}" if h["eff"] else "—"
-        cards += f"""
-        <div class="card">
-          <h3>{html.escape(str(h['machine']))}</h3>
-          <div class="stat"><span class="v">{num(h['sps'])}</span><span class="u">samples/s</span></div>
-          <div class="sub">peak, {h['nodes']} node · {h['ranks']} ranks</div>
-          <div class="stat"><span class="v">{eff}</span><span class="u">samples/J</span></div>
-          <div class="sub">node-wide, best run</div>
-        </div>"""
+# ---------------------------------------------------------------------------
+# Page shell, shared by every page in docs/.
+#
+# The stylesheet stays inlined in each page rather than becoming a docs/style.css
+# that both link, because this module's docstring promises a page rendering with
+# no network and no companion files -- the same reason the logo is a data: URI.
+# Ten kilobytes duplicated across two files is a smaller cost than a page that
+# loses its styling the moment it is opened from anywhere but the site.
+#
+# Braces below are doubled: this is an f-string body, and the CSS moved into it
+# verbatim. Substituted values are not re-scanned, so callers need not escape.
 
-    run_rows = []
-    for r in runs:
-        flag = ""
-        if r.get("stopped_early"):
-            flag = ' <span class="tag">early</span>'
-        run_rows.append([
-            when_cell(r),
-            f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
-            num(r.get("nodes")), num(r.get("ranks")),
-            html.escape(str(r.get("precision") or "—")),
-            num(r.get("global_batch")),
-            num(r.get("steps")) + flag,
-            html.escape(str(r.get("epochs") or "—")),
-            num(r.get("samples_per_s")),
-            num(r.get("median_step_ms"), 1),
-            num(r.get("best_top1"), 3),
-            num(r.get("tta_s"), 1),
-            num(r.get("mfu_pct"), 2),
-        ])
+PAGES = [
+    ("index.html", "Data & analysis"),
+    ("power.html", "Power profiles"),
+]
 
-    energy_rows = []
-    for r in runs:
-        if not r.get("joules"):
-            continue
-        energy_rows.append([
-            when_cell(r),
-            f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
-            num(r.get("ranks")),
-            num(r.get("avg_watts"), 1),
-            num(r.get("joules")),
-            num(r.get("samples_processed")),
-            num(r.get("samples_per_joule"), 1),
-            num(r.get("joules_to_target")),
-            f'<span class="scope">{html.escape(str(r.get("energy_scope") or "—"))}</span>',
-        ])
 
-    node_rows = []
-    for r in runs:
-        if not r.get("power_joules_total"):
-            continue
-        eff = node_efficiency(r)
-        node_rows.append([
-            when_cell(r),
-            f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
-            num(r.get("power_devices")),
-            num(r.get("power_devices_idle")),
-            num(r.get("power_joules_total")),
-            num(r.get("power_joules_idle")),
-            num(r.get("power_idle_pct"), 1),
-            f'<strong>{eff:,.1f}</strong>' if eff else "—",
-        ])
+def nav(current: str) -> str:
+    """Links to every page, with the current one marked and not a link.
 
-    machines = sorted({r.get("machine") for r in runs if r.get("machine")})
-    generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    A second page nobody can reach from the first is a second page nobody
+    reads, so this renders on both rather than only on the one being added.
+    """
+    links = ""
+    for href, label in PAGES:
+        if href == current:
+            links += f'<span class="here">{html.escape(label)}</span>'
+        else:
+            links += f'<a href="{href}">{html.escape(label)}</a>'
+    return f'<nav class="nav">{links}</nav>'
 
+
+def shell(*, title: str, heading: str, lede: str, body: str, footer: str,
+          logo_uri: str | None = None, here: str = "index.html",
+          strip: str = "") -> str:
+    """One complete HTML document. Every page on the site is built from this."""
     return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Power and Performance Across ALCF Machines</title>
+<title>{title}</title>
 <style>
 :root {{
   --bg:#fbfbfa; --fg:#1a1a18; --dim:#6b6b66; --line:#e2e2dd;
@@ -659,19 +571,184 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
 .key {{ display:inline-flex; align-items:center; gap:.45rem; }}
 .sw {{ width:14px; height:3px; border-radius:2px; background:var(--c);
   flex:none; }}
+
+/* Sits under the header on every page. The current page is a <span>, not a
+   dead link to itself -- the only reliable cue for which page you are on. */
+.nav {{ display:flex; gap:.45rem; flex-wrap:wrap; margin:1.6rem 0 0; }}
+.nav a, .nav .here {{ font-size:.76rem; padding:.32rem .8rem; border-radius:999px;
+  border:1px solid var(--line); text-decoration:none; }}
+.nav a {{ color:var(--dim); }}
+.nav a:hover {{ color:var(--accent); border-color:var(--accent); }}
+.nav .here {{ color:var(--accent); border-color:var(--accent);
+  background:var(--tag); font-weight:600; }}
+
+/* Per-machine specs on the power page: the same fields as the index's specs
+   table, turned on their side because one machine is a record, not a row. */
+.specs {{ display:grid; grid-template-columns:auto 1fr; gap:.28rem 1.2rem;
+  margin:.2rem 0 1.1rem; font-size:.83rem; }}
+.specs dt {{ color:var(--dim); font-size:.7rem; text-transform:uppercase;
+  letter-spacing:.05em; padding-top:.22rem; white-space:nowrap; }}
+.specs dd {{ margin:0; }}
+/* Content that is measured but not yet drawn. Dashed on purpose: this is the
+   one place on the site where "provisional" is the correct reading of a
+   border, everywhere else it would be lying about finished numbers. */
+.todo {{ border:1px dashed var(--line); border-radius:10px;
+  padding:1rem 1.2rem; color:var(--dim); font-size:.83rem; max-width:70ch;
+  line-height:1.6; }}
+.todo strong {{ color:var(--fg); font-weight:600; }}
+.mhead {{ display:flex; align-items:baseline; gap:.55rem; flex-wrap:wrap;
+  margin:2.75rem 0 .2rem; }}
+.mhead h2 {{ margin:0; }}
 </style></head><body><div class="wrap">
 
 <header class="head">
 <div>
-<h1>Power and Performance Across ALCF Machines</h1>
-<p class="lede">One portable benchmark, run identically on every ALCF system and
-compared on throughput, time-to-accuracy and energy — down to the accelerators
-nobody was using. One harness, one result schema, one table.</p>
-{workload_strip(runs)}
+<h1>{heading}</h1>
+<p class="lede">{lede}</p>
+{strip}
 </div>
 {identity(logo_uri)}
 </header>
+{nav(here)}
+{body}
 
+<footer>
+{footer}
+</footer>
+</div></body></html>
+"""
+
+
+def index_body(runs: list, specs: dict | None = None,
+               curves: dict | None = None) -> str:
+    """The comparison page: specs, runs, energy tables and charts."""
+    machine_stats = headline(runs)
+    curves = curves or {}
+    tta_svg = accuracy_chart(curves)
+    tta_section = (
+        "<h2>Time to accuracy</h2>" + tta_svg + series_legend(curves)
+        + '<p class="fineprint">Validation top-1 against wall-clock, for the '
+          'full 100-epoch run on each machine. Every machine crosses 0.90 '
+          'within three epochs of the others — same global batch, same '
+          'schedule — so the horizontal distance between the curves is the '
+          'whole comparison. The x-axis is logarithmic: read the gaps as '
+          'multiples, not lengths.</p>'
+        if tta_svg else ""
+    )
+    # Runs that actually trained the model to target. A three-epoch run has a
+    # node-wide efficiency too, but almost all of its energy is startup
+    # amortised over no training, so it would sit on the chart looking like a
+    # slow machine rather than a short run.
+    eff_rows = [
+        {
+            "machine": r["machine"],
+            "ranks": r["world_size"],
+            "eff": node_efficiency(r),
+            "samples": r["samples_global"],
+            "joules": r["power_joules_total"],
+        }
+        for r in runs
+        if node_efficiency(r) and r.get("tta_s")
+    ]
+    eff_svg = efficiency_chart(eff_rows)
+    eff_section = (
+        "<h2>Energy per sample</h2>" + eff_svg
+        + '<p class="fineprint">Whole-job samples over whole-node joules — the '
+          'one energy figure on this page that compares across machines, since '
+          'both sides cover a node. Filling the node matters far more than '
+          'which node it is: the same Aurora hardware is an order of magnitude '
+          'less efficient at one rank than at twelve, while the gap between '
+          'two fully subscribed machines is well under 2×. Runs that never '
+          'reached the accuracy target are left out — their energy is mostly '
+          'startup amortised over no training.</p>'
+        if eff_svg else ""
+    )
+    tail_svg = tail_chart(curves)
+    tail_section = (
+        "<h2>Step-time tail</h2>" + tail_svg
+        + '<p class="fineprint">Slowest training step as a multiple of the '
+          'median, from the same runs. Every rank waits on the slowest at each '
+          'all-reduce, so the tail is what a rare bad step actually costs. The '
+          'CPU machine is the steadiest thing on this page.</p>'
+        if tail_svg else ""
+    )
+    measured = {r.get("machine") for r in runs if r.get("machine")}
+    spec_table = (
+        table(
+            ["Machine"] + [label for _, label in SPEC_COLUMNS],
+            spec_rows(specs, measured),
+            "Per node, which is both the unit this benchmark scales in and the "
+            "unit an allocation is billed in. Where each figure came from is "
+            "recorded in the _source fields of configs/machines.json.",
+        )
+        if specs
+        else ""
+    )
+    cards = ""
+    for h in machine_stats:
+        eff = f"{h['eff']:,.1f}" if h["eff"] else "—"
+        cards += f"""
+        <div class="card">
+          <h3>{html.escape(str(h['machine']))}</h3>
+          <div class="stat"><span class="v">{num(h['sps'])}</span><span class="u">samples/s</span></div>
+          <div class="sub">peak, {h['nodes']} node · {h['ranks']} ranks</div>
+          <div class="stat"><span class="v">{eff}</span><span class="u">samples/J</span></div>
+          <div class="sub">node-wide, best run</div>
+        </div>"""
+
+    run_rows = []
+    for r in runs:
+        flag = ""
+        if r.get("stopped_early"):
+            flag = ' <span class="tag">early</span>'
+        run_rows.append([
+            when_cell(r),
+            f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
+            num(r.get("nodes")), num(r.get("ranks")),
+            html.escape(str(r.get("precision") or "—")),
+            num(r.get("global_batch")),
+            num(r.get("steps")) + flag,
+            html.escape(str(r.get("epochs") or "—")),
+            num(r.get("samples_per_s")),
+            num(r.get("median_step_ms"), 1),
+            num(r.get("best_top1"), 3),
+            num(r.get("tta_s"), 1),
+            num(r.get("mfu_pct"), 2),
+        ])
+
+    energy_rows = []
+    for r in runs:
+        if not r.get("joules"):
+            continue
+        energy_rows.append([
+            when_cell(r),
+            f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
+            num(r.get("ranks")),
+            num(r.get("avg_watts"), 1),
+            num(r.get("joules")),
+            num(r.get("samples_processed")),
+            num(r.get("samples_per_joule"), 1),
+            num(r.get("joules_to_target")),
+            f'<span class="scope">{html.escape(str(r.get("energy_scope") or "—"))}</span>',
+        ])
+
+    node_rows = []
+    for r in runs:
+        if not r.get("power_joules_total"):
+            continue
+        eff = node_efficiency(r)
+        node_rows.append([
+            when_cell(r),
+            f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
+            num(r.get("power_devices")),
+            num(r.get("power_devices_idle")),
+            num(r.get("power_joules_total")),
+            num(r.get("power_joules_idle")),
+            num(r.get("power_idle_pct"), 1),
+            f'<strong>{eff:,.1f}</strong>' if eff else "—",
+        ])
+
+    return f"""
 <h2>Machines</h2>
 <div class="cards">{cards}</div>
 {spec_table}
@@ -717,21 +794,123 @@ per-rank column cannot see that, which is the reason both tables exist.</div>
 
 <h2>Legend</h2>
 {legend()}
-
-<footer>
-Generated {generated} from {len(runs)} run(s) · machines: {html.escape(", ".join(machines)) or "none"}<br>
-Rebuild with <code>python analysis/build_site.py</code> after
-<code>git pull</code>. Numbers come from <code>results/*.json</code>; the page
-is never edited by hand.
-</footer>
-</div></body></html>
 """
+
+
+def timeline_counts(results_dir: str) -> dict:
+    """How many node power timelines are on disk, per machine.
+
+    Counted from filenames -- power.py writes machine_runid_host_power.json and
+    no machine name contains an underscore -- rather than by parsing the files,
+    because one Aurora timeline is 1.5 MB and the only question here is how many
+    there are.
+    """
+    counts: dict = defaultdict(int)
+    for path in Path(results_dir).glob("power/*_power.json"):
+        counts[path.name.split("_")[0]] += 1
+    return dict(counts)
+
+
+def power_state(machine: str, runs: list, timelines: int) -> tuple:
+    """(tag, sentence) describing what power data exists for this machine.
+
+    Derived from what is on disk, never asserted. "No timeline" has more than
+    one cause and they are not interchangeable: a machine that reports energy
+    counters but was run without the sampler is waiting on a flag, while Crux
+    exposes no accelerator counter at all and always will. Writing one
+    explanation for both would put a guess on a public page.
+    """
+    mine = [r for r in runs if r.get("machine") == machine]
+    if timelines:
+        return "", (
+            f"<strong>{timelines} node timeline{'s' if timelines != 1 else ''} "
+            f"recorded</strong>, in <code>results/power/</code>. Per-device watts "
+            f"against wall-clock, with epoch and eval boundaries marked, will be "
+            f"drawn here."
+        )
+    if not mine:
+        return ' <span class="tag">no runs yet</span>', (
+            "<strong>Not yet run.</strong> Targeted by the benchmark, with no "
+            "results on disk — the specs above are what it will be measured on."
+        )
+    if any(r.get("joules") or r.get("power_joules_total") for r in mine):
+        return ' <span class="tag">no timeline</span>', (
+            f"<strong>{len(mine)} run(s) with energy counters, no node "
+            f"timeline.</strong> The counters bracket training regardless of the "
+            f"sampler, so these ran with <code>--power-interval 0</code> or "
+            f"predate node sampling. Their totals are on the index page."
+        )
+    return ' <span class="tag">no counter</span>', (
+        f"<strong>{len(mine)} run(s), no energy measured.</strong> This machine "
+        f"exposes no accelerator energy counter to read, so its rows carry timing "
+        f"only and are absent from the energy tables rather than sitting in them "
+        f"full of zeros."
+    )
+
+
+def machine_section(machine: str, spec: dict, tag: str, state: str) -> str:
+    """One machine on the power page: its specs, then what is coming.
+
+    The specs are duplicated from the index deliberately. A reader who lands on
+    this page from a link wants to know what hardware the trace came off without
+    going back a page for it, and the source of both is the same config file, so
+    they cannot disagree.
+    """
+    fields = "".join(
+        f"<dt>{html.escape(label)}</dt>"
+        f"<dd>{html.escape(str(spec.get(key, '—')))}</dd>"
+        for key, label in SPEC_COLUMNS
+    )
+    slot = SERIES_SLOT.get(machine, 8)
+    return f"""
+<div class="mhead">
+<h2>{html.escape(machine)}</h2>
+<span class="key s{slot}"><span class="sw"></span></span>{tag}
+</div>
+<dl class="specs">{fields}</dl>
+<div class="todo">{state}</div>"""
+
+
+def power_body(specs: dict, runs: list, timelines: dict) -> str:
+    """The power page: one section per targeted machine, in config order."""
+    sections = ""
+    for machine, spec in specs.items():
+        if machine.startswith("_"):
+            continue
+        tag, state = power_state(machine, runs, timelines.get(machine, 0))
+        sections += machine_section(machine, spec, tag, state)
+    return f"""
+<div class="note">Placeholders. The specs and the timeline counts are read from
+the repo on every build; the profiles themselves are not drawn yet. Nothing on
+this page is a measurement except the counts.</div>
+{sections}
+
+<h2>What a profile will show</h2>
+<p class="fineprint">One line per accelerator on the node, sampled by
+<code>benchmark/power.py</code> at <code>--power-interval</code> seconds, plotted
+as watts from consecutive energy-counter deltas. Devices no rank bound to get a
+line too — on a single-rank Aurora node those flat lines are over 90% of the
+node's energy, which is the fact the index page can only state as a percentage.
+Aurora's whole-card counters are excluded, as they are from every total, because
+they cover silicon the per-tile counters already report.</p>"""
+
+
+def footer_text(runs: list, generated: str) -> str:
+    machines = sorted({r.get("machine") for r in runs if r.get("machine")})
+    return (
+        f'Generated {generated} from {len(runs)} run(s) · machines: '
+        f'{html.escape(", ".join(machines)) or "none"}<br>\n'
+        "Rebuild both pages with <code>python analysis/build_site.py</code> after\n"
+        "<code>git pull</code>. Numbers come from <code>results/*.json</code>; the\n"
+        "pages are never edited by hand."
+    )
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--results-dir", default="./results")
-    ap.add_argument("--out", default="docs/index.html")
+    ap.add_argument("--out-dir", default="docs",
+                    help="directory the pages are written into")
     ap.add_argument("--machines", default="./configs/machines.json",
                     help="node specs for the machines table; skipped if absent")
     ap.add_argument("--include-synthetic", action="store_true")
@@ -743,20 +922,57 @@ def main() -> None:
     if not runs:
         raise SystemExit(f"no complete runs found in {args.results_dir}")
 
-    out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    logo = logo_data_uri(out.parent)
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    logo = logo_data_uri(out_dir)
     # Optional: a checkout without the config still builds, just without the
     # specs table, rather than failing on a file that carries no measurements.
     specs_path = Path(args.machines)
     specs = json.loads(specs_path.read_text(encoding="utf-8")) if specs_path.exists() else {}
     curves = canonical_runs(args.results_dir)
-    out.write_text(build(runs, logo, specs, curves), encoding="utf-8")
+    measured = {r.get("machine") for r in runs if r.get("machine")}
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    footer = footer_text(runs, generated)
+
+    pages = {
+        "index.html": shell(
+            title="Power and Performance Across ALCF Machines",
+            heading="Power and Performance Across ALCF Machines",
+            lede="One portable benchmark, run identically on every ALCF system "
+                 "and compared on throughput, time-to-accuracy and energy — down "
+                 "to the accelerators nobody was using. One harness, one result "
+                 "schema, one table.",
+            strip=workload_strip(runs),
+            body=index_body(runs, specs, curves),
+            footer=footer,
+            logo_uri=logo,
+            here="index.html",
+        ),
+        "power.html": shell(
+            title="Power Profiles — ALCF Machines",
+            heading="Power Profiles",
+            lede="What each machine actually draws while it trains, per node and "
+                 "per accelerator. One section per system the benchmark targets.",
+            body=power_body(specs, runs, timeline_counts(args.results_dir)),
+            footer=footer,
+            logo_uri=logo,
+            here="power.html",
+        ),
+    }
+    for name, text in pages.items():
+        (out_dir / name).write_text(text, encoding="utf-8")
+
+    # Pages runs Jekyll over the publishing folder unless told not to. Nothing
+    # here starts with an underscore today, but the cost of being wrong later is
+    # a page that silently stops updating, and the cost of the file is nothing.
+    (out_dir / ".nojekyll").touch()
+
     # Said out loud because an inlined image is the one thing here that can bloat
     # the page, and a silently-missing logo otherwise looks like a CSS bug.
     print(f"logo: {'inlined, ' + str(len(logo) // 1024) + ' KB' if logo else 'none found'}")
-    machines = sorted({r.get("machine") for r in runs if r.get("machine")})
-    print(f"wrote {out} — {len(runs)} run(s), machines: {', '.join(machines)}")
+    for name in pages:
+        print(f"wrote {out_dir / name} — {(out_dir / name).stat().st_size // 1024} KB")
+    print(f"{len(runs)} run(s), machines: {', '.join(sorted(measured))}")
 
 
 if __name__ == "__main__":
