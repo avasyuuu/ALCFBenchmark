@@ -16,6 +16,7 @@ from pathlib import Path
 
 import torch
 
+from .hwmon import intel_energy_counters, intel_energy_sources
 from .power import EnergySource
 
 # Env vars that carry rank info, in priority order. Different launchers set
@@ -159,61 +160,6 @@ class Platform:
         }
 
 
-_DRM_CARD = re.compile(r"^card(\d+)$")
-
-
-def _hwmon_counters():
-    """Yield (card_index, hwmon_name, energy_path) for every readable i915
-    energy counter on this node, cards in numeric order.
-
-    Single place that knows the sysfs layout, so the per-rank counter and the
-    node-wide enumeration cannot drift apart. /sys/class/drm also holds
-    connector entries (card0-DP-1) and render nodes, hence the strict match on
-    card<N>; and cards are sorted numerically because card10 sorts before card2
-    as a string.
-    """
-    try:
-        entries = list(Path("/sys/class/drm").iterdir())
-    except OSError:
-        return
-
-    cards = [
-        (int(m.group(1)), entry)
-        for entry in entries
-        if (m := _DRM_CARD.match(entry.name))
-    ]
-    for card, entry in sorted(cards):
-        try:
-            hwmons = sorted((entry / "device" / "hwmon").glob("hwmon*"))
-        except OSError:
-            continue
-        for hwmon in hwmons:
-            try:
-                name = (hwmon / "name").read_text().strip()
-            except OSError:
-                continue
-            counter = hwmon / "energy1_input"
-            try:
-                int(counter.read_text())
-            except (OSError, ValueError):
-                continue
-            yield card, name, counter
-
-
-def _microjoule_reader(path: Path):
-    """Closure over one counter path. A factory rather than a lambda in a loop,
-    which would capture the loop variable and make every source read the last
-    path."""
-
-    def read():
-        try:
-            return int(path.read_text()) / 1e6
-        except (OSError, ValueError):
-            return None
-
-    return read
-
-
 class AuroraPlatform(Platform):
     """Aurora — Intel Data Center GPU Max (Ponte Vecchio) via IPEX + oneCCL.
 
@@ -286,7 +232,7 @@ class AuroraPlatform(Platform):
         self._energy_scope = "no readable hwmon energy counter"
         index = self.device.index or 0
         card, tile = index // 2, index % 2
-        mine = [(n, p) for c, n, p in _hwmon_counters() if c == card]
+        mine = [(n, p) for c, n, p in intel_energy_counters() if c == card]
 
         # Prefer this rank's tile; fall back to the whole card, which is still
         # a real measurement as long as the result says so.
@@ -303,41 +249,15 @@ class AuroraPlatform(Platform):
         return None
 
     def node_energy_sources(self) -> list[EnergySource]:
-        """Both tiles of every card on the node, plus each whole-card counter.
+        """Every tile and card counter on the node. See hwmon.py.
 
-        Tile counters are what sum to a node total, one per torch device. The
-        card counter additionally covers HBM and uncore, so it is larger than
-        its two tiles combined -- recorded as an aggregate so the difference can
-        finally be quantified instead of left as a caveat, but kept out of the
-        totals so nothing is counted twice.
+        Delegated rather than implemented here so the training run and
+        analysis/power_sidecar.py -- which measures an inference server this
+        package did not launch -- read the same counters through the same code.
+        Two enumerations of the same sysfs tree would drift, and the failure
+        would look like Aurora using more energy to serve than to train.
         """
-        sources = []
-        for card, name, counter in _hwmon_counters():
-            if name.endswith(("_gt0", "_gt1")):
-                tile = int(name[-1])
-                sources.append(
-                    EnergySource(
-                        key=f"card{card}.gt{tile}",
-                        scope=f"xpu tile {tile} of card {card} (hwmon energy1_input)",
-                        read=_microjoule_reader(counter),
-                        # Inverse of the index -> (card, tile) split in
-                        # _energy_path, and correct only under
-                        # ZE_FLAT_DEVICE_HIERARCHY=FLAT, which this class
-                        # already documents relying on.
-                        device_index=card * 2 + tile,
-                    )
-                )
-            elif "_gt" not in name:
-                sources.append(
-                    EnergySource(
-                        key=f"card{card}",
-                        scope=f"whole card {card}, both tiles + HBM (hwmon energy1_input)",
-                        read=_microjoule_reader(counter),
-                        device_index=None,
-                        aggregate=True,
-                    )
-                )
-        return sources
+        return intel_energy_sources()
 
     def energy_joules(self) -> float | None:
         path = self._energy_path()

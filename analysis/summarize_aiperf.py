@@ -29,6 +29,12 @@ from pathlib import Path
 
 EXPORT = "profile_export_aiperf.json"
 
+# Written into the artifact directory by analysis/power_sidecar.py. AIPerf's own
+# power collectors are DCGM, pynvml and amdsmi, so on Intel silicon every
+# nvidia_* field in the export is absent -- the sidecar samples the i915 hwmon
+# counters from beside the run instead, and this is where its joules come in.
+SIDECAR = "sidecar_power.json"
+
 
 def val(node, stat: str = "avg"):
     if node is None:
@@ -70,11 +76,48 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
     out_tok = val(d.get("total_output_tokens"))
     in_tok = val(d.get("total_isl"))
 
+    # Energy comes from AIPerf where AIPerf can measure it, and from the sidecar
+    # where it cannot. Never from both: the two cover different silicon -- AIPerf
+    # reports the GPUs NVML enumerates, the sidecar reports every accelerator
+    # counter on the node -- so adding or averaging them would invent a scope
+    # that no counter has. `energy_src` says which one a row used, because
+    # tokens/joule from the two is not the same ratio.
+    energy_src = "aiperf nvml" if avg_w is not None else None
+    total_j = val(d.get("nvidia_total_gpu_energy"))
+    side = _sidecar(directory)
+    if avg_w is None and side is not None:
+        total_j = side.get("joules")
+        # Watts over the window the command ran in, which is the AIPerf process
+        # start to exit -- slightly longer than benchmark_duration, since that
+        # excludes warmup and startup. Reported as measured rather than rescaled
+        # onto the shorter window, which would assume a flat power draw across a
+        # phase the sidecar can see is not flat.
+        avg_w = side.get("watts")
+        dur = side.get("wall_s") or dur
+        energy_src = f"sidecar {side.get('machine') or '?'}"
+
     dyn_w = avg_w - idle_w if (avg_w is not None and idle_w is not None) else None
     dyn_j = dyn_w * dur if (dyn_w is not None and dur is not None) else None
 
+    # AIPerf computes these itself from its own collectors; with sidecar joules
+    # they have to be divided here, from the token counts AIPerf did report.
+    tok_per_j = val(d.get("nvidia_output_tokens_per_joule"))
+    if tok_per_j is None and total_j and out_tok:
+        tok_per_j = out_tok / total_j
+    mj_out = val(d.get("nvidia_energy_per_output_token"))
+    if mj_out is None and total_j and out_tok:
+        mj_out = total_j / out_tok * 1000
+    mj_all = val(d.get("nvidia_energy_per_total_token"))
+    if mj_all is None and total_j and in_tok and out_tok:
+        mj_all = total_j / (in_tok + out_tok) * 1000
+    j_per_req = val(d.get("nvidia_energy_per_request"))
+    reqs = val(d.get("request_count"))
+    if j_per_req is None and total_j and reqs:
+        j_per_req = total_j / reqs
+
     return {
         "name": directory.name,
+        "energy_src": energy_src,
         "concurrency": profiling.get("concurrency"),
         "requested_osl": _requested(cfg, "osl"),
         "requested_isl": _requested(cfg, "isl"),
@@ -95,13 +138,40 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
         "osl_std": val(osl, "std"),
         "avg_gpu_w": avg_w,
         "dynamic_w": dyn_w,
-        "total_energy_j": val(d.get("nvidia_total_gpu_energy")),
+        "total_energy_j": total_j,
         "dynamic_energy_j": dyn_j,
-        "tok_per_joule": val(d.get("nvidia_output_tokens_per_joule")),
+        "tok_per_joule": tok_per_j,
         "tok_per_joule_dynamic": (out_tok / dyn_j) if (dyn_j and out_tok) else None,
-        "mj_per_output_token": val(d.get("nvidia_energy_per_output_token")),
-        "mj_per_total_token": val(d.get("nvidia_energy_per_total_token")),
-        "energy_per_req_j": val(d.get("nvidia_energy_per_request")),
+        "mj_per_output_token": mj_out,
+        "mj_per_total_token": mj_all,
+        "energy_per_req_j": j_per_req,
+    }
+
+
+def _sidecar(directory: Path) -> dict | None:
+    """Joules, mean watts and wall time from a sidecar run in this directory.
+
+    Returns None rather than raising when the file is absent, which is the
+    normal case on NVIDIA -- there AIPerf measures its own power and the sidecar
+    is not run at all.
+    """
+    path = directory / SIDECAR
+    if not path.exists():
+        return None
+    try:
+        blob = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return None
+    power = blob.get("power") or {}
+    joules, span = power.get("joules_total"), power.get("span_s")
+    return {
+        "joules": joules,
+        # From the sampler's own span, not from wall_s: the counters bound what
+        # was actually measured, and if sampling stopped early the honest watts
+        # come from the window that has samples in it.
+        "watts": (joules / span) if joules and span else None,
+        "wall_s": blob.get("wall_s"),
+        "machine": blob.get("machine"),
     }
 
 
@@ -172,12 +242,12 @@ def main() -> None:
     table(
         "Load and power",
         ["conc", "dur_s", "req/s", "outTok/s", "allTok/s", "TTFT_ms", "ITL_ms",
-         "avg_W", "dyn_W", "energy_J"],
+         "avg_W", "dyn_W", "energy_J", "src"],
         [
             [r["concurrency"], fmt(r["duration_s"]), fmt(r["req_per_s"]),
              fmt(r["out_tok_per_s"], 1), fmt(r["all_tok_per_s"], 1), fmt(r["ttft_ms"], 1),
              fmt(r["itl_ms"], 2), fmt(r["avg_gpu_w"], 1), fmt(r["dynamic_w"], 1),
-             fmt(r["total_energy_j"], 1)]
+             fmt(r["total_energy_j"], 1), r["energy_src"] or "none"]
             for r in rows
         ],
     )
@@ -217,6 +287,17 @@ def main() -> None:
 
 def _warn(rows: list[dict]) -> None:
     notes = []
+
+    # Mixing scopes is worse than missing one. AIPerf's figure covers the GPUs
+    # NVML enumerates; the sidecar's covers every accelerator counter on the
+    # node. A table with both would put two different denominators under one
+    # tokens/joule column and read as a machine comparison.
+    sources = {r["energy_src"] for r in rows if r["energy_src"]}
+    if len(sources) > 1:
+        notes.append(
+            f"rows mix energy sources ({', '.join(sorted(sources))}). These cover "
+            "different silicon -- compare tokens/joule only within one source."
+        )
 
     counts = {r["requests"] for r in rows if r["requests"] is not None}
     if len(counts) > 1:
