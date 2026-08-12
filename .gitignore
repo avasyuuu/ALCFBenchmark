@@ -42,3 +42,8 @@ results/aiperf/*/aiperf-c*.log
 # fetched from ALCF's frameworks-sdk rather than vendored so it stays theirs.
 .vllm_cache/
 vllm_build_all_modelinfo_caches.py
+
+# A stray idle.json in the repo root -- nvml_idle.py writes here when run with
+# no -o. The real ones live inside a sweep directory under results/aiperf/,
+# where the run they belong to is identifiable.
+/idle.json
