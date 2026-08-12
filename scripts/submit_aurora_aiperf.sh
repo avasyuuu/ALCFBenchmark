@@ -116,6 +116,16 @@ export TORCH_LLM_ALLREDUCE=1
 # the same model of the machine.
 export ZE_FLAT_DEVICE_HIERARCHY=FLAT
 
+# frameworks/2025.3.1 sets ONEAPI_DEVICE_SELECTOR="opencl:gpu;level_zero:gpu" on
+# load and prints a warning saying so -- it is what enables vLLM, Ray, Triton-XPU
+# and dpctl. Left alone deliberately. ALCF documents "level_zero:gpu" as the
+# revert if something misbehaves, so set ONEAPI_REVERT=1 to take it, and email
+# support@alcf.anl.gov if you have to, which is what they ask for.
+if [[ "${ONEAPI_REVERT:-0}" == "1" ]]; then
+    export ONEAPI_DEVICE_SELECTOR="level_zero:gpu"
+    echo "NOTE: ONEAPI_DEVICE_SELECTOR reverted to level_zero:gpu"
+fi
+
 export VLLM_HOST_IP=$(getent hosts "$(hostname).hsn.cm.aurora.alcf.anl.gov" \
     | awk '{ print $1 }' | tr ' ' '\n' | sort | head -n 1)
 export no_proxy="localhost,127.0.0.1"
