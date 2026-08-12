@@ -286,8 +286,9 @@ class PowerTimeline:
 
 
 def joules_from_series(series: dict, tail_s: float | None = None,
+                       window: tuple | None = None,
                        bound_devices=frozenset()) -> dict | None:
-    """Re-integrate a written timeline, optionally over just its last tail_s.
+    """Re-integrate a written timeline over a window of it.
 
     Exists because the thing being measured and the thing being sampled do not
     always start together. A training run owns its own loop and brackets exactly
@@ -303,11 +304,20 @@ def joules_from_series(series: dict, tail_s: float | None = None,
     code path and not the other, and the two would disagree for a reason nobody
     would think to look for.
 
-    tail_s is taken from the END of the series. The profiling phase is AIPerf's
-    last, so this brackets it plus whatever teardown followed -- an over-estimate
-    of the window rather than an under-estimate, and teardown is short next to a
-    profiling run. Returns None when the window holds fewer than two samples,
-    because one sample is not a measurement of anything.
+    Two ways to say which window, in order of preference:
+
+      window=(t0, t1)  explicit bounds in the series' own seconds. Use this when
+                       the workload reports when its measured phase actually ran
+                       -- AIPerf's phase_manifest.json does, to the nanosecond.
+      tail_s=N         the last N seconds. The fallback for a workload that only
+                       reports a duration. AIPerf's profiling phase is its last,
+                       so this brackets it plus whatever teardown followed --
+                       measured at 3-5 s on the first Aurora sweep, worth 0.1-0.6%
+                       of the energy, so a fair approximation and not a good one
+                       to rely on when the exact bounds are available.
+
+    Returns None when the window holds fewer than two samples, because one
+    sample is not a measurement of anything.
     """
     times = series.get("t_s") or []
     columns = series.get("joules") or []
@@ -315,13 +325,21 @@ def joules_from_series(series: dict, tail_s: float | None = None,
     if len(times) < 2 or not columns:
         return None
 
-    start = times[0] if tail_s is None else max(times[0], times[-1] - tail_s)
+    if window is not None:
+        start, end = max(times[0], window[0]), min(times[-1], window[1])
+    elif tail_s is not None:
+        start, end = max(times[0], times[-1] - tail_s), times[-1]
+    else:
+        start, end = times[0], times[-1]
+    if end <= start:
+        return None
+
     # The first index at or after the window start, minus one -- the delta into
     # the window needs the sample before it. Without that, a 47 s window loses
     # its first sampling interval of energy.
-    first = next((i for i, t in enumerate(times) if t >= start), 0)
-    first = max(0, first - 1)
-    if len(times) - first < 2:
+    first = max(0, next((i for i, t in enumerate(times) if t >= start), 0) - 1)
+    last = next((i for i in range(len(times) - 1, -1, -1) if times[i] <= end), first)
+    if last - first < 1:
         return None
 
     total = bound = idle = 0.0
@@ -331,7 +349,7 @@ def joules_from_series(series: dict, tail_s: float | None = None,
             break
         column = columns[index]
         joules = 0.0
-        for i in range(first, len(times) - 1):
+        for i in range(first, last):
             a, b = column[i], column[i + 1]
             if a is None or b is None or b < a:
                 continue
@@ -345,7 +363,7 @@ def joules_from_series(series: dict, tail_s: float | None = None,
         else:
             idle += joules
 
-    span = times[-1] - times[first]
+    span = times[last] - times[first]
     return {
         "joules_total": total,
         "joules_bound": bound,
@@ -354,7 +372,7 @@ def joules_from_series(series: dict, tail_s: float | None = None,
         "device_count": counted,
         "span_s": span,
         "watts": (total / span) if span else None,
-        "windowed": tail_s is not None and start > times[0],
+        "windowed": span < (times[-1] - times[0]) - 1e-9,
     }
 
 

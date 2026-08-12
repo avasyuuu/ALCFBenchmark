@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # analysis/ is a directory of scripts, not a package; the energy integration
@@ -90,7 +91,7 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
     # that no counter has. `energy_src` says which one a row used, because
     # tokens/joule from the two is not the same ratio.
     energy_src = "aiperf nvml" if avg_w is not None else None
-    idle_devices = idle_share = wall_j = None
+    idle_devices = idle_share = wall_j = window_src = None
     windowed = False
     total_j = val(d.get("nvidia_total_gpu_energy"))
     side = _sidecar(directory, profiling_s=dur)
@@ -106,6 +107,7 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
         energy_src = f"sidecar {side.get('machine') or '?'}"
         idle_devices, idle_share = side.get("devices_idle"), side.get("idle_fraction")
         wall_j, windowed = side.get("wall_joules"), side.get("windowed")
+        window_src = side.get("window_source")
 
     dyn_w = avg_w - idle_w if (avg_w is not None and idle_w is not None) else None
     dyn_j = dyn_w * dur if (dyn_w is not None and dur is not None) else None
@@ -133,6 +135,7 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
         "idle_share": idle_share,
         "wall_energy_j": wall_j,
         "windowed": windowed,
+        "window_source": window_src,
         "concurrency": profiling.get("concurrency"),
         "requested_osl": _requested(cfg, "osl"),
         "requested_isl": _requested(cfg, "isl"),
@@ -201,6 +204,7 @@ def _sidecar(directory: Path, profiling_s: float | None = None) -> dict | None:
         # denominator for tokens/joule, not a wrong measurement.
         "wall_joules": joules,
         "windowed": False,
+        "window_source": None,
     }
 
     series_name = blob.get("series_file")
@@ -215,9 +219,16 @@ def _sidecar(directory: Path, profiling_s: float | None = None) -> dict | None:
         return row
 
     bound = frozenset(blob.get("bound_devices") or [])
-    windowed = joules_from_series(series, tail_s=profiling_s, bound_devices=bound)
+    window = _profiling_window(directory, blob)
+    windowed = joules_from_series(
+        series,
+        window=window,
+        tail_s=None if window else profiling_s,
+        bound_devices=bound,
+    )
     if not windowed or not windowed.get("joules_total"):
         return row
+    row["window_source"] = "manifest" if window else "tail"
     row.update(
         joules=windowed["joules_total"],
         watts=windowed["watts"],
@@ -226,6 +237,42 @@ def _sidecar(directory: Path, profiling_s: float | None = None) -> dict | None:
         windowed=windowed["windowed"],
     )
     return row
+
+
+def _profiling_window(directory: Path, sidecar: dict) -> tuple | None:
+    """The profiling phase's bounds, in the power series' own seconds.
+
+    AIPerf 0.12 writes phase_manifest.json with start_ns/end_ns per phase in
+    Unix epoch nanoseconds. The sidecar records started_utc immediately before
+    constructing the sampler, and the sampler's t0 is set microseconds later in
+    its constructor, so `started_utc + t_s` is the wall-clock time of a sample to
+    well under a millisecond -- fine against a window measured in minutes.
+
+    That turns the tail-slice approximation into an exact answer. On the first
+    Aurora sweep the two differed by 3-5 s of teardown counted in place of the
+    same amount of early profiling, worth 0.1-0.6% of the energy. Small, but
+    there is no reason to carry an assumption when the file states the fact.
+
+    Returns None whenever anything is missing or unparseable -- older artifacts
+    have no manifest, and the caller falls back to the tail slice.
+    """
+    started = sidecar.get("started_utc")
+    if not started:
+        return None
+    path = directory / "phase_manifest.json"
+    if not path.exists():
+        return None
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8-sig"))
+        t0 = datetime.fromisoformat(started).timestamp()
+        phase = next(
+            p for p in manifest.get("phases") or []
+            if p.get("phase_kind") == "profiling"
+        )
+        start, end = phase["start_ns"] / 1e9 - t0, phase["end_ns"] / 1e9 - t0
+    except (OSError, ValueError, KeyError, StopIteration, TypeError):
+        return None
+    return (start, end) if end > start else None
 
 
 def _dig(node, *keys):
@@ -370,6 +417,18 @@ def _warn(rows: list[dict]) -> None:
             "(no series file, or sampling was shorter than benchmark_duration). Their "
             "energy covers AIPerf startup and warmup too, so tok/J is understated. "
             "tok/J_dyn is unaffected -- the excess is idle and subtracts out."
+        )
+
+    # Narrowed, but by the approximation rather than by the stated bounds. Worth
+    # a line because the two differ most exactly where the rows are shortest --
+    # 6.8% of dynamic watts at concurrency 32 on the first Aurora sweep, where a
+    # 52 s window had 3 s of teardown in it.
+    approx = [r for r in rows if r.get("window_source") == "tail"]
+    if approx:
+        notes.append(
+            f"{len(approx)} row(s) used the tail-slice window (no phase_manifest.json). "
+            "That counts teardown in place of early profiling; the error grows as the "
+            "row gets shorter. AIPerf 0.12+ writes the manifest and is exact."
         )
 
     sources = {r["energy_src"] for r in rows if r["energy_src"]}
