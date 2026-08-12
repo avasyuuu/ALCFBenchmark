@@ -313,6 +313,9 @@ def legend() -> str:
     return f'<div class="legend">{blocks}</div>'
 
 
+# Node specs, rendered per machine on the power page. Kept on one page only:
+# the index compares machines and the power page describes them, and a spec
+# printed twice is a spec that can be corrected in one place and not the other.
 SPEC_COLUMNS = [
     ("nodes", "Nodes"),
     ("accelerator", "Accelerator"),
@@ -321,25 +324,6 @@ SPEC_COLUMNS = [
     ("memory", "Node memory"),
     ("interconnect", "Interconnect"),
 ]
-
-
-def spec_rows(specs: dict, measured: set) -> list:
-    """One row per configured machine, in the config's own order.
-
-    Machines with no runs yet are listed and tagged rather than hidden: the
-    table answers "what is being compared", and a system that is targeted but
-    unmeasured is part of that answer.
-    """
-    rows = []
-    for machine, spec in specs.items():
-        if machine.startswith("_"):
-            continue  # _comment and friends
-        tag = "" if machine in measured else ' <span class="tag">no runs yet</span>'
-        rows.append(
-            [f'<span class="m">{html.escape(machine)}</span>{tag}']
-            + [html.escape(str(spec.get(key, "—"))) for key, _ in SPEC_COLUMNS]
-        )
-    return rows
 
 
 def when_cell(run: dict) -> str:
@@ -581,6 +565,12 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
 .nav a:hover {{ color:var(--accent); border-color:var(--accent); }}
 .nav .here {{ color:var(--accent); border-color:var(--accent);
   background:var(--tag); font-weight:600; }}
+/* Body links. Underlined on the baseline rather than through the descenders,
+   and never the browser's blue, which belongs to neither theme. The .ident and
+   .nav rules are more specific, so they keep their own treatment. */
+a {{ color:var(--accent); text-decoration:none;
+  border-bottom:1px solid var(--line); }}
+a:hover {{ border-bottom-color:var(--accent); }}
 
 /* Per-machine specs on the power page: the same fields as the index's specs
    table, turned on their side because one machine is a record, not a row. */
@@ -672,15 +662,14 @@ def index_body(runs: list, specs: dict | None = None,
           'CPU machine is the steadiest thing on this page.</p>'
         if tail_svg else ""
     )
-    measured = {r.get("machine") for r in runs if r.get("machine")}
-    spec_table = (
-        table(
-            ["Machine"] + [label for _, label in SPEC_COLUMNS],
-            spec_rows(specs, measured),
-            "Per node, which is both the unit this benchmark scales in and the "
-            "unit an allocation is billed in. Where each figure came from is "
-            "recorded in the _source fields of configs/machines.json.",
-        )
+    # The cards cover machines with runs. Systems that are targeted but not yet
+    # measured have no card and no row here, so the pointer is what keeps them
+    # reachable -- "what is being compared" is still part of the answer, it just
+    # lives on the page that describes the hardware now.
+    spec_link = (
+        '<p class="fineprint">Node specifications for every targeted system, '
+        'including ones with no runs yet, are on the '
+        '<a href="power.html">power profiles</a> page.</p>'
         if specs
         else ""
     )
@@ -751,7 +740,7 @@ def index_body(runs: list, specs: dict | None = None,
     return f"""
 <h2>Machines</h2>
 <div class="cards">{cards}</div>
-{spec_table}
+{spec_link}
 
 {tta_section}
 
@@ -851,10 +840,10 @@ def power_state(machine: str, runs: list, timelines: int) -> tuple:
 def machine_section(machine: str, spec: dict, tag: str, state: str) -> str:
     """One machine on the power page: its specs, then what is coming.
 
-    The specs are duplicated from the index deliberately. A reader who lands on
-    this page from a link wants to know what hardware the trace came off without
-    going back a page for it, and the source of both is the same config file, so
-    they cannot disagree.
+    This is the only place the specs are rendered. They read as a record per
+    machine rather than a row per machine, which is the shape a reader wants
+    beside one system's power trace -- and it is the shape the index's table
+    could never be, since a table compares and this describes.
     """
     fields = "".join(
         f"<dt>{html.escape(label)}</dt>"
@@ -883,6 +872,11 @@ def power_body(specs: dict, runs: list, timelines: dict) -> str:
 <div class="note">Placeholders. The specs and the timeline counts are read from
 the repo on every build; the profiles themselves are not drawn yet. Nothing on
 this page is a measurement except the counts.</div>
+<p class="fineprint">Specifications are per node — both the unit this benchmark
+scales in and the unit an allocation is billed in. Where each figure came from
+is recorded in the <code>_source</code> fields of
+<code>configs/machines.json</code>; the measurements are on the
+<a href="index.html">data and analysis</a> page.</p>
 {sections}
 
 <h2>What a profile will show</h2>

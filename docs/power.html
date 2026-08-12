@@ -154,6 +154,12 @@ code { font-size:.85em; background:var(--tag); padding:.1rem .3rem;
 .nav a:hover { color:var(--accent); border-color:var(--accent); }
 .nav .here { color:var(--accent); border-color:var(--accent);
   background:var(--tag); font-weight:600; }
+/* Body links. Underlined on the baseline rather than through the descenders,
+   and never the browser's blue, which belongs to neither theme. The .ident and
+   .nav rules are more specific, so they keep their own treatment. */
+a { color:var(--accent); text-decoration:none;
+  border-bottom:1px solid var(--line); }
+a:hover { border-bottom-color:var(--accent); }
 
 /* Per-machine specs on the power page: the same fields as the index's specs
    table, turned on their side because one machine is a record, not a row. */
@@ -190,6 +196,11 @@ code { font-size:.85em; background:var(--tag); padding:.1rem .3rem;
 <div class="note">Placeholders. The specs and the timeline counts are read from
 the repo on every build; the profiles themselves are not drawn yet. Nothing on
 this page is a measurement except the counts.</div>
+<p class="fineprint">Specifications are per node — both the unit this benchmark
+scales in and the unit an allocation is billed in. Where each figure came from
+is recorded in the <code>_source</code> fields of
+<code>configs/machines.json</code>; the measurements are on the
+<a href="index.html">data and analysis</a> page.</p>
 
 <div class="mhead">
 <h2>aurora</h2>
@@ -226,7 +237,7 @@ Aurora's whole-card counters are excluded, as they are from every total, because
 they cover silicon the per-tile counters already report.</p>
 
 <footer>
-Generated 2026-08-12 15:52 UTC from 16 run(s) · machines: aurora, crux, polaris<br>
+Generated 2026-08-12 16:07 UTC from 16 run(s) · machines: aurora, crux, polaris<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.
