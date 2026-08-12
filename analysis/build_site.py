@@ -924,8 +924,13 @@ def _inference_takeaway(first: dict, last: dict) -> str:
         f'<p class="fineprint">Paid for in latency: time to first token goes '
         f'{first["ttft_ms"]:,.0f} ms to {last["ttft_ms"]:,.0f} ms and inter-token '
         f'latency {first["itl_ms"]:,.1f} ms to {last["itl_ms"]:,.1f} ms. Tok/J is '
-        f'the figure to budget with; Tok/J dyn explains why it moves, and depends '
-        f'on an idle floor that varies about 5% between nodes.</p>'
+        f'the figure to budget with, since an allocation bills for the node either '
+        f'way; Tok/J dyn is what the silicon did, and is the more reproducible of '
+        f'the two — two runs on different nodes differed by 4.5% in absolute power '
+        f'and 0.07% in dynamic, because a node that idles high runs high under load '
+        f'too and the offset cancels. That holds only while each sweep measures its '
+        f'own floor on its own node, which is why one is sampled per run rather '
+        f'than reused.</p>'
     )
 
 
