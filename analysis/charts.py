@@ -35,7 +35,16 @@ def canonical_runs(results_dir: str) -> dict:
     A chart of every run would draw ten near-identical aurora curves and say
     nothing. Restricted to runs that spent their whole epoch budget, because a
     truncated curve stops mid-climb and would read as a machine that never got
-    there. Most recent wins where several qualify.
+    there.
+
+    Fewest nodes wins, then most recent. Recency alone was the rule until Crux
+    was run at two node counts on the same day, and it picked between them by
+    which job happened to finish last -- so a 2-node curve could have landed
+    beside 1-node curves from every other machine with nothing on the chart
+    saying so. Node count is the one thing these curves must agree on, since the
+    horizontal gap between them is the entire comparison. Fewest rather than a
+    hardcoded 1 so a machine only ever run multi-node still appears, and
+    node_count() below puts the basis in the legend either way.
     """
     best: dict = {}
     for path in sorted(Path(results_dir).glob("*.json")):
@@ -52,10 +61,24 @@ def canonical_runs(results_dir: str) -> dict:
             continue
         if work.get("epochs_completed") != work.get("epochs_requested"):
             continue
+        # Missing node count sorts last rather than first: an unlabelled run
+        # should not outrank a run that says it used one node. Written out
+        # rather than packed into a sort key because the two fields break ties
+        # in opposite directions -- fewest nodes, then latest timestamp -- and
+        # a tuple cannot express that over a string.
+        nodes = node_count(blob) or math.inf
         stamp = blob.get("timestamp_utc") or ""
-        if machine not in best or stamp > (best[machine].get("timestamp_utc") or ""):
-            best[machine] = blob
-    return dict(sorted(best.items()))
+        if machine not in best:
+            best[machine] = (nodes, stamp, blob)
+            continue
+        prior_nodes, prior_stamp, _ = best[machine]
+        if nodes < prior_nodes or (nodes == prior_nodes and stamp > prior_stamp):
+            best[machine] = (nodes, stamp, blob)
+    return {m: blob for m, (_, _, blob) in sorted(best.items())}
+
+
+def node_count(blob: dict):
+    return (blob.get("config") or {}).get("nodes")
 
 
 def _slot(machine: str) -> int:
@@ -226,9 +249,16 @@ def series_legend(runs: dict) -> str:
     for machine, blob in runs.items():
         tta = (blob.get("accuracy") or {}).get("time_to_target_s")
         value = f" — {_fmt_s(tta)} to 0.90" if tta else ""
+        # Node count is stated, always, even at the 1 that every machine
+        # currently sits on. canonical_runs() picks the fewest-node run and a
+        # machine could arrive whose fewest is not 1; a label that appears only
+        # in that case is a label nobody has learned to look for, and its
+        # absence would read as agreement rather than as nothing to report.
+        nodes = node_count(blob)
+        basis = f" ({nodes:,} node{'s' if nodes != 1 else ''})" if nodes else ""
         items += (
             f'<span class="key"><span class="sw s{_slot(machine)}"></span>'
-            f"{_esc(machine)}{value}</span>"
+            f"{_esc(machine)}{basis}{value}</span>"
         )
     return f'<div class="legend-row">{items}</div>'
 

@@ -37,10 +37,12 @@
 #                      sampling nothing at 10 Hz only adds overhead. Crux will
 #                      be absent from both energy tables rather than sitting in
 #                      them full of zeros.
-#   walltime 01:00:00  from a completed run, not from a smoke test. The full
-#                      100-epoch run on 2026-08-11 held a 285.6 ms median step
-#                      -- 3,200 steps, about 15 min of stepping and ~25 min
-#                      wall including the per-epoch eval.
+#   walltime 01:00:00  from a completed run, not from a smoke test. At the 16
+#                      ranks/node this script now defaults to, the full
+#                      100-epoch run on 2026-08-12 held a 206.6 ms median step
+#                      and 683 s of training; the 8-rank run it replaced held
+#                      285.6 ms and 932 s. An hour covers either with room for
+#                      the job setup and the eval passes.
 #
 #                      A 30-step smoke test on the same node reported 1.429 s,
 #                      5x slower, and sizing off it booked six hours for a
@@ -104,9 +106,21 @@ source "${VENV}/bin/activate"
 set -u
 
 NNODES=$(sort -u "${PBS_NODEFILE}" | wc -l)
-# One rank per NUMA domain. A Crux node is 128 cores in 8 domains of 16, and a
-# rank spanning two domains pays cross-socket memory latency on every batch.
-RANKS_PER_NODE="${RANKS_PER_NODE:-8}"
+# Two ranks per NUMA domain. A Crux node is 128 cores in 8 domains of 16, so 16
+# ranks of 8 threads still sit inside a domain -- no rank spans one, which is
+# the thing that would cost cross-socket memory latency on every batch.
+#
+# This was 8 (one rank per domain) until 2026-08-12, when the two were measured
+# against each other on the same node at the same global batch: 8x16 held a
+# 285.6 ms median step at 5,378 samples/s, 16x8 held 206.6 ms at 7,434 -- 38%
+# faster on identical hardware. Staying inside a NUMA domain was the correct
+# constraint; one rank per domain was never the optimum it was assumed to be.
+#
+# Note the two are not a clean isolation of thread count. Under strong scaling
+# at a fixed global batch, doubling the ranks also halves the per-rank batch
+# (192 -> 96), so the honest claim is "16 ranks beats 8 at global batch 1536",
+# not "8 threads beats 16". 32 has not been tried.
+RANKS_PER_NODE="${RANKS_PER_NODE:-16}"
 NTOTRANKS=$(( NNODES * RANKS_PER_NODE ))
 export OMP_NUM_THREADS=$(( 128 / RANKS_PER_NODE ))
 
@@ -155,6 +169,6 @@ mpiexec -n "${NTOTRANKS}" --ppn "${RANKS_PER_NODE}" --depth="${OMP_NUM_THREADS}"
 #   # the DataLoader worker socket. train.py now corrects this itself and says
 #   # so, but setting it is still the honest way to run what the script runs:
 #   export TMPDIR=/tmp
-#   mpiexec -n 8 --ppn 8 --depth=16 --cpu-bind depth python -m benchmark.train \
+#   mpiexec -n 16 --ppn 16 --depth=8 --cpu-bind depth python -m benchmark.train \
 #       --platform crux --precision fp32 --max-steps 30 --epochs 1 \
 #       --power-interval 0 --results-dir ./results/smoke --note "crux smoke"
