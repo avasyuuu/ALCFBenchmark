@@ -142,11 +142,12 @@ conda activate base
 source .venv-aiperf/bin/activate
 set -u
 
-# Polaris compute nodes have no direct route off-site. Without these, the first
-# HuggingFace tokenizer fetch hangs until it times out rather than failing fast,
-# which looks like vLLM being slow to start. Harmless when the model is already
-# cached, so they are set unconditionally. Verify the hostname in ALCF's docs --
-# it has changed before.
+# Polaris compute nodes have no direct route off-site. Nothing in this script
+# should need the network -- the model is cached and HF_HUB_OFFLINE is set below
+# -- but AIPerf and vLLM both reach for a tokenizer on paths that are hard to
+# predict, and without a proxy such a call hangs until it times out rather than
+# failing fast, which reads as vLLM being slow to start. Harmless otherwise.
+# Verify the hostname in ALCF's docs -- it has changed before.
 export HTTP_PROXY="${HTTP_PROXY:-http://proxy.alcf.anl.gov:3128}"
 export HTTPS_PROXY="${HTTPS_PROXY:-http://proxy.alcf.anl.gov:3128}"
 export http_proxy="${HTTP_PROXY}"
@@ -155,6 +156,21 @@ export no_proxy="localhost,127.0.0.1,.alcf.anl.gov"
 
 # Home is small and backed up; model weights are neither precious nor small.
 export HF_HOME="${HF_HOME:-${PWD}/.hf-cache}"
+
+# Use the cache and nothing else. Not an optimisation -- without it the run dies
+# during vLLM startup on a gated repo, for a file it does not need.
+#
+# transformers probes for tokenizer.model at the repo root. Llama-3.1 has no such
+# file (it ships tokenizer.json; the SentencePiece copy lives under original/),
+# so the probe misses the cache and becomes an HTTP request. The compute node has
+# no HF token -- the token stays on the login node deliberately -- so meta-llama
+# answers 401 and an optional file turns into a fatal error several minutes into
+# startup. Offline, the same probe is simply a miss.
+#
+# It also means a genuinely missing model fails immediately and says so, rather
+# than hanging on a fetch through the proxy below.
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
 
 # Same reason as submit_polaris.sh: NVML enumerates in PCI bus order and CUDA
 # does not by default, so pin the ordering before anything maps one to the other.
