@@ -176,6 +176,17 @@ export TRANSFORMERS_OFFLINE=1
 # does not by default, so pin the ordering before anything maps one to the other.
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 
+# The AF_UNIX 108-byte path ceiling, same as every other script here. PBS builds
+# TMPDIR from the full job id and hostname --
+#   /var/tmp/pbs.7447308.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov/tmpXXXXXXXX
+# -- and AIPerf opens ZMQ IPC sockets under it for its internal event bus, which
+# puts the socket path over the limit before AIPerf has sent a single request.
+#
+# Worse than a crash: AIPerf logs the failure and exits 0, so the sweep reports
+# every level "ok" and produces no exports at all. The check after each level
+# below exists because of that.
+export TMPDIR=/tmp
+
 echo "=== job ${PBS_JOBID} ==="
 echo "model=${MODEL}  TP=${TP}  isl=${ISL} osl=${OSL} max_len=${MAX_MODEL_LEN}"
 echo "requests=${REQUESTS}  eager=${ENFORCE_EAGER:-1}"
@@ -310,7 +321,15 @@ for c in ${CONCURRENCIES}; do
         --output-artifact-dir "${OUTROOT}/c${c}" \
         > "${OUTROOT}/aiperf-c${c}.log" 2>&1 \
         || { echo "  FAILED (see ${OUTROOT}/aiperf-c${c}.log)"; continue; }
-    echo "  ok -> ${OUTROOT}/c${c}"
+    # Exit code is not enough. AIPerf can log a fatal error and still exit 0 --
+    # a ZMQ socket path over the AF_UNIX limit did exactly that, and the sweep
+    # reported six cheerful "ok" lines and wrote no exports. The artifact is the
+    # only honest evidence a level ran.
+    if [[ -f "${OUTROOT}/c${c}/profile_export_aiperf.json" ]]; then
+        echo "  ok -> ${OUTROOT}/c${c}"
+    else
+        echo "  FAILED: exited 0 but wrote no export (see ${OUTROOT}/aiperf-c${c}.log)"
+    fi
 done
 
 # --- summarise ----------------------------------------------------------------

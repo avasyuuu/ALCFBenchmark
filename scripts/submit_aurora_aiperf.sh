@@ -327,7 +327,15 @@ for c in ${CONCURRENCIES}; do
             --output-artifact-dir "${OUTROOT}/c${c}" \
         > "${OUTROOT}/aiperf-c${c}.log" 2>&1 \
         || { echo "  FAILED (see ${OUTROOT}/aiperf-c${c}.log)"; continue; }
-    echo "  ok -> ${OUTROOT}/c${c}"
+    # Exit code is not enough. AIPerf can log a fatal error and still exit 0 --
+    # a ZMQ socket path over the AF_UNIX limit did exactly that, and the sweep
+    # reported six cheerful "ok" lines and wrote no exports. The artifact is the
+    # only honest evidence a level ran.
+    if [[ -f "${OUTROOT}/c${c}/profile_export_aiperf.json" ]]; then
+        echo "  ok -> ${OUTROOT}/c${c}"
+    else
+        echo "  FAILED: exited 0 but wrote no export (see ${OUTROOT}/aiperf-c${c}.log)"
+    fi
 done
 
 # --- summarise ----------------------------------------------------------------
