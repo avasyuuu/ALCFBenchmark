@@ -54,6 +54,25 @@ module load conda
 conda activate base
 set -u
 
+# SMOKE=1 turns this into a few dozen steps into results/smoke/, so the launcher,
+# the environment and -- the point on Sophia -- the NVML energy path can be
+# proved without committing a 100-epoch run to it. Appended after the real flags
+# rather than replacing them, because argparse takes the last value for a
+# repeated option: one place still states the experiment, and the override is
+# visibly an override.
+#
+# Batchable on purpose. An interactive smoke test only costs a few minutes when
+# the queue is quick, and Sophia's has twice not been; a job that runs whenever
+# it starts and leaves its output in logs/ does not need anyone present at 21:02.
+#
+#   SMOKE=1 qsub -l walltime=00:20:00 -v SMOKE scripts/submit_sophia.sh
+SMOKE_ARGS=()
+if [[ "${SMOKE:-0}" == "1" ]]; then
+    SMOKE_ARGS=(--epochs 1 --max-steps 30 --results-dir ./results/smoke
+                --note "smoke: 30 steps, not a benchmark result")
+    echo "SMOKE MODE: 30 steps -> results/smoke/"
+fi
+
 NNODES=$(sort -u "${PBS_NODEFILE}" | wc -l)
 
 # One rank per A100 -- eight on a whole DGX node, but asked of torch rather than
@@ -156,7 +175,8 @@ echo "========================"
         --power-interval 0.1 \
         --data-dir ./data \
         --results-dir ./results \
-        --note "sophia ${NNODES}-node bf16 strong-scaling 100ep"
+        --note "sophia ${NNODES}-node bf16 strong-scaling 100ep" \
+        "${SMOKE_ARGS[@]}"
 
 # Global batch stays 1536 so accuracy-per-step matches Aurora and Polaris
 # exactly; only the split changes (192 per rank over 8 ranks here, 384 over 4 on
