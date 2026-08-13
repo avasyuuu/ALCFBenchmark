@@ -34,7 +34,8 @@ from pathlib import Path
 # `legend` here is the column glossary further down; the chart key is
 # imported under its own name so the two never shadow each other.
 from charts import (SERIES_SLOT, accuracy_chart, canonical_runs,
-                    efficiency_chart, inference_chart, inference_legend,
+                    efficiency_chart, efficiency_compare_chart,
+                    efficiency_compare_legend, inference_chart, inference_legend,
                     series_legend, tail_chart)
 from summarize import load_runs
 
@@ -543,6 +544,13 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
 .target {{ stroke:var(--dim); stroke-width:1; opacity:.7; }}
 .ln {{ fill:none; stroke:var(--c); stroke-width:2;
   stroke-linejoin:round; stroke-linecap:round; }}
+/* Dashed encodes a second measure of the SAME machine -- total against dynamic
+   tokens/joule. Colour is the machine and has to stay the machine, so the
+   second series needs a different channel. This is the one place a dash is not
+   the grid's "provisional" meaning, which is why the grid never dashes. */
+.ln.dash {{ stroke-dasharray:5 3; }}
+.sw.dash {{ background:repeating-linear-gradient(90deg,
+  var(--c) 0 5px, transparent 5px 8px); }}
 /* 2px ring in the surface colour, so a marker stays legible where a line
    passes under it -- and so the hit target beats the 8px mark. */
 .dot {{ fill:var(--c); stroke:var(--bg); stroke-width:2; }}
@@ -894,6 +902,14 @@ def inference_section(sweeps: list) -> str:
     "covers all twelve tiles; Dyn W subtracts the idle floor measured on a quiet "
     "node before the server started.",
 )}"""
+    compare = ""
+    if len(sweeps) > 1:
+        compare = f"""
+<h2>Which machine serves more per joule</h2>
+{efficiency_compare_chart(sweeps)}
+{efficiency_compare_legend(sweeps)}
+{_compare_takeaway(sweeps)}"""
+
     return f"""
 <h2>Serving, not training</h2>
 <p class="fineprint">The same node, the same counters and the same sampler as the
@@ -901,8 +917,11 @@ profiles above, measuring a different thing: vLLM answering requests instead of 
 model being trained. Tokens per joule and samples per joule share no denominator
 and never belong in one table, which is why this sits beside the training
 profiles rather than among them. AIPerf collects power through DCGM, pynvml and
-amdsmi and cannot read Intel counters at all, so the energy here comes from
-<code>analysis/power_sidecar.py</code> sampling from beside the run.</p>
+amdsmi, so on NVIDIA it measures its own; on Intel it can read nothing, and the
+energy comes instead from <code>analysis/power_sidecar.py</code> sampling the
+same hwmon counters the training runs use, from beside the run. The Src column
+on each table says which.</p>
+{compare}
 {blocks}"""
 
 
@@ -925,12 +944,66 @@ def _inference_takeaway(first: dict, last: dict) -> str:
         f'{first["ttft_ms"]:,.0f} ms to {last["ttft_ms"]:,.0f} ms and inter-token '
         f'latency {first["itl_ms"]:,.1f} ms to {last["itl_ms"]:,.1f} ms. Tok/J is '
         f'the figure to budget with, since an allocation bills for the node either '
-        f'way; Tok/J dyn is what the silicon did, and is the more reproducible of '
-        f'the two — two runs on different nodes differed by 4.5% in absolute power '
-        f'and 0.07% in dynamic, because a node that idles high runs high under load '
-        f'too and the offset cancels. That holds only while each sweep measures its '
-        f'own floor on its own node, which is why one is sampled per run rather '
-        f'than reused.</p>'
+        f'way; Tok/J dyn is what the silicon did. Dynamic power is a small '
+        f'difference between two large numbers, so it holds only while the floor '
+        f'comes from this node in this job — which is why one is sampled per run '
+        f'rather than carried over. Given that, it is the steadier of the two: two '
+        f'Aurora runs on different nodes differed 4.5% in node draw and 0.07% in '
+        f'dynamic, because a node that idles high runs high under load too and the '
+        f'offset cancels.</p>'
+    )
+
+
+def _compare_takeaway(sweeps: list) -> str:
+    """Which machine wins, on each denominator, at the top of the sweep.
+
+    Derived because the two answers disagree, and the disagreement is the
+    result. Written by hand it would need rewriting every time a sweep is added,
+    and a stale sentence naming the wrong winner is worse than no sentence.
+    """
+    tops = []
+    for sweep in sweeps:
+        top = sorted(sweep["rows"], key=lambda r: r["concurrency"])[-1]
+        if top.get("tok_per_joule") and top.get("tok_per_joule_dynamic"):
+            tops.append((sweep["machine"], top))
+    if len(tops) < 2:
+        return ""
+
+    levels = {t["concurrency"] for _, t in tops}
+    at = (f"At concurrency {tops[0][1]['concurrency']}"
+          if len(levels) == 1 else "At the top of each sweep")
+    by_total = sorted(tops, key=lambda kv: -kv[1]["tok_per_joule"])
+    by_dyn = sorted(tops, key=lambda kv: -kv[1]["tok_per_joule_dynamic"])
+    tw, tl = by_total[0], by_total[-1]
+    dw, dl = by_dyn[0], by_dyn[-1]
+    total_ratio = tw[1]["tok_per_joule"] / tl[1]["tok_per_joule"]
+    dyn_ratio = dw[1]["tok_per_joule_dynamic"] / dl[1]["tok_per_joule_dynamic"]
+
+    if tw[0] == dw[0]:
+        body = (
+            f"{at}, <strong>{html.escape(tw[0])}</strong> leads on both measures — "
+            f"{total_ratio:.1f}× the tokens per joule of {html.escape(tl[0])}, and "
+            f"{dyn_ratio:.2f}× on dynamic energy. No tradeoff to make."
+        )
+    else:
+        body = (
+            f"The two measures disagree, and that is the result. {at}, "
+            f"<strong>{html.escape(tw[0])}</strong> delivers {total_ratio:.1f}× the "
+            f"tokens per joule of {html.escape(tl[0])} — but per joule of "
+            f"<em>work</em>, <strong>{html.escape(dw[0])}</strong> is "
+            f"{dyn_ratio:.2f}× ahead. The more efficient accelerator loses, because "
+            f"its node spends so much more simply being switched on."
+        )
+    return (
+        f'<p class="takeaway">{body}</p>'
+        '<p class="fineprint">Both axes are logarithmic, so the vertical gap between '
+        'two lines is their ratio — parallel lines mean a constant advantage across '
+        'the whole range rather than a growing one. Solid is tokens per joule of '
+        'node energy, what an allocation bills for. Dashed is per joule of dynamic '
+        'energy, node draw above the idle floor measured on that node before its '
+        'server started. The machines did not run the same vLLM: versions are '
+        'recorded in each sweep\'s run_meta.json, and both ran with '
+        '<code>--enforce-eager</code>.</p>'
     )
 
 
