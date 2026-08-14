@@ -624,6 +624,19 @@ a:hover {{ border-bottom-color:var(--accent); }}
 /* Hidden series keep their key visible but dimmed: which machines exist is
    part of the answer, and removing the key would hide that one was excluded. */
 .legend-row .key {{ transition:opacity .12s; }}
+/* Collapsed by default: the table is the reference behind the chart, not the
+   thing a reader came for. <details> rather than a scripted toggle so it still
+   opens with JavaScript off, like everything else here. */
+.rows {{ margin-top:2.5rem; border-top:1px solid var(--line); padding-top:1rem; }}
+.rows summary {{ cursor:pointer; font-size:1.15rem; letter-spacing:-.01em;
+  list-style:none; display:flex; align-items:center; gap:.55rem; }}
+.rows summary::-webkit-details-marker {{ display:none; }}
+.rows summary::before {{ content:"▸"; color:var(--accent); font-size:.9em;
+  transition:transform .15s; }}
+.rows[open] summary::before {{ transform:rotate(90deg); }}
+.rows summary span {{ color:var(--dim); font-size:.8rem; font-weight:400; }}
+.rows summary:hover {{ color:var(--accent); }}
+.rows figure {{ margin-top:.9rem; }}
 </style></head><body><div class="wrap">
 
 <header class="head">
@@ -1331,12 +1344,14 @@ def dashboard_body(sweeps: list) -> str:
 {dashboard_legend(sweeps)}
 <p class="fineprint" id="empty" hidden>Nothing selected — tick a machine and a model.</p>
 
-<h2>Every row</h2>
+<details class="rows">
+<summary>Every row <span id="rowcount"></span></summary>
 <figure><div class="scroll"><table id="rows"><thead><tr>{head}</tr></thead>
 <tbody>{body}</tbody></table></div>
 <figcaption>Every concurrency level of every sweep, filtered by the same
 controls. Joules are comparable only between rows that ran the same request
 count — see each sweep's run_meta.json.</figcaption></figure>
+</details>
 
 <script>
 (function () {{
@@ -1358,10 +1373,18 @@ count — see each sweep's run_meta.json.</figcaption></figure>
       g.style.display = on ? '' : 'none';
       if (on) shown++;
     }});
-    document.querySelectorAll('#rows tbody tr').forEach(function (tr) {{
+    var rows = document.querySelectorAll('#rows tbody tr'), visible = 0;
+    rows.forEach(function (tr) {{
       var on = m[tr.getAttribute('data-machine')] && mo[tr.getAttribute('data-model')];
       tr.style.display = on ? '' : 'none';
+      if (on) visible++;
     }});
+    // Shown on the summary because that is the only part visible when the
+    // section is shut, and "how much is in there" is the question a collapsed
+    // block raises.
+    document.getElementById('rowcount').textContent =
+      visible === rows.length ? '(' + rows.length + ')'
+                              : '(' + visible + ' of ' + rows.length + ')';
     document.querySelectorAll('.legend-row .key').forEach(function (k) {{
       var on = m[k.getAttribute('data-machine')] && mo[k.getAttribute('data-model')];
       k.style.opacity = on ? '' : '0.3';

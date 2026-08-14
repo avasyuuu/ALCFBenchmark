@@ -206,6 +206,19 @@ a:hover { border-bottom-color:var(--accent); }
 /* Hidden series keep their key visible but dimmed: which machines exist is
    part of the answer, and removing the key would hide that one was excluded. */
 .legend-row .key { transition:opacity .12s; }
+/* Collapsed by default: the table is the reference behind the chart, not the
+   thing a reader came for. <details> rather than a scripted toggle so it still
+   opens with JavaScript off, like everything else here. */
+.rows { margin-top:2.5rem; border-top:1px solid var(--line); padding-top:1rem; }
+.rows summary { cursor:pointer; font-size:1.15rem; letter-spacing:-.01em;
+  list-style:none; display:flex; align-items:center; gap:.55rem; }
+.rows summary::-webkit-details-marker { display:none; }
+.rows summary::before { content:"▸"; color:var(--accent); font-size:.9em;
+  transition:transform .15s; }
+.rows[open] summary::before { transform:rotate(90deg); }
+.rows summary span { color:var(--dim); font-size:.8rem; font-weight:400; }
+.rows summary:hover { color:var(--accent); }
+.rows figure { margin-top:.9rem; }
 </style></head><body><div class="wrap">
 
 <header class="head">
@@ -279,7 +292,7 @@ compare cleanly — but this is a handful of runs per machine on a workload at
 
 
 <footer>
-Generated 2026-08-14 20:55 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
+Generated 2026-08-14 21:06 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.
