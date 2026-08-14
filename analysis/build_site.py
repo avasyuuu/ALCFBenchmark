@@ -827,26 +827,34 @@ def load_aiperf(results_dir: str) -> list:
     """
     seen: set = set()
     sweeps = []
-    # Newest first, and one per machine: directory names are timestamped, so
-    # sorting in reverse puts the current sweep ahead of the ones it supersedes.
-    # A rerun is a rerun -- two Polaris sections would draw the same machine
-    # twice on the comparison chart and read as two machines.
+    # Newest first, one per (machine, model, tensor parallelism). Directory names
+    # are timestamped, so reverse order puts the current run ahead of the ones it
+    # supersedes -- a rerun of the same configuration is a rerun, and two of them
+    # would draw one machine twice and read as two.
     #
-    # This assumes a machine runs one configuration. The moment a TP sweep is
-    # added, TP=8 would silently replace TP=1 here and the rule needs revisiting;
-    # the superseded runs stay in results/ either way.
+    # Keyed on the configuration rather than the machine, which is what it was
+    # until a second model arrived. Machine alone meant a gemma run silently
+    # replaced the 8B sweep instead of joining it, deleting the comparison the
+    # page was built on. Superseded runs stay in results/ either way.
+    #
+    # Single-level runs are kept, unlike before. Six-level sweeps carry the
+    # concurrency charts; a one-level run cannot, but it still says what a model
+    # costs on a machine, and dropping it silently was how the first 70B and
+    # gemma results would have vanished from a page asked to show them.
     for path in sorted(Path(results_dir).glob("aiperf/*/summary.json"), reverse=True):
         try:
             blob = json.loads(path.read_text(encoding="utf-8-sig"))
         except (OSError, ValueError):
             continue
         rows = [r for r in (blob.get("runs") or []) if r.get("concurrency")]
-        if len(rows) < 2:
-            continue  # a single level is a validation run, not a sweep
-        machine = path.parent.name.split("-")[0]
-        if machine in seen:
+        if not rows:
             continue
-        seen.add(machine)
+        cfg = _aiperf_config(path.parent)
+        machine = path.parent.name.split("-")[0]
+        key = (machine, cfg.get("model"), cfg.get("tp"))
+        if key in seen:
+            continue
+        seen.add(key)
         sweeps.append({
             "name": path.parent.name,
             "machine": path.parent.name.split("-")[0],
@@ -876,8 +884,39 @@ def _aiperf_config(sweep_dir: Path) -> dict:
             "isl": (prompts.get("isl") or {}).get("mean"),
             "osl": (prompts.get("osl") or {}).get("mean"),
             "streaming": (cfg.get("endpoint") or {}).get("streaming"),
+            "tp": _tensor_parallel(sweep_dir),
         }
-    return {"model": None, "isl": None, "osl": None, "streaming": None}
+    return {"model": None, "isl": None, "osl": None, "streaming": None,
+            "tp": _tensor_parallel(sweep_dir)}
+
+
+def _tensor_parallel(sweep_dir: Path):
+    """Devices the server was given, from the run's own provenance.
+
+    Not derivable from the AIPerf export -- AIPerf is a client and never learns
+    how the server was sharded. run_meta.json records it, which is why the
+    sweeps started writing one. None for runs that predate it.
+    """
+    path = sweep_dir / "run_meta.json"
+    if path.exists():
+        try:
+            tp = json.loads(path.read_text(encoding="utf-8-sig")).get("tensor_parallel")
+            if tp:
+                return tp
+        except (OSError, ValueError):
+            pass
+    # Runs predating run_meta.json still recorded the devices the server was
+    # given: the sidecar was told them as --bound-devices, and wrote them down.
+    # Recovered rather than assumed -- the alternative is a dash in the table for
+    # the sweep the whole page was originally built on.
+    for side in sorted(sweep_dir.glob("c*/sidecar_power.json")):
+        try:
+            bound = json.loads(side.read_text(encoding="utf-8-sig")).get("bound_devices")
+        except (OSError, ValueError):
+            continue
+        if bound:
+            return len(bound)
+    return None
 
 
 def inference_section(sweeps: list) -> str:
@@ -892,7 +931,10 @@ def inference_section(sweeps: list) -> str:
         return ""
 
     blocks = ""
-    for sweep in sweeps:
+    # Only multi-level runs get a section: the chart and the takeaway both
+    # describe a curve, and a single point has none. Those runs are in the model
+    # table above instead, which is the view they can actually support.
+    for sweep in [s for s in sweeps if len(s["rows"]) >= 3]:
         rows = sweep["rows"]
         first, last = rows[0], rows[-1]
         chart = inference_chart(rows)
@@ -961,6 +1003,7 @@ energy comes instead from <code>analysis/power_sidecar.py</code> sampling the
 same hwmon counters the training runs use, from beside the run. The Src column
 on each table says which.</p>
 {_xcheck_note(sweeps)}
+{model_table(sweeps)}
 {compare}
 {blocks}"""
 
@@ -991,6 +1034,99 @@ def _inference_takeaway(first: dict, last: dict) -> str:
         f'Aurora runs on different nodes differed 4.5% in node draw and 0.07% in '
         f'dynamic, because a node that idles high runs high under load too and the '
         f'offset cancels.</p>'
+    )
+
+
+def model_table(sweeps: list) -> str:
+    """Every configuration at one concurrency, so models compare directly.
+
+    The concurrency charts need a sweep; most of these runs are a single level,
+    because a 70B takes two minutes per level and the queue allows an hour. They
+    still answer the question the sweeps cannot -- what a model costs on a
+    machine -- and one shared concurrency is enough to ask it.
+
+    W/dev is the column worth reading. Dynamic watts alone conflate "the model
+    is bigger" with "more devices are working"; divided by the devices actually
+    serving, it says how hard each one was driven, which is the only way to see
+    that Aurora's tiles are busier on an 8B at TP=1 than on a 27B at TP=4.
+    """
+    levels = [{r["concurrency"] for r in s["rows"]} for s in sweeps]
+    shared = set.intersection(*levels) if levels else set()
+    if not shared:
+        return ""
+    conc = 4 if 4 in shared else max(shared)
+
+    rows = []
+    for s in sorted(sweeps, key=lambda s: (s["machine"], s["model"] or "")):
+        r = next((x for x in s["rows"] if x["concurrency"] == conc), None)
+        if not r:
+            continue
+        tp = s.get("tp")
+        idle = r.get("idle_devices")
+        total = (tp + idle) if (tp is not None and idle is not None) else None
+        per_dev = (r["dynamic_w"] / tp) if (r.get("dynamic_w") and tp) else None
+        rows.append([
+            f'<span class="m">{html.escape((s["model"] or "?").split("/")[-1])}</span>',
+            html.escape(s["machine"]),
+            num(tp) if tp else "—",
+            f"{idle} of {total}" if total is not None else "—",
+            num(r.get("out_tok_per_s"), 1),
+            num(r.get("itl_ms"), 1),
+            num(r.get("dynamic_w")),
+            num(per_dev),
+            f'<strong>{r["tok_per_joule"]:.3f}</strong>' if r.get("tok_per_joule") else "—",
+            num(r.get("tok_per_joule_dynamic"), 2),
+        ])
+    if len(rows) < 2:
+        return ""
+    return f"""
+<h2>What the model costs</h2>
+{table(
+    ["Model", "Machine", "TP", "Idle dev", "Out tok/s", "ITL ms", "Dyn W",
+     "W/dev", "Tok/J", "Tok/J dyn"],
+    rows,
+    f"Every row at concurrency {conc}, the one level all of these runs share. "
+    "TP is how many accelerators served the model; Idle dev is how many on the "
+    "node did not. W/dev divides dynamic power by the serving devices, which "
+    "separates a bigger model from a wider one — the two move together in every "
+    "other column here.",
+)}
+{_model_takeaway(sweeps, conc)}"""
+
+
+def _model_takeaway(sweeps: list, conc: int) -> str:
+    """The like-for-like pair, where one exists.
+
+    Two machines running the same model at the same TP is the only comparison
+    here that holds anything constant, so it is the only one stated as a result.
+    """
+    by_model: dict = defaultdict(list)
+    for s in sweeps:
+        r = next((x for x in s["rows"] if x["concurrency"] == conc), None)
+        if r and r.get("tok_per_joule") and s.get("tp"):
+            by_model[(s["model"], s["tp"])].append((s["machine"], r))
+    pairs = [(k, v) for k, v in by_model.items() if len(v) == 2]
+    if not pairs:
+        return ""
+    (model, tp), members = pairs[0]
+    members.sort(key=lambda kv: -kv[1]["tok_per_joule"])
+    (fast, fr), (slow, sr) = members
+    name = html.escape((model or "?").split("/")[-1])
+    return (
+        f'<p class="takeaway"><strong>{name}</strong> at TP={tp} is the one pair '
+        f'here holding model, sharding and concurrency constant. '
+        f'<strong>{html.escape(fast)}</strong> delivers '
+        f'{fr["tok_per_joule"] / sr["tok_per_joule"]:.1f}× the tokens per joule '
+        f'of {html.escape(slow)} — and drives each device '
+        f'{(fr["dynamic_w"] / tp) / (sr["dynamic_w"] / tp):.1f}× harder '
+        f'({fr["dynamic_w"] / tp:,.0f} W against {sr["dynamic_w"] / tp:,.0f} W), '
+        f'while finishing a token in {fr["itl_ms"]:.0f} ms against '
+        f'{sr["itl_ms"]:.0f} ms.</p>'
+        f'<p class="fineprint">These are single-level runs, not sweeps — one '
+        f'concurrency each, so they carry no curve and no repeat. Read them as '
+        f'the cost of a model on a machine, not as a measurement of either '
+        f'machine\'s best. The vLLM versions still differ by machine, and every '
+        f'run is eager-mode.</p>'
     )
 
 
