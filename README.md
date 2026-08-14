@@ -246,14 +246,21 @@ Aurora path is written but **not yet validated on hardware.** Verify on first ru
 - [ ] all 12 tiles are actually busy — cross-check with `xpu-smi`
 - [ ] `ipex.optimize` plays well with DDP in this frameworks version
 
-Polaris/Sophia energy (`CudaPlatform`) is written against the NVML docs and
-**not yet validated on hardware.** Verify on first run:
+Polaris energy (`CudaPlatform`) was **validated on hardware on 2026-08-10** by
+the three runs in `results/polaris_*.json`, which settle every item this list
+used to ask about:
 
-- [ ] `nvmlDeviceGetTotalEnergyConsumption` is present on the A100 driver, so the
-      counter path is taken rather than the power-integration fallback — check
-      `energy_scope` in the result JSON says `nvml energy counter`
-- [ ] NVML and torch device indices agree under `CUDA_DEVICE_ORDER=PCI_BUS_ID`
-- [ ] all four A100s appear in the node sampler, including any no rank bound to
+- [x] `nvmlDeviceGetTotalEnergyConsumption` is present on the A100 driver — every
+      Polaris run records `scope: whole gpu 0 incl. HBM (nvml energy counter)`,
+      so the counter path is taken and not the power-integration fallback
+- [x] NVML and torch indices agree under `CUDA_DEVICE_ORDER=PCI_BUS_ID` — per-rank
+      joules are non-null and consistent between runs
+- [x] all four A100s appear in the node sampler — `power.devices_total` is 4
+
+Sophia has never run, so its `SophiaPlatform` is still unexercised. It shares
+`CudaPlatform` with Polaris, so the energy path above is the same code; what is
+untested there is the 8-GPU node, the `torchrun` launcher branch and the
+`by-node` queue.
 
 The AIPerf inference sweep (`submit_polaris_aiperf.sh`) is validated only on a
 consumer GPU under Ollama. Verify on first run:
