@@ -884,6 +884,9 @@ def inference_section(sweeps: list) -> str:
                 num(r.get("avg_gpu_w"), 0),
                 num(r.get("dynamic_w"), 0),
                 num(r.get("total_energy_j")),
+                num(r.get("idle_devices")),
+                (f'{r["idle_share"] * 100:.1f}'
+                 if r.get("idle_share") is not None else "—"),
                 f'<strong>{r["tok_per_joule"]:.2f}</strong>'
                 if r.get("tok_per_joule") else "—",
                 num(r.get("tok_per_joule_dynamic"), 2),
@@ -907,13 +910,15 @@ def inference_section(sweeps: list) -> str:
 {_inference_takeaway(first, last)}
 {table(
     ["Conc", "Out tok/s", "TTFT ms", "ITL ms", "Node W", "Dyn W", "Joules",
-     "Tok/J", "Tok/J dyn"],
+     "Idle dev", "Idle %", "Tok/J", "Tok/J dyn"],
     table_rows,
     "Every row served the same 128 requests for the same 32,768 output tokens, "
     "with generation pinned to exactly OSL by ignore_eos and min_tokens — so the "
-    "Joules column reads straight across rather than needing a ratio. Node W "
-    "covers all twelve tiles; Dyn W subtracts the idle floor measured on a quiet "
-    "node before the server started.",
+    "Joules column reads straight across rather than needing a ratio. Node W is "
+    "every accelerator on the node; Dyn W subtracts the idle floor measured on "
+    "that node before the server started. Idle dev counts the accelerators no "
+    "rank was given, and Idle % is their share of node energy — the gap between "
+    "Tok/J and Tok/J dyn, in one column.",
 )}"""
     compare = ""
     if len(sweeps) > 1:
