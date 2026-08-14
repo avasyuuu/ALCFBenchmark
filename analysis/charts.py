@@ -29,6 +29,24 @@ SERIES_SLOT = {"aurora": 1, "polaris": 2, "crux": 3, "sophia": 4}
 TARGET_LABEL = "target 0.90"
 
 
+def machine_tag(machine) -> str:
+    """A machine name in its own series colour, matching every chart here.
+
+    Colour is the machine everywhere on this site -- lines, bars, swatches -- so
+    a name rendered plain is the one place it is not, and a reader who learned
+    "aurora is blue" from a chart has to translate it back to a word.
+
+    Uses --ct rather than --c: the chart colours separate marks from each other
+    and fail a text contrast floor on the light surface, so the stylesheet keeps
+    a darkened twin for text. An unknown machine falls through to currentColor
+    and stays plain rather than invisible.
+    """
+    slot = SERIES_SLOT.get(machine)
+    cls = f"m s{slot}" if slot else "m"
+    return f'<span class="{cls}">{_esc(machine or "—")}</span>'
+
+
+
 def canonical_runs(results_dir: str) -> dict:
     """The one full-length run per machine, keyed by machine.
 
@@ -644,6 +662,6 @@ def dashboard_legend(sweeps: list) -> str:
         keys += (f'<span class="key s{_slot(machine)}" data-machine="{_esc(machine)}" '
                  f'data-model="{_esc(model)}">'
                  f'<span class="sw" style="background:{bg}"></span>'
-                 f'{_esc(machine)} · {_esc(model)}'
+                 f'{machine_tag(machine)} · {_esc(model)}'
                  + (f' · TP={_esc(sweep["tp"])}' if sweep.get("tp") else "") + "</span>")
     return f'<div class="legend-row">{keys}</div>'

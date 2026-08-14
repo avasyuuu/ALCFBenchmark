@@ -34,7 +34,7 @@ from pathlib import Path
 # `legend` here is the column glossary further down; the chart key is
 # imported under its own name so the two never shadow each other.
 from charts import (SERIES_SLOT, accuracy_chart, canonical_runs,
-                    dashboard_chart, dashboard_legend,
+                    dashboard_chart, dashboard_legend, machine_tag,
                     efficiency_chart, efficiency_compare_chart,
                     efficiency_compare_legend, inference_chart, inference_legend,
                     series_legend, tail_chart)
@@ -164,23 +164,6 @@ def equal_work_note(runs: list) -> str:
         f"accuracy.</p>"
     )
 
-
-
-def machine_tag(machine) -> str:
-    """A machine name in its own series colour, matching every chart here.
-
-    The colour is the machine everywhere else on this site -- chart lines, bars,
-    legend swatches -- so a name in a table is the one place it was not, and a
-    reader scanning a colour on a chart had to translate it back to a word.
-
-    Uses --ct rather than --c: the chart colours are chosen to separate marks
-    from each other and fail a text contrast floor on the light surface. An
-    unknown machine falls through to inherit and stays plain rather than
-    invisible.
-    """
-    slot = SERIES_SLOT.get(machine, None)
-    cls = f"m s{slot}" if slot else "m"
-    return f'<span class="{cls}">{html.escape(str(machine or "—"))}</span>'
 
 
 def node_efficiency(run: dict):
@@ -1322,9 +1305,13 @@ def dashboard_body(sweeps: list) -> str:
     models = sorted({(s["model"] or "?").split("/")[-1] for s in sweeps})
 
     def boxes(kind, values):
+        # Machines are labelled in their own colour, models plainly -- a model
+        # has no colour anywhere on this site, and inventing one here would
+        # imply a mapping the charts do not share.
+        label = machine_tag if kind == "machine" else html.escape
         return "".join(
             f'<label class="chip"><input type="checkbox" data-filter="{kind}" '
-            f'value="{html.escape(v)}" checked> {html.escape(v)}</label>'
+            f'value="{html.escape(v)}" checked> {label(v)}</label>'
             for v in values
         )
 
