@@ -988,7 +988,7 @@ def inference_section(sweeps: list) -> str:
             ) if bit
         )
         blocks += f"""
-<div class="mhead"><h2>{html.escape(sweep["machine"])} — inference</h2>
+<div class="mhead"><h2>{html.escape(sweep["machine"])} — {html.escape((sweep["model"] or "inference").split("/")[-1])}</h2>
 <span class="key s{SERIES_SLOT.get(sweep["machine"], 8)}"><span class="sw"></span></span></div>
 <p class="workload">{served}</p>
 {chart}
