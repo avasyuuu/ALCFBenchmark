@@ -78,7 +78,7 @@ set -euo pipefail
 # run the first time on new hardware.
 cd "${PBS_O_WORKDIR:-$PWD}"
 if [[ ! -d analysis ]]; then
-    echo "error: no analysis/ package in ${PBS_O_WORKDIR}" >&2
+    echo "error: no analysis/ package in $(pwd)" >&2
     echo "       submit from the repo root: cd <repo> && qsub scripts/submit_polaris_aiperf.sh" >&2
     exit 1
 fi
@@ -187,7 +187,10 @@ export CUDA_DEVICE_ORDER=PCI_BUS_ID
 # below exists because of that.
 export TMPDIR=/tmp
 
-echo "=== job ${PBS_JOBID} ==="
+# :-interactive because this script is meant to run inside an
+# allocation as well as under qsub, and `set -u` makes a bare
+# ${PBS_JOBID} fatal outside one -- for a line that only labels the log.
+echo "=== job ${PBS_JOBID:-interactive} ==="
 echo "model=${MODEL}  TP=${TP}  isl=${ISL} osl=${OSL} max_len=${MAX_MODEL_LEN}"
 echo "requests=${REQUESTS}  eager=${ENFORCE_EAGER:-1}"
 echo "concurrencies=${CONCURRENCIES}"

@@ -57,7 +57,7 @@ set -euo pipefail
 # seconds costs a queue wait to learn what a shell says immediately.
 cd "${PBS_O_WORKDIR:-$PWD}"
 if [[ ! -d analysis ]]; then
-    echo "error: no analysis/ package in ${PBS_O_WORKDIR}" >&2
+    echo "error: no analysis/ package in $(pwd)" >&2
     echo "       submit from the repo root: cd <repo> && qsub scripts/submit_aurora_aiperf.sh" >&2
     exit 1
 fi
@@ -181,7 +181,10 @@ BOUND="$(seq -s, 0 $(( TP - 1 )))"
 EAGER=()
 if [[ "${ENFORCE_EAGER:-1}" == "1" ]]; then EAGER=(--enforce-eager); fi
 
-echo "=== job ${PBS_JOBID} ==="
+# :-interactive because this script is meant to run inside an
+# allocation as well as under qsub, and `set -u` makes a bare
+# ${PBS_JOBID} fatal outside one -- for a line that only labels the log.
+echo "=== job ${PBS_JOBID:-interactive} ==="
 echo "model=${MODEL}  TP=${TP}  isl=${ISL} osl=${OSL} max_len=${MAX_MODEL_LEN}"
 echo "requests=${REQUESTS}  concurrencies=${CONCURRENCIES}"
 # Spelled out because "bound tiles=0" at TP=1 reads as "no tiles are bound"
