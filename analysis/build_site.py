@@ -804,7 +804,16 @@ def load_aiperf(results_dir: str) -> list:
     level's own export, because a sweep that changed model midway is not a sweep
     and the page should not average over one.
     """
+    seen: set = set()
     sweeps = []
+    # Newest first, and one per machine: directory names are timestamped, so
+    # sorting in reverse puts the current sweep ahead of the ones it supersedes.
+    # A rerun is a rerun -- two Polaris sections would draw the same machine
+    # twice on the comparison chart and read as two machines.
+    #
+    # This assumes a machine runs one configuration. The moment a TP sweep is
+    # added, TP=8 would silently replace TP=1 here and the rule needs revisiting;
+    # the superseded runs stay in results/ either way.
     for path in sorted(Path(results_dir).glob("aiperf/*/summary.json"), reverse=True):
         try:
             blob = json.loads(path.read_text(encoding="utf-8-sig"))
@@ -813,6 +822,10 @@ def load_aiperf(results_dir: str) -> list:
         rows = [r for r in (blob.get("runs") or []) if r.get("concurrency")]
         if len(rows) < 2:
             continue  # a single level is a validation run, not a sweep
+        machine = path.parent.name.split("-")[0]
+        if machine in seen:
+            continue
+        seen.add(machine)
         sweeps.append({
             "name": path.parent.name,
             "machine": path.parent.name.split("-")[0],
@@ -921,6 +934,7 @@ amdsmi, so on NVIDIA it measures its own; on Intel it can read nothing, and the
 energy comes instead from <code>analysis/power_sidecar.py</code> sampling the
 same hwmon counters the training runs use, from beside the run. The Src column
 on each table says which.</p>
+{_xcheck_note(sweeps)}
 {compare}
 {blocks}"""
 
@@ -951,6 +965,36 @@ def _inference_takeaway(first: dict, last: dict) -> str:
         f'Aurora runs on different nodes differed 4.5% in node draw and 0.07% in '
         f'dynamic, because a node that idles high runs high under load too and the '
         f'offset cancels.</p>'
+    )
+
+
+def _xcheck_note(sweeps: list) -> str:
+    """How closely the two instruments agreed, where both ran.
+
+    Worth stating on the page rather than only in a table column, because it is
+    the only evidence the Aurora rows have. AIPerf cannot read Intel counters,
+    so those joules come from the sidecar with nothing to check them against;
+    the check has to happen on NVIDIA, where both instruments work, and then be
+    carried across as an argument about the method rather than the machine.
+    """
+    deltas = [
+        abs(r["sidecar_delta_pct"]) for s in sweeps for r in s["rows"]
+        if r.get("sidecar_delta_pct") is not None
+    ]
+    if not deltas:
+        return ""
+    machines = sorted({
+        s["machine"] for s in sweeps
+        if any(r.get("sidecar_delta_pct") is not None for r in s["rows"])
+    })
+    return (
+        f'<p class="fineprint">On {html.escape(", ".join(machines))} both '
+        f'instruments ran at once and agreed to within '
+        f'<strong>{max(deltas):.1f}%</strong> across {len(deltas)} levels — '
+        f"AIPerf's own NVML collector against the sidecar sampling the same "
+        f"GPUs. That is the only check the method gets: the Intel rows have no "
+        f"second instrument available, so their joules rest on this agreement "
+        f"holding somewhere it could be tested.</p>"
     )
 
 
