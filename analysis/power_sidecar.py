@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -47,29 +48,66 @@ from benchmark.power import PowerSampler  # noqa: E402
 
 
 def build_sources(machine: str):
-    """Energy counters for this machine, or an empty list with a reason."""
+    """Energy counters for this machine, or an empty list with a reason.
+
+    NVIDIA is supported even though AIPerf reads NVML itself. Running both is
+    the point: Polaris is the only machine where this sidecar can be checked
+    against an independent instrument measuring the same devices, and Aurora --
+    which has no second opinion available at all -- depends on the method being
+    right. It also fills the bound/idle split, which AIPerf does not report.
+
+    device_index is the NVML index here, not torch's. A sidecar binds nothing,
+    and --bound-devices names physical devices.
+    """
     if machine == "aurora":
         from benchmark.hwmon import intel_energy_sources
 
         return intel_energy_sources(), "intel i915 hwmon energy1_input"
+
+    from benchmark.nvml import nvml_energy_sources
+
+    sources = nvml_energy_sources(visible=None)
+    if sources:
+        # Named from what the counters actually are, not assumed: an A100 has
+        # the energy counter, something older silently integrates power instead
+        # and the scope string is the only place that difference shows.
+        kind = sources[0].scope.split("(")[-1].rstrip(")")
+        return sources, f"nvml, {len(sources)} device(s), {kind}"
     raise SystemExit(
-        f"no sidecar power source for machine '{machine}'.\n"
-        "  aurora: supported (i915 hwmon counters)\n"
-        "  polaris/sophia: use AIPerf's own DCGM/pynvml collectors, which cover\n"
-        "                  NVIDIA already -- this sidecar exists for the case\n"
-        "                  they do not cover."
+        f"no readable energy counter for machine '{machine}'.\n"
+        "  aurora: i915 hwmon counters under /sys/class/drm\n"
+        "  nvidia: pynvml plus a driver -- on a login node there is no driver,\n"
+        "          and nvmlInit fails with NVML Shared Library Not Found.\n"
+        "  crux and other CPU-only machines have nothing to read."
     )
 
 
-def detect_machine() -> str | None:
-    """Aurora if its counters are present. Deliberately narrow.
+# Substring -> machine, checked against PBS_JOBID and the hostname. Same
+# approach as platform.py's _alcf_machine: the scheduler stamps the machine into
+# both, and it is the only thing on a compute node that names it.
+_MACHINE_HINTS = ("polaris", "sophia", "aurora", "crux")
 
-    Guessing from a hostname would let a wrong guess produce an empty source
-    list that looks like a quiet zero rather than a missing machine.
+
+def detect_machine() -> str | None:
+    """The machine, from its counters where possible and its name where not.
+
+    Intel counters identify Aurora on their own -- no other machine here has
+    them. NVML cannot distinguish Polaris from Sophia, since both are A100s, so
+    that falls back to PBS_JOBID and the hostname. A guess is acceptable for the
+    label; it is not acceptable for the counters, which is why the label is the
+    only thing guessed.
     """
     from benchmark.hwmon import intel_energy_counters
 
-    return "aurora" if any(intel_energy_counters()) else None
+    if any(intel_energy_counters()):
+        return "aurora"
+
+    from benchmark.nvml import load_nvml
+
+    if load_nvml() is None:
+        return None
+    haystack = f"{os.environ.get('PBS_JOBID', '')} {socket.gethostname()}".lower()
+    return next((m for m in _MACHINE_HINTS if m in haystack), "cuda")
 
 
 def parse_devices(spec: str, sources) -> frozenset:
@@ -116,8 +154,10 @@ def main() -> None:
     if machine is None:
         raise SystemExit(
             "could not detect the machine: no Intel energy counters under "
-            "/sys/class/drm.\nPass --machine to force one, but a forced machine "
-            "whose counters are absent measures nothing."
+            "/sys/class/drm, and no NVIDIA driver for NVML to load.\n"
+            "On a login node that is expected -- there is no accelerator to "
+            "read. Pass --machine to force one, but a forced machine whose "
+            "counters are absent measures nothing."
         )
     sources, scope = build_sources(machine)
     if not sources:

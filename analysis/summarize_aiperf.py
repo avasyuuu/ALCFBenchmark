@@ -91,10 +91,20 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
     # that no counter has. `energy_src` says which one a row used, because
     # tokens/joule from the two is not the same ratio.
     energy_src = "aiperf nvml" if avg_w is not None else None
-    idle_devices = idle_share = wall_j = window_src = None
+    idle_devices = idle_share = wall_j = window_src = xcheck = None
     windowed = False
     total_j = val(d.get("nvidia_total_gpu_energy"))
     side = _sidecar(directory, profiling_s=dur)
+
+    if avg_w is not None and side is not None and side.get("watts"):
+        # Both instruments ran. AIPerf's figure stays primary -- it is the
+        # vendor tool and the one the NVIDIA rows have always used -- but the
+        # sidecar measured the same GPUs by a different path, so the gap between
+        # them is worth a column. Never averaged: they cannot both be right, and
+        # a mean would hide which.
+        xcheck = (side["watts"] - avg_w) / avg_w * 100
+        idle_devices, idle_share = side.get("devices_idle"), side.get("idle_fraction")
+
     if avg_w is None and side is not None:
         total_j = side.get("joules")
         # Narrowed to the profiling window by _sidecar() when the series is on
@@ -134,6 +144,7 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
         "idle_devices": idle_devices,
         "idle_share": idle_share,
         "wall_energy_j": wall_j,
+        "sidecar_delta_pct": xcheck,
         "windowed": windowed,
         "window_source": window_src,
         "concurrency": profiling.get("concurrency"),
@@ -350,13 +361,15 @@ def main() -> None:
     table(
         "Load and power",
         ["conc", "dur_s", "req/s", "outTok/s", "allTok/s", "TTFT_ms", "ITL_ms",
-         "avg_W", "dyn_W", "energy_J", "idleDev", "idle%", "src"],
+         "avg_W", "dyn_W", "energy_J", "idleDev", "idle%", "xcheck%", "src"],
         [
             [r["concurrency"], fmt(r["duration_s"]), fmt(r["req_per_s"]),
              fmt(r["out_tok_per_s"], 1), fmt(r["all_tok_per_s"], 1), fmt(r["ttft_ms"], 1),
              fmt(r["itl_ms"], 2), fmt(r["avg_gpu_w"], 1), fmt(r["dynamic_w"], 1),
              fmt(r["total_energy_j"], 1), fmt(r["idle_devices"], 0),
              fmt(r["idle_share"] * 100, 1) if r["idle_share"] is not None else "n/a",
+             (f'{r["sidecar_delta_pct"]:+.1f}'
+              if r["sidecar_delta_pct"] is not None else "n/a"),
              r["energy_src"] or "none"]
             for r in rows
         ],
@@ -429,6 +442,24 @@ def _warn(rows: list[dict]) -> None:
             f"{len(approx)} row(s) used the tail-slice window (no phase_manifest.json). "
             "That counts teardown in place of early profiling; the error grows as the "
             "row gets shorter. AIPerf 0.12+ writes the manifest and is exact."
+        )
+
+    # The cross-check is only worth running if a bad answer is noticed. Two
+    # instruments on the same GPUs should agree closely; 5% is generous for
+    # counters reading the same silicon, and anything past it means one of them
+    # is wrong -- which matters well beyond this row, since Aurora's numbers
+    # come from the sidecar alone and have nothing to be checked against.
+    off = [r for r in rows
+           if r.get("sidecar_delta_pct") is not None
+           and abs(r["sidecar_delta_pct"]) > 5]
+    if off:
+        worst = max(off, key=lambda r: abs(r["sidecar_delta_pct"]))
+        notes.append(
+            f"{len(off)} row(s) where AIPerf and the sidecar disagree by more than "
+            f"5% (worst {worst['sidecar_delta_pct']:+.1f}% at concurrency "
+            f"{worst['concurrency']}). They measure the same GPUs, so one is wrong. "
+            "Check the sidecar's window and that --bound-devices matches what the "
+            "server was given."
         )
 
     sources = {r["energy_src"] for r in rows if r["energy_src"]}
