@@ -1,0 +1,1504 @@
+{
+  "data": {
+    "benchmark_id": "39ad0dca08fb",
+    "end_ns": 1786738103936893310,
+    "endpoint_summaries": {
+      "localhost:8000": {
+        "endpoint_url": "http://localhost:8000/metrics",
+        "info": {
+          "avg_fetch_latency_ms": 3.62978452,
+          "avg_update_interval_ms": 335.49745647187495,
+          "duration_seconds": 107.359186071,
+          "first_fetch_ns": 1786738103962416588,
+          "first_update_ns": 1786738103962416588,
+          "last_fetch_ns": 1786738211333278629,
+          "last_update_ns": 1786738211321602659,
+          "median_update_interval_ms": 333.590316,
+          "total_fetches": 325,
+          "unique_updates": 321
+        },
+        "metrics": {
+          "http_request_duration_highr_seconds": {
+            "description": "Latency with many buckets but no API specific labels. Made for more accurate percentile calculations.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "0.01": 0,
+                  "0.025": 0,
+                  "0.05": 0,
+                  "0.075": 0,
+                  "0.1": 0,
+                  "0.25": 0,
+                  "0.5": 0,
+                  "0.75": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 0,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "3.0": 0,
+                  "3.5": 0,
+                  "30.0": 32,
+                  "4.0": 0,
+                  "4.5": 0,
+                  "5.0": 0,
+                  "60.0": 32,
+                  "7.5": 0
+                },
+                "stats": {
+                  "avg": 26.7927857053146,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 26.145534112325134,
+                  "p1_estimate": 25.9999025039025,
+                  "p25_estimate": 26.388253459696184,
+                  "p50_estimate": 26.7927857053146,
+                  "p5_estimate": 26.06462766320145,
+                  "p75_estimate": 27.197317950933016,
+                  "p90_estimate": 27.44003729830407,
+                  "p95_estimate": 27.52094374742775,
+                  "p99_estimate": 27.5856689067267,
+                  "sum": 857.3691425700672,
+                  "sum_rate": 7.98452809067751
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "http_request_duration_seconds": {
+            "description": "Latency with only few buckets by handler. Made to be only used if aggregation by handler is important.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "0.1": 0,
+                  "0.5": 0,
+                  "1.0": 0
+                },
+                "labels": {
+                  "handler": "/v1/chat/completions",
+                  "method": "POST"
+                },
+                "stats": {
+                  "avg": 26.7927857053146,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 6.15855714106292,
+                  "p1_estimate": 1.515855714106292,
+                  "p25_estimate": 13.8963928526573,
+                  "p50_estimate": 26.7927857053146,
+                  "p5_estimate": 3.57927857053146,
+                  "p75_estimate": 39.6891785579719,
+                  "p90_estimate": 47.42701426956628,
+                  "p95_estimate": 50.006292840097736,
+                  "p99_estimate": 52.069715696522906,
+                  "sum": 857.3691425700672,
+                  "sum_rate": 7.98452809067751
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "http_requests": {
+            "description": "Total number of requests by method, status and handler.",
+            "series": [
+              {
+                "labels": {
+                  "handler": "/v1/chat/completions",
+                  "method": "POST",
+                  "status": "2xx"
+                },
+                "stats": {
+                  "rate": 0.2980103740796801,
+                  "total": 32.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "process_cpu_seconds": {
+            "description": "Total user and system CPU time spent in seconds.",
+            "series": [
+              {
+                "stats": {
+                  "rate": 0.020022572008478495,
+                  "total": 2.1499999999999986
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "process_max_fds": {
+            "description": "Maximum number of open file descriptors.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 1048575.0,
+                  "max": 1048575.0,
+                  "min": 1048575.0,
+                  "p1": 1048575.0,
+                  "p10": 1048575.0,
+                  "p25": 1048575.0,
+                  "p5": 1048575.0,
+                  "p50": 1048575.0,
+                  "p75": 1048575.0,
+                  "p90": 1048575.0,
+                  "p95": 1048575.0,
+                  "p99": 1048575.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_open_fds": {
+            "description": "Number of open file descriptors.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 372.00307692307695,
+                  "max": 373.0,
+                  "min": 372.0,
+                  "p1": 372.0,
+                  "p10": 372.0,
+                  "p25": 372.0,
+                  "p5": 372.0,
+                  "p50": 372.0,
+                  "p75": 372.0,
+                  "p90": 372.0,
+                  "p95": 372.0,
+                  "p99": 372.0,
+                  "std": 0.05547001962252292
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_resident_memory_bytes": {
+            "description": "Resident memory size in bytes.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 5438770128.7384615,
+                  "max": 5438980096.0,
+                  "min": 5436825600.0,
+                  "p1": 5438164992.0,
+                  "p10": 5438169088.0,
+                  "p25": 5438439424.0,
+                  "p5": 5438164992.0,
+                  "p50": 5438980096.0,
+                  "p75": 5438980096.0,
+                  "p90": 5438980096.0,
+                  "p95": 5438980096.0,
+                  "p99": 5438980096.0,
+                  "std": 366712.30991474574
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_start_time_seconds": {
+            "description": "Start time of the process since unix epoch in seconds.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 1786736115.41,
+                  "max": 1786736115.41,
+                  "min": 1786736115.41,
+                  "p1": 1786736115.41,
+                  "p10": 1786736115.41,
+                  "p25": 1786736115.41,
+                  "p5": 1786736115.41,
+                  "p50": 1786736115.41,
+                  "p75": 1786736115.41,
+                  "p90": 1786736115.41,
+                  "p95": 1786736115.41,
+                  "p99": 1786736115.41,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_virtual_memory_bytes": {
+            "description": "Virtual memory size in bytes.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 54091122342965.56,
+                  "max": 54091122372608.0,
+                  "min": 54091122339840.0,
+                  "p1": 54091122339840.0,
+                  "p10": 54091122339840.0,
+                  "p25": 54091122339840.0,
+                  "p5": 54091122339840.0,
+                  "p50": 54091122339840.0,
+                  "p75": 54091122339840.0,
+                  "p90": 54091122339840.0,
+                  "p95": 54091122372608.0,
+                  "p99": 54091122372608.0,
+                  "std": 9640.293616173743
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "python_gc_collections": {
+            "description": "Number of times this generation was collected",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 0.02793847256997001,
+                  "total": 3.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_gc_objects_collected": {
+            "description": "Objects collected during gc",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_gc_objects_uncollectable": {
+            "description": "Uncollectable objects found during GC",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_info": {
+            "description": "Python platform information",
+            "series": [
+              {
+                "labels": {
+                  "implementation": "CPython",
+                  "major": "3",
+                  "minor": "12",
+                  "patchlevel": "12",
+                  "version": "3.12.12"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:cache_config_info": {
+            "description": "Information of the LLMEngine CacheConfig",
+            "series": [
+              {
+                "labels": {
+                  "block_size": "64",
+                  "cache_dtype": "auto",
+                  "calculate_kv_scales": "False",
+                  "cpu_kvcache_space_bytes": "None",
+                  "cpu_offload_gb": "0.0",
+                  "enable_prefix_caching": "True",
+                  "engine": "0",
+                  "gpu_memory_utilization": "0.9",
+                  "is_attention_free": "False",
+                  "kv_cache_memory_bytes": "None",
+                  "kv_offloading_backend": "native",
+                  "kv_offloading_size": "None",
+                  "kv_sharing_fast_prefill": "False",
+                  "mamba_block_size": "None",
+                  "mamba_cache_dtype": "auto",
+                  "mamba_cache_mode": "none",
+                  "mamba_page_size_padded": "None",
+                  "mamba_ssm_cache_dtype": "auto",
+                  "num_cpu_blocks": "None",
+                  "num_gpu_blocks": "28435",
+                  "num_gpu_blocks_override": "None",
+                  "prefix_caching_hash_algo": "sha256",
+                  "sliding_window": "None",
+                  "swap_space": "4.0"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:e2e_request_latency_seconds": {
+            "description": "Histogram of e2e request latency in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "0.3": 0,
+                  "0.5": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 0,
+                  "120.0": 32,
+                  "15.0": 0,
+                  "1920.0": 32,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "20.0": 0,
+                  "240.0": 32,
+                  "30.0": 32,
+                  "40.0": 32,
+                  "480.0": 32,
+                  "5.0": 0,
+                  "50.0": 32,
+                  "60.0": 32,
+                  "7680.0": 32,
+                  "960.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 26.78532576560974,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 24.60384164937223,
+                  "p1_estimate": 24.095123898475464,
+                  "p25_estimate": 25.45170456753352,
+                  "p50_estimate": 26.864809431135654,
+                  "p5_estimate": 24.321220676651805,
+                  "p75_estimate": 28.27791429473779,
+                  "p90_estimate": 28.795614330094207,
+                  "p95_estimate": 28.836047802814633,
+                  "p99_estimate": 28.868394580990973,
+                  "sum": 857.1304244995117,
+                  "sum_rate": 7.982304951255454
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:engine_sleep_state": {
+            "description": "Engine sleep state; awake = 0 means engine is sleeping; awake = 1 means engine is awake; weights_offloaded = 1 means sleep level 1; discard_all = 1 means sleep level 2.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a",
+                  "sleep_state": "awake"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a",
+                  "sleep_state": "weights_offloaded"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a",
+                  "sleep_state": "discard_all"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:external_prefix_cache_hits": {
+            "description": "External prefix cache hits from KV connector cross-instance cache sharing, in terms of number of cached tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:external_prefix_cache_queries": {
+            "description": "External prefix cache queries from KV connector cross-instance cache sharing, in terms of number of queried tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:generation_tokens": {
+            "description": "Number of generation tokens processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 76.29065576439811,
+                  "total": 8192.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:inter_token_latency_seconds": {
+            "description": "Histogram of inter-token latency in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 8160,
+                  "0.01": 0,
+                  "0.025": 0,
+                  "0.05": 0,
+                  "0.075": 0,
+                  "0.1": 8038,
+                  "0.15": 8092,
+                  "0.2": 8092,
+                  "0.3": 8126,
+                  "0.4": 8126,
+                  "0.5": 8160,
+                  "0.75": 8160,
+                  "1.0": 8160,
+                  "10.0": 8160,
+                  "2.5": 8160,
+                  "20.0": 8160,
+                  "40.0": 8160,
+                  "5.0": 8160,
+                  "7.5": 8160,
+                  "80.0": 8160
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 0.10021563814487879,
+                  "count": 8160,
+                  "count_rate": 75.99264539031843,
+                  "p10_estimate": 0.09605775504946733,
+                  "p1_estimate": 0.0956723165772974,
+                  "p25_estimate": 0.09670015250308385,
+                  "p50_estimate": 0.09777081492577808,
+                  "p5_estimate": 0.09584362256492847,
+                  "p75_estimate": 0.0988414773484723,
+                  "p90_estimate": 0.09948387480208883,
+                  "p95_estimate": 0.09969800728662767,
+                  "p99_estimate": 0.13695370370370358,
+                  "sum": 817.7596072622109,
+                  "sum_rate": 7.615651452108243
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:iteration_tokens_total": {
+            "description": "Histogram of number of tokens per engine_step.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 1035,
+                  "1.0": 0,
+                  "1024.0": 1013,
+                  "128.0": 1013,
+                  "16.0": 1013,
+                  "16384.0": 1035,
+                  "2048.0": 1025,
+                  "256.0": 1013,
+                  "32.0": 1013,
+                  "4096.0": 1035,
+                  "512.0": 1013,
+                  "64.0": 1013,
+                  "8.0": 1013,
+                  "8192.0": 1035
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 39.853140096618354,
+                  "count": 1035,
+                  "count_rate": 9.638773036639654,
+                  "p10_estimate": 7.388791818167279,
+                  "p1_estimate": 7.244755177777385,
+                  "p25_estimate": 7.628852885483769,
+                  "p50_estimate": 8.0,
+                  "p5_estimate": 7.308771462395116,
+                  "p75_estimate": 8.0,
+                  "p90_estimate": 8.0,
+                  "p95_estimate": 8.0,
+                  "p99_estimate": 1042.0606154534103,
+                  "sum": 41248.0,
+                  "sum_rate": 384.13537218870766
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:kv_cache_usage_perc": {
+            "description": "KV-cache usage. 1 means 100 percent usage.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 0.03263860708469276,
+                  "max": 0.03460645705845111,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.03338257016248156,
+                  "p25": 0.03348104382077799,
+                  "p5": 0.02486459871984248,
+                  "p50": 0.03376239713019624,
+                  "p75": 0.034043750439614495,
+                  "p90": 0.03432510374903286,
+                  "p95": 0.03432510374903286,
+                  "p99": 0.034360272912710155,
+                  "std": 0.005124284057847438
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:mm_cache_hits": {
+            "description": "Multi-modal cache hits, in terms of number of cached items.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:mm_cache_queries": {
+            "description": "Multi-modal cache queries, in terms of number of queried items.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:num_preemptions": {
+            "description": "Cumulative number of preemption from the engine.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:num_requests_running": {
+            "description": "Number of requests in model execution batches.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 7.704615384615384,
+                  "max": 8.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 8.0,
+                  "p25": 8.0,
+                  "p5": 6.0,
+                  "p50": 8.0,
+                  "p75": 8.0,
+                  "p90": 8.0,
+                  "p95": 8.0,
+                  "p99": 8.0,
+                  "std": 1.201392038432708
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:num_requests_waiting": {
+            "description": "Number of requests waiting to be processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 0.024615384615384615,
+                  "max": 4.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.2710466505965719
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:prefix_cache_hits": {
+            "description": "Prefix cache hits, in terms of number of cached tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:prefix_cache_queries": {
+            "description": "Prefix cache queries, in terms of number of queried tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 307.8447164243096,
+                  "total": 33056.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:prompt_tokens": {
+            "description": "Number of prefill tokens processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 307.8447164243096,
+                  "total": 33056.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:request_decode_time_seconds": {
+            "description": "Histogram of time spent in DECODE phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "0.3": 0,
+                  "0.5": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 0,
+                  "120.0": 32,
+                  "15.0": 0,
+                  "1920.0": 32,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "20.0": 0,
+                  "240.0": 32,
+                  "30.0": 32,
+                  "40.0": 32,
+                  "480.0": 32,
+                  "5.0": 0,
+                  "50.0": 32,
+                  "60.0": 32,
+                  "7680.0": 32,
+                  "960.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 25.55498772694409,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 23.0741476799639,
+                  "p1_estimate": 22.515958669393356,
+                  "p25_estimate": 24.004462697581474,
+                  "p50_estimate": 25.55498772694409,
+                  "p5_estimate": 22.764042674091378,
+                  "p75_estimate": 27.10551275630671,
+                  "p90_estimate": 28.035827773924286,
+                  "p95_estimate": 28.326529291234383,
+                  "p99_estimate": 28.44308542102278,
+                  "sum": 817.7596072622109,
+                  "sum_rate": 7.615651452108243
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_generation_tokens": {
+            "description": "Number of generation tokens processed.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 32,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 32,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 32,
+                  "5000.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 256.0,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 200.0,
+                  "p1_estimate": 200.0,
+                  "p25_estimate": 200.0,
+                  "p50_estimate": 241.2734375,
+                  "p5_estimate": 200.0,
+                  "p75_estimate": 313.9296875,
+                  "p90_estimate": 357.5234375,
+                  "p95_estimate": 372.0546875,
+                  "p99_estimate": 383.6796875,
+                  "sum": 8192.0,
+                  "sum_rate": 76.29065576439811
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_inference_time_seconds": {
+            "description": "Histogram of time spent in RUNNING phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "0.3": 0,
+                  "0.5": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 0,
+                  "120.0": 32,
+                  "15.0": 0,
+                  "1920.0": 32,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "20.0": 0,
+                  "240.0": 32,
+                  "30.0": 32,
+                  "40.0": 32,
+                  "480.0": 32,
+                  "5.0": 0,
+                  "50.0": 32,
+                  "60.0": 32,
+                  "7680.0": 32,
+                  "960.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 26.491776107424812,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 24.307577495219267,
+                  "p1_estimate": 23.80364309074094,
+                  "p25_estimate": 25.147468169349807,
+                  "p50_estimate": 26.547285959567375,
+                  "p5_estimate": 24.027613937175754,
+                  "p75_estimate": 27.947103749784944,
+                  "p90_estimate": 28.603606370203078,
+                  "p95_estimate": 28.64138242824659,
+                  "p99_estimate": 28.671603274681402,
+                  "sum": 847.736835437594,
+                  "sum_rate": 7.894824107808801
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_max_num_generation_tokens": {
+            "description": "Histogram of maximum number of requested generation tokens.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 32,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 32,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 32,
+                  "5000.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 256.0,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 200.0,
+                  "p1_estimate": 200.0,
+                  "p25_estimate": 200.0,
+                  "p50_estimate": 241.2734375,
+                  "p5_estimate": 200.0,
+                  "p75_estimate": 313.9296875,
+                  "p90_estimate": 357.5234375,
+                  "p95_estimate": 372.0546875,
+                  "p99_estimate": 383.6796875,
+                  "sum": 8192.0,
+                  "sum_rate": 76.29065576439811
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_params_max_tokens": {
+            "description": "Histogram of the max_tokens request parameter.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 32,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 32,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 32,
+                  "5000.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 256.0,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 200.0,
+                  "p1_estimate": 200.0,
+                  "p25_estimate": 200.0,
+                  "p50_estimate": 241.2734375,
+                  "p5_estimate": 200.0,
+                  "p75_estimate": 313.9296875,
+                  "p90_estimate": 357.5234375,
+                  "p95_estimate": 372.0546875,
+                  "p99_estimate": 383.6796875,
+                  "sum": 8192.0,
+                  "sum_rate": 76.29065576439811
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_params_n": {
+            "description": "Histogram of the n request parameter.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "1.0": 32,
+                  "10.0": 32,
+                  "2.0": 32,
+                  "20.0": 32,
+                  "5.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 0.5125000000000001,
+                  "p1_estimate": 0.42531250000000004,
+                  "p25_estimate": 0.6578125,
+                  "p50_estimate": 0.9,
+                  "p5_estimate": 0.46406250000000004,
+                  "p75_estimate": 1.0,
+                  "p90_estimate": 1.0,
+                  "p95_estimate": 1.0,
+                  "p99_estimate": 1.0,
+                  "sum": 32.0,
+                  "sum_rate": 0.2980103740796801
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_prefill_kv_computed_tokens": {
+            "description": "Histogram of new KV tokens computed during prefill (excluding cached tokens).",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 0,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 32,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 0,
+                  "5000.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 1033.0,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 1000.0,
+                  "p1_estimate": 1000.0,
+                  "p25_estimate": 1000.0,
+                  "p50_estimate": 1000.0,
+                  "p5_estimate": 1000.0,
+                  "p75_estimate": 1166.14453125,
+                  "p90_estimate": 1311.45703125,
+                  "p95_estimate": 1359.89453125,
+                  "p99_estimate": 1398.64453125,
+                  "sum": 33056.0,
+                  "sum_rate": 307.8447164243096
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_prefill_time_seconds": {
+            "description": "Histogram of time spent in PREFILL phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "0.3": 0,
+                  "0.5": 4,
+                  "0.8": 12,
+                  "1.0": 21,
+                  "1.5": 32,
+                  "10.0": 32,
+                  "120.0": 32,
+                  "15.0": 32,
+                  "1920.0": 32,
+                  "2.0": 32,
+                  "2.5": 32,
+                  "20.0": 32,
+                  "240.0": 32,
+                  "30.0": 32,
+                  "40.0": 32,
+                  "480.0": 32,
+                  "5.0": 32,
+                  "50.0": 32,
+                  "60.0": 32,
+                  "7680.0": 32,
+                  "960.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 0.9367883804807207,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 0.5038919356705155,
+                  "p1_estimate": 0.3587433681980951,
+                  "p25_estimate": 0.740354042922299,
+                  "p50_estimate": 0.9688888888888889,
+                  "p5_estimate": 0.4207433681980951,
+                  "p75_estimate": 1.1132610265298108,
+                  "p90_estimate": 1.2945450674319383,
+                  "p95_estimate": 1.3649996128864836,
+                  "p99_estimate": 1.4213632492501203,
+                  "sum": 29.97722817538306,
+                  "sum_rate": 0.27917265570055727
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_prompt_tokens": {
+            "description": "Number of prefill tokens processed.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 0,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 32,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 0,
+                  "5000.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 1033.0,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 1000.0,
+                  "p1_estimate": 1000.0,
+                  "p25_estimate": 1000.0,
+                  "p50_estimate": 1000.0,
+                  "p5_estimate": 1000.0,
+                  "p75_estimate": 1166.14453125,
+                  "p90_estimate": 1311.45703125,
+                  "p95_estimate": 1359.89453125,
+                  "p99_estimate": 1398.64453125,
+                  "sum": 33056.0,
+                  "sum_rate": 307.8447164243096
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_queue_time_seconds": {
+            "description": "Histogram of time spent in WAITING phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "0.3": 28,
+                  "0.5": 30,
+                  "0.8": 30,
+                  "1.0": 32,
+                  "1.5": 32,
+                  "10.0": 32,
+                  "120.0": 32,
+                  "15.0": 32,
+                  "1920.0": 32,
+                  "2.0": 32,
+                  "2.5": 32,
+                  "20.0": 32,
+                  "240.0": 32,
+                  "30.0": 32,
+                  "40.0": 32,
+                  "480.0": 32,
+                  "5.0": 32,
+                  "50.0": 32,
+                  "60.0": 32,
+                  "7680.0": 32,
+                  "960.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 0.09032981476048008,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 4.154681218667681e-6,
+                  "p1_estimate": 1.4593437232711605e-6,
+                  "p25_estimate": 4.154681218667681e-6,
+                  "p50_estimate": 4.154681218667681e-6,
+                  "p5_estimate": 4.154681218667681e-6,
+                  "p75_estimate": 4.154681218667681e-6,
+                  "p90_estimate": 0.3387401328220269,
+                  "p95_estimate": 0.7006032006124875,
+                  "p99_estimate": 0.9921436324988727,
+                  "sum": 2.8905540723353624,
+                  "sum_rate": 0.026919221887318878
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_success": {
+            "description": "Count of successfully processed requests.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "stop",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "length",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 0.2980103740796801,
+                  "total": 32.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "abort",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "error",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:request_time_per_output_token_seconds": {
+            "description": "Histogram of time_per_output_token_seconds per request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "0.01": 0,
+                  "0.025": 0,
+                  "0.05": 0,
+                  "0.075": 0,
+                  "0.1": 15,
+                  "0.15": 32,
+                  "0.2": 32,
+                  "0.3": 32,
+                  "0.4": 32,
+                  "0.5": 32,
+                  "0.75": 32,
+                  "1.0": 32,
+                  "10.0": 32,
+                  "2.5": 32,
+                  "20.0": 32,
+                  "40.0": 32,
+                  "5.0": 32,
+                  "7.5": 32,
+                  "80.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 0.10021563814487894,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 0.09730695954597494,
+                  "p1_estimate": 0.09669434187445926,
+                  "p25_estimate": 0.09831081801953881,
+                  "p50_estimate": 0.1,
+                  "p5_estimate": 0.0969666163951329,
+                  "p75_estimate": 0.10165444411227216,
+                  "p90_estimate": 0.10386066245616872,
+                  "p95_estimate": 0.1045960685708009,
+                  "p99_estimate": 0.10518439346250666,
+                  "sum": 3.206900420636126,
+                  "sum_rate": 0.029865299812189234
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:time_to_first_token_seconds": {
+            "description": "Histogram of time to first token in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32,
+                  "0.001": 0,
+                  "0.005": 0,
+                  "0.01": 0,
+                  "0.02": 0,
+                  "0.04": 0,
+                  "0.06": 0,
+                  "0.08": 0,
+                  "0.1": 0,
+                  "0.25": 0,
+                  "0.5": 4,
+                  "0.75": 6,
+                  "1.0": 10,
+                  "10.0": 32,
+                  "160.0": 32,
+                  "2.5": 32,
+                  "20.0": 32,
+                  "2560.0": 32,
+                  "40.0": 32,
+                  "5.0": 32,
+                  "640.0": 32,
+                  "7.5": 32,
+                  "80.0": 32
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--google--gemma-3-27b-it/snapshots/005ad3404e59d6023443cb575daa05336842228a"
+                },
+                "stats": {
+                  "avg": 1.2303362786769867,
+                  "count": 32,
+                  "count_rate": 0.2980103740796801,
+                  "p10_estimate": 0.4762597100586587,
+                  "p1_estimate": 0.4354752894332965,
+                  "p25_estimate": 0.865738658737679,
+                  "p50_estimate": 1.1730759972246319,
+                  "p5_estimate": 0.4499662673374275,
+                  "p75_estimate": 1.6176953916600754,
+                  "p90_estimate": 2.0020124529895,
+                  "p95_estimate": 2.1301181400993077,
+                  "p99_estimate": 2.232602689787154,
+                  "sum": 39.370760917663574,
+                  "sum_rate": 0.3666529746523304
+                }
+              }
+            ],
+            "type": "histogram"
+          }
+        }
+      }
+    },
+    "endpoints_configured": [
+      "http://localhost:8000/metrics"
+    ],
+    "endpoints_successful": [
+      "http://localhost:8000/metrics"
+    ],
+    "error_summary": [],
+    "start_ns": 1786738076950072643,
+    "warmup_end_ns": 1786738103954466402
+  },
+  "phase": {
+    "end_ns": 1786738103936886938,
+    "phase_index": 0,
+    "phase_kind": "warmup",
+    "phase_name": "warmup",
+    "profiling_index": null,
+    "start_ns": 1786738076950087537,
+    "was_cancelled": false
+  },
+  "schema_version": 1,
+  "warnings": []
+}
