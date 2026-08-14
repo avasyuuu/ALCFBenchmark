@@ -638,17 +638,30 @@ def index_body(runs: list, specs: dict | None = None,
     # node-wide efficiency too, but almost all of its energy is startup
     # amortised over no training, so it would sit on the chart looking like a
     # slow machine rather than a short run.
-    eff_rows = [
-        {
-            "machine": r["machine"],
-            "ranks": r["world_size"],
-            "eff": node_efficiency(r),
-            "samples": r["samples_global"],
-            "joules": r["power_joules_total"],
-        }
-        for r in runs
-        if node_efficiency(r) and r.get("tta_s")
-    ]
+    # One bar per configuration -- best run of each (machine, rank count) --
+    # rather than one per run. Repeats added nothing a reader could act on: two
+    # Aurora 12-rank bars 3% apart, two Polaris ones the same.
+    #
+    # Deliberately NOT one bar per machine. Aurora's 1-rank run at 6.1
+    # samples/J against its 12-rank at 66.9 is the point this chart makes, and
+    # the caption below and the note under the energy tables both say so; a
+    # best-per-machine rule would delete the finding and leave the prose
+    # claiming it. Rank count is a configuration, not a repeat.
+    best: dict = {}
+    for r in runs:
+        eff = node_efficiency(r)
+        if not eff or not r.get("tta_s"):
+            continue
+        key = (r["machine"], r["world_size"])
+        if key not in best or eff > best[key]["eff"]:
+            best[key] = {
+                "machine": r["machine"],
+                "ranks": r["world_size"],
+                "eff": eff,
+                "samples": r["samples_global"],
+                "joules": r["power_joules_total"],
+            }
+    eff_rows = list(best.values())
     eff_svg = efficiency_chart(eff_rows)
     eff_section = (
         "<h2>Energy per sample</h2>" + eff_svg
