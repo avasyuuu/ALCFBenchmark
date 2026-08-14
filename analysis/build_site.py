@@ -165,6 +165,24 @@ def equal_work_note(runs: list) -> str:
     )
 
 
+
+def machine_tag(machine) -> str:
+    """A machine name in its own series colour, matching every chart here.
+
+    The colour is the machine everywhere else on this site -- chart lines, bars,
+    legend swatches -- so a name in a table is the one place it was not, and a
+    reader scanning a colour on a chart had to translate it back to a word.
+
+    Uses --ct rather than --c: the chart colours are chosen to separate marks
+    from each other and fail a text contrast floor on the light surface. An
+    unknown machine falls through to inherit and stays plain rather than
+    invisible.
+    """
+    slot = SERIES_SLOT.get(machine, None)
+    cls = f"m s{slot}" if slot else "m"
+    return f'<span class="{cls}">{html.escape(str(machine or "—"))}</span>'
+
+
 def node_efficiency(run: dict):
     """Node-wide samples per joule: the only cross-machine energy ratio here.
 
@@ -499,7 +517,7 @@ th:first-child {{ z-index:1; }}
 /* After the sticky rule, so even rows repaint the pinned cell too. */
 tbody tr:nth-child(even) td {{ background:var(--stripe); }}
 tbody tr:hover td {{ background:var(--tag); }}
-.m {{ font-weight:600; }}
+.m {{ font-weight:600; color:var(--ct, currentColor); }}
 .scope {{ font-size:.74rem; color:var(--dim); white-space:normal; }}
 .tag {{ background:var(--tag); color:var(--accent); font-size:.66rem;
   padding:.1rem .35rem; border-radius:4px; letter-spacing:.03em; }}
@@ -534,17 +552,32 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
    the same hues, validated against this page's own surfaces rather than
    flipped automatically. */
 :root {{ --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a;
-  --series-4:#eda100; }}
+  --series-4:#eda100;
+  /* The same hues, dark enough to read as body text. The chart colours were
+     chosen to separate marks from each other, which is a different problem: on
+     the light surface they run 2.09-4.26 against a 4.5 contrast floor, so
+     setting them as text colour would make a name harder to read, not easier.
+     Dark mode needs no such variant -- there they clear 4.65 already. */
+  --series-1-text:#2772cb; --series-2-text:#bc5329;
+  --series-3-text:#13815a; --series-4-text:#9a6800; }}
 @media (prefers-color-scheme: dark) {{
   :root {{ --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
-    --series-4:#c98500; }}
+    --series-4:#c98500;
+    --series-1-text:#3987e5; --series-2-text:#d95926;
+    --series-3-text:#199e70; --series-4-text:#c98500; }}
 }}
 :root[data-theme="dark"] {{ --series-1:#3987e5; --series-2:#d95926;
-  --series-3:#199e70; --series-4:#c98500; }}
+  --series-3:#199e70; --series-4:#c98500;
+  --series-1-text:#3987e5; --series-2-text:#d95926;
+  --series-3-text:#199e70; --series-4-text:#c98500; }}
 :root[data-theme="light"] {{ --series-1:#2a78d6; --series-2:#eb6834;
-  --series-3:#1baf7a; --series-4:#eda100; }}
-.s1 {{ --c:var(--series-1); }} .s2 {{ --c:var(--series-2); }}
-.s3 {{ --c:var(--series-3); }} .s4 {{ --c:var(--series-4); }}
+  --series-3:#1baf7a; --series-4:#eda100;
+  --series-1-text:#2772cb; --series-2-text:#bc5329;
+  --series-3-text:#13815a; --series-4-text:#9a6800; }}
+.s1 {{ --c:var(--series-1); --ct:var(--series-1-text); }}
+.s2 {{ --c:var(--series-2); --ct:var(--series-2-text); }}
+.s3 {{ --c:var(--series-3); --ct:var(--series-3-text); }}
+.s4 {{ --c:var(--series-4); --ct:var(--series-4-text); }}
 .chart {{ display:block; width:100%; height:auto; overflow:visible; }}
 /* Grid and axes: hairline, solid, one step off the surface. Never dashed --
    dashing reads as "projection" when it is only a grid. */
@@ -771,7 +804,7 @@ def index_body(runs: list, specs: dict | None = None,
             flag = ' <span class="tag">early</span>'
         run_rows.append([
             when_cell(r),
-            f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
+            machine_tag(r.get("machine")),
             num(r.get("nodes")), num(r.get("ranks")),
             html.escape(str(r.get("precision") or "—")),
             num(r.get("global_batch")),
@@ -795,7 +828,7 @@ def index_body(runs: list, specs: dict | None = None,
             continue
         energy_rows.append([
             when_cell(r),
-            f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
+            machine_tag(r.get("machine")),
             num(r.get("ranks")),
             num(r.get("avg_watts"), 1),
             num(r.get("joules")),
@@ -812,7 +845,7 @@ def index_body(runs: list, specs: dict | None = None,
         eff = node_efficiency(r)
         node_rows.append([
             when_cell(r),
-            f'<span class="m">{html.escape(str(r.get("machine") or "—"))}</span>',
+            machine_tag(r.get("machine")),
             num(r.get("power_devices")),
             num(r.get("power_devices_idle")),
             num(r.get("power_joules_total")),
@@ -1137,7 +1170,7 @@ def model_table(sweeps: list) -> str:
         per_dev = (r["dynamic_w"] / tp) if (r.get("dynamic_w") and tp) else None
         rows.append([
             f'<span class="m">{html.escape((s["model"] or "?").split("/")[-1])}</span>',
-            html.escape(s["machine"]),
+            machine_tag(s["machine"]),
             num(tp) if tp else "—",
             f"{idle} of {total}" if total is not None else "—",
             num(r.get("out_tok_per_s"), 1),
@@ -1335,7 +1368,7 @@ def dashboard_body(sweeps: list) -> str:
         model = (sweep["model"] or "?").split("/")[-1]
         for r in sorted(sweep["rows"], key=lambda r: r["concurrency"]):
             rows.append((sweep["machine"], model, [
-                f'<span class="m">{html.escape(sweep["machine"])}</span>',
+                machine_tag(sweep["machine"]),
                 html.escape(model),
                 num(sweep.get("tp")) if sweep.get("tp") else "—",
                 num(r.get("concurrency")),

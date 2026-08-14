@@ -77,7 +77,7 @@ th:first-child { z-index:1; }
 /* After the sticky rule, so even rows repaint the pinned cell too. */
 tbody tr:nth-child(even) td { background:var(--stripe); }
 tbody tr:hover td { background:var(--tag); }
-.m { font-weight:600; }
+.m { font-weight:600; color:var(--ct, currentColor); }
 .scope { font-size:.74rem; color:var(--dim); white-space:normal; }
 .tag { background:var(--tag); color:var(--accent); font-size:.66rem;
   padding:.1rem .35rem; border-radius:4px; letter-spacing:.03em; }
@@ -112,17 +112,32 @@ code { font-size:.85em; background:var(--tag); padding:.1rem .3rem;
    the same hues, validated against this page's own surfaces rather than
    flipped automatically. */
 :root { --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a;
-  --series-4:#eda100; }
+  --series-4:#eda100;
+  /* The same hues, dark enough to read as body text. The chart colours were
+     chosen to separate marks from each other, which is a different problem: on
+     the light surface they run 2.09-4.26 against a 4.5 contrast floor, so
+     setting them as text colour would make a name harder to read, not easier.
+     Dark mode needs no such variant -- there they clear 4.65 already. */
+  --series-1-text:#2772cb; --series-2-text:#bc5329;
+  --series-3-text:#13815a; --series-4-text:#9a6800; }
 @media (prefers-color-scheme: dark) {
   :root { --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70;
-    --series-4:#c98500; }
+    --series-4:#c98500;
+    --series-1-text:#3987e5; --series-2-text:#d95926;
+    --series-3-text:#199e70; --series-4-text:#c98500; }
 }
 :root[data-theme="dark"] { --series-1:#3987e5; --series-2:#d95926;
-  --series-3:#199e70; --series-4:#c98500; }
+  --series-3:#199e70; --series-4:#c98500;
+  --series-1-text:#3987e5; --series-2-text:#d95926;
+  --series-3-text:#199e70; --series-4-text:#c98500; }
 :root[data-theme="light"] { --series-1:#2a78d6; --series-2:#eb6834;
-  --series-3:#1baf7a; --series-4:#eda100; }
-.s1 { --c:var(--series-1); } .s2 { --c:var(--series-2); }
-.s3 { --c:var(--series-3); } .s4 { --c:var(--series-4); }
+  --series-3:#1baf7a; --series-4:#eda100;
+  --series-1-text:#2772cb; --series-2-text:#bc5329;
+  --series-3-text:#13815a; --series-4-text:#9a6800; }
+.s1 { --c:var(--series-1); --ct:var(--series-1-text); }
+.s2 { --c:var(--series-2); --ct:var(--series-2-text); }
+.s3 { --c:var(--series-3); --ct:var(--series-3-text); }
+.s4 { --c:var(--series-4); --ct:var(--series-4-text); }
 .chart { display:block; width:100%; height:auto; overflow:visible; }
 /* Grid and axes: hairline, solid, one step off the surface. Never dashed --
    dashing reads as "projection" when it is only a grid. */
@@ -296,7 +311,7 @@ on each table says which.</p>
 <p class="fineprint">On polaris both instruments ran at once and agreed to within <strong>0.3%</strong> across 12 levels — AIPerf's own NVML collector against the sidecar sampling the same GPUs. That is the only check the method gets: the Intel rows have no second instrument available, so their joules rest on this agreement holding somewhere it could be tested.</p>
 
 <h2>What the model costs</h2>
-<figure><div class="scroll"><table><thead><tr><th>Model</th><th>Machine</th><th>TP</th><th>Idle dev</th><th>Out tok/s</th><th>ITL ms</th><th>Dyn W</th><th>W/dev</th><th>Tok/J</th><th>Tok/J dyn</th></tr></thead><tbody><tr><td><span class="m">gemma-3-27b-it</span></td><td>aurora</td><td>4</td><td>8 of 12</td><td>40.1</td><td>97.1</td><td>119</td><td>30</td><td><strong>0.033</strong></td><td>0.34</td></tr><tr><td><span class="m">Llama-3.1-8B-Instruct</span></td><td>aurora</td><td>1</td><td>11 of 12</td><td>172.7</td><td>22.0</td><td>123</td><td>123</td><td><strong>0.145</strong></td><td>1.40</td></tr><tr><td><span class="m">Llama-3.3-70B-Instruct</span></td><td>aurora</td><td>8</td><td>4 of 12</td><td>63.1</td><td>60.6</td><td>423</td><td>53</td><td><strong>0.043</strong></td><td>0.15</td></tr><tr><td><span class="m">gemma-3-27b-it</span></td><td>polaris</td><td>4</td><td>0 of 4</td><td>55.8</td><td>71.0</td><td>317</td><td>79</td><td><strong>0.107</strong></td><td>0.18</td></tr><tr><td><span class="m">Llama-3.1-8B-Instruct</span></td><td>polaris</td><td>1</td><td>3 of 4</td><td>242.3</td><td>15.7</td><td>224</td><td>224</td><td><strong>0.552</strong></td><td>1.08</td></tr></tbody></table></div><figcaption>Every row at concurrency 4, the one level all of these runs share. TP is how many accelerators served the model; Idle dev is how many on the node did not. W/dev divides dynamic power by the serving devices, which separates a bigger model from a wider one — the two move together in every other column here.</figcaption></figure>
+<figure><div class="scroll"><table><thead><tr><th>Model</th><th>Machine</th><th>TP</th><th>Idle dev</th><th>Out tok/s</th><th>ITL ms</th><th>Dyn W</th><th>W/dev</th><th>Tok/J</th><th>Tok/J dyn</th></tr></thead><tbody><tr><td><span class="m">gemma-3-27b-it</span></td><td><span class="m s1">aurora</span></td><td>4</td><td>8 of 12</td><td>40.1</td><td>97.1</td><td>119</td><td>30</td><td><strong>0.033</strong></td><td>0.34</td></tr><tr><td><span class="m">Llama-3.1-8B-Instruct</span></td><td><span class="m s1">aurora</span></td><td>1</td><td>11 of 12</td><td>172.7</td><td>22.0</td><td>123</td><td>123</td><td><strong>0.145</strong></td><td>1.40</td></tr><tr><td><span class="m">Llama-3.3-70B-Instruct</span></td><td><span class="m s1">aurora</span></td><td>8</td><td>4 of 12</td><td>63.1</td><td>60.6</td><td>423</td><td>53</td><td><strong>0.043</strong></td><td>0.15</td></tr><tr><td><span class="m">gemma-3-27b-it</span></td><td><span class="m s2">polaris</span></td><td>4</td><td>0 of 4</td><td>55.8</td><td>71.0</td><td>317</td><td>79</td><td><strong>0.107</strong></td><td>0.18</td></tr><tr><td><span class="m">Llama-3.1-8B-Instruct</span></td><td><span class="m s2">polaris</span></td><td>1</td><td>3 of 4</td><td>242.3</td><td>15.7</td><td>224</td><td>224</td><td><strong>0.552</strong></td><td>1.08</td></tr></tbody></table></div><figcaption>Every row at concurrency 4, the one level all of these runs share. TP is how many accelerators served the model; Idle dev is how many on the node did not. W/dev divides dynamic power by the serving devices, which separates a bigger model from a wider one — the two move together in every other column here.</figcaption></figure>
 <p class="takeaway"><strong>gemma-3-27b-it</strong> at TP=4 is the one pair here holding model, sharding and concurrency constant. <strong>polaris</strong> delivers 3.2× the tokens per joule of aurora — and drives each device 2.7× harder (79 W against 30 W), while finishing a token in 71 ms against 97 ms.</p><p class="fineprint">These are single-level runs, not sweeps — one concurrency each, so they carry no curve and no repeat. Read them as the cost of a model on a machine, not as a measurement of either machine's best. The vLLM versions still differ by machine, and every run is eager-mode.</p>
 
 <h2>Which machine serves more per joule — gemma-3-27b-it</h2>
@@ -347,7 +362,7 @@ Aurora's whole-card counters are excluded, as they are from every total, because
 they cover silicon the per-tile counters already report.</p>
 
 <footer>
-Generated 2026-08-14 21:22 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
+Generated 2026-08-14 21:25 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.
