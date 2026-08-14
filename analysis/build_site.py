@@ -265,7 +265,10 @@ LEGEND = [
         ("Best top-1", "highest validation accuracy reached, 0–1"),
         ("TTA s", "seconds of training to first cross the accuracy target; "
                   "blank means it never did"),
-        ("MFU %", "achieved FLOP/s as a share of the vendor's dense peak"),
+        ("MFU", "achieved FLOP/s as a share of the vendor's dense peak, as a "
+                "percentage — every run here is under 2%, which is the workload "
+                "being far too small to fill the machine rather than the machine "
+                "being slow"),
     ]),
     ("Energy — per rank", [
         ("Avg W", "this rank's device energy ÷ the seconds it was measured over"),
@@ -724,7 +727,12 @@ def index_body(runs: list, specs: dict | None = None,
             num(r.get("median_step_ms"), 1),
             num(r.get("best_top1"), 3),
             num(r.get("tta_s"), 1),
-            num(r.get("mfu_pct"), 2),
+            # The unit rides in the cell, not just the header. The column to
+            # its left is Best top-1, a fraction -- 0.917 meaning 91.7% -- and a
+            # reader carrying that convention two columns right turns 1.83 into
+            # 183% and reports a machine running past its own peak. That
+            # happened. A three-character suffix ends it.
+            (f'{r["mfu_pct"]:.2f}%' if r.get("mfu_pct") is not None else "—"),
         ])
 
     energy_rows = []
@@ -769,7 +777,7 @@ def index_body(runs: list, specs: dict | None = None,
 <h2>Runs</h2>
 {table(
     ["When","Machine","Nodes","Ranks","Prec","Global BS","Steps","Epochs",
-     "Samples/s","Step ms","Best top-1","TTA s","MFU %"],
+     "Samples/s","Step ms","Best top-1","TTA s","MFU"],
     run_rows,
     "Every complete run on disk, oldest first. MFU is reported for diagnosis, "
     "not as an efficiency claim — this workload runs at 0.5–1.4% of peak, so it "
