@@ -34,6 +34,7 @@ from pathlib import Path
 # `legend` here is the column glossary further down; the chart key is
 # imported under its own name so the two never shadow each other.
 from charts import (SERIES_SLOT, accuracy_chart, canonical_runs,
+                    dashboard_chart, dashboard_legend,
                     efficiency_chart, efficiency_compare_chart,
                     efficiency_compare_legend, inference_chart, inference_legend,
                     series_legend, tail_chart)
@@ -392,6 +393,7 @@ def table(headers: list, rows: list, caption: str = "") -> str:
 PAGES = [
     ("index.html", "Data & analysis"),
     ("power.html", "Power profiles"),
+    ("dashboard.html", "Dashboard"),
 ]
 
 
@@ -601,6 +603,27 @@ a:hover {{ border-bottom-color:var(--accent); }}
 .mhead {{ display:flex; align-items:baseline; gap:.55rem; flex-wrap:wrap;
   margin:2.75rem 0 .2rem; }}
 .mhead h2 {{ margin:0; }}
+
+/* Dashboard controls. Chips rather than a multi-select because a checkbox
+   shows its state without being opened, and the whole point of this page is
+   seeing what is currently included. */
+.controls {{ display:flex; flex-wrap:wrap; gap:1.4rem 2rem; margin:1.4rem 0 1rem;
+  padding:1rem 1.2rem; background:var(--card); border:1px solid var(--line);
+  border-radius:10px; }}
+.ctl {{ display:flex; flex-direction:column; gap:.45rem; font-size:.72rem;
+  text-transform:uppercase; letter-spacing:.07em; color:var(--dim); }}
+.ctl select {{ font:inherit; font-size:.85rem; text-transform:none;
+  letter-spacing:0; color:var(--fg); background:var(--bg);
+  border:1px solid var(--line); border-radius:6px; padding:.35rem .5rem; }}
+.chips {{ display:flex; flex-wrap:wrap; gap:.4rem; }}
+.chip {{ display:inline-flex; align-items:center; gap:.35rem; cursor:pointer;
+  font-size:.78rem; text-transform:none; letter-spacing:0; color:var(--fg);
+  border:1px solid var(--line); border-radius:999px; padding:.22rem .7rem; }}
+.chip:hover {{ border-color:var(--accent); }}
+.chip input {{ margin:0; accent-color:var(--accent); }}
+/* Hidden series keep their key visible but dimmed: which machines exist is
+   part of the answer, and removing the key would hide that one was excluded. */
+.legend-row .key {{ transition:opacity .12s; }}
 </style></head><body><div class="wrap">
 
 <header class="head">
@@ -1223,6 +1246,136 @@ def _compare_takeaway(sweeps: list) -> str:
     )
 
 
+
+# Metrics the dashboard offers, each pre-rendered as its own complete chart.
+# Switching metric shows a different SVG rather than redrawing one, because the
+# axes differ by orders of magnitude between them -- tokens/joule sits near 0.1
+# and dynamic watts near 400, and one axis cannot serve both.
+DASHBOARD_METRICS = [
+    ("tok_per_joule", "tokens per joule", True),
+    ("tok_per_joule_dynamic", "tokens per joule (dynamic)", True),
+    ("out_tok_per_s", "output tokens per second", True),
+    ("itl_ms", "inter-token latency (ms)", False),
+    ("ttft_ms", "time to first token (ms)", False),
+    ("dynamic_w", "dynamic power (W)", False),
+]
+
+
+def dashboard_body(sweeps: list) -> str:
+    """Every inference configuration, filterable in the browser.
+
+    The filtering is presentation only: every series and every row is in the
+    page already, tagged with its machine and model, and the script sets
+    display. Nothing is fetched, nothing is computed client-side, and with
+    scripting off the page shows the complete set -- which is the same thing
+    the other two pages show.
+    """
+    if not sweeps:
+        return "<p class=\"fineprint\">No inference sweeps in results/aiperf yet.</p>"
+
+    machines = sorted({s["machine"] for s in sweeps})
+    models = sorted({(s["model"] or "?").split("/")[-1] for s in sweeps})
+
+    def boxes(kind, values):
+        return "".join(
+            f'<label class="chip"><input type="checkbox" data-filter="{kind}" '
+            f'value="{html.escape(v)}" checked> {html.escape(v)}</label>'
+            for v in values
+        )
+
+    options = "".join(
+        f'<option value="{key}"{" selected" if i == 0 else ""}>{html.escape(label)}</option>'
+        for i, (key, label, _) in enumerate(DASHBOARD_METRICS)
+    )
+    charts = "".join(
+        f'<div class="chartwrap" data-metric="{key}"{"" if i == 0 else " hidden"}>'
+        f"{dashboard_chart(sweeps, key, label, log_y)}</div>"
+        for i, (key, label, log_y) in enumerate(DASHBOARD_METRICS)
+    )
+
+    rows = []
+    for sweep in sorted(sweeps, key=lambda s: (s["machine"], s["model"] or "")):
+        model = (sweep["model"] or "?").split("/")[-1]
+        for r in sorted(sweep["rows"], key=lambda r: r["concurrency"]):
+            rows.append((sweep["machine"], model, [
+                f'<span class="m">{html.escape(sweep["machine"])}</span>',
+                html.escape(model),
+                num(sweep.get("tp")) if sweep.get("tp") else "—",
+                num(r.get("concurrency")),
+                num(r.get("out_tok_per_s"), 1),
+                num(r.get("ttft_ms")),
+                num(r.get("itl_ms"), 1),
+                num(r.get("dynamic_w")),
+                num(r.get("total_energy_j")),
+                f'<strong>{r["tok_per_joule"]:.3f}</strong>' if r.get("tok_per_joule") else "—",
+                num(r.get("tok_per_joule_dynamic"), 2),
+            ]))
+    head = "".join(f"<th>{h}</th>" for h in (
+        "Machine", "Model", "TP", "Conc", "Out tok/s", "TTFT ms", "ITL ms",
+        "Dyn W", "Joules", "Tok/J", "Tok/J dyn"))
+    body = "".join(
+        f'<tr data-machine="{html.escape(m)}" data-model="{html.escape(mo)}">'
+        + "".join(f"<td>{c}</td>" for c in cells) + "</tr>"
+        for m, mo, cells in rows
+    )
+
+    return f"""
+<div class="controls">
+  <label class="ctl">Metric
+    <select id="metric">{options}</select>
+  </label>
+  <div class="ctl"><span>Machines</span><div class="chips">{boxes("machine", machines)}</div></div>
+  <div class="ctl"><span>Models</span><div class="chips">{boxes("model", models)}</div></div>
+</div>
+{charts}
+{dashboard_legend(sweeps)}
+<p class="fineprint" id="empty" hidden>Nothing selected — tick a machine and a model.</p>
+
+<h2>Every row</h2>
+<figure><div class="scroll"><table id="rows"><thead><tr>{head}</tr></thead>
+<tbody>{body}</tbody></table></div>
+<figcaption>Every concurrency level of every sweep, filtered by the same
+controls. Joules are comparable only between rows that ran the same request
+count — see each sweep's run_meta.json.</figcaption></figure>
+
+<script>
+(function () {{
+  var metric = document.getElementById('metric');
+  function selected(kind) {{
+    var out = {{}};
+    document.querySelectorAll('[data-filter="' + kind + '"]').forEach(function (b) {{
+      if (b.checked) out[b.value] = true;
+    }});
+    return out;
+  }}
+  function apply() {{
+    var m = selected('machine'), mo = selected('model'), shown = 0;
+    document.querySelectorAll('.chartwrap').forEach(function (w) {{
+      w.hidden = w.getAttribute('data-metric') !== metric.value;
+    }});
+    document.querySelectorAll('.series').forEach(function (g) {{
+      var on = m[g.getAttribute('data-machine')] && mo[g.getAttribute('data-model')];
+      g.style.display = on ? '' : 'none';
+      if (on) shown++;
+    }});
+    document.querySelectorAll('#rows tbody tr').forEach(function (tr) {{
+      var on = m[tr.getAttribute('data-machine')] && mo[tr.getAttribute('data-model')];
+      tr.style.display = on ? '' : 'none';
+    }});
+    document.querySelectorAll('.legend-row .key').forEach(function (k) {{
+      var on = m[k.getAttribute('data-machine')] && mo[k.getAttribute('data-model')];
+      k.style.opacity = on ? '' : '0.3';
+    }});
+    document.getElementById('empty').hidden = shown > 0;
+  }}
+  metric.addEventListener('change', apply);
+  document.querySelectorAll('[data-filter]').forEach(function (b) {{
+    b.addEventListener('change', apply);
+  }});
+  apply();
+}})();
+</script>"""
+
 def timeline_counts(results_dir: str) -> dict:
     """How many node power timelines are on disk, per machine.
 
@@ -1366,6 +1519,7 @@ def main() -> None:
     measured = {r.get("machine") for r in runs if r.get("machine")}
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     footer = footer_text(runs, generated)
+    sweeps = load_aiperf(args.results_dir)
 
     pages = {
         "index.html": shell(
@@ -1386,13 +1540,23 @@ def main() -> None:
             heading="Power Profiles",
             lede="What each machine actually draws while it trains, per node and "
                  "per accelerator. One section per system the benchmark targets.",
-            body=power_body(specs, runs, timeline_counts(args.results_dir),
-                            load_aiperf(args.results_dir)),
+            body=power_body(specs, runs, timeline_counts(args.results_dir), sweeps),
             footer=footer,
             logo_uri=logo,
             here="power.html",
         ),
     }
+    pages["dashboard.html"] = shell(
+        title="ALCF Benchmark Dashboard",
+        heading="Dashboard",
+        lede="Every inference configuration measured so far, filtered in the "
+             "browser. Pick a metric, then choose which machines and models to "
+             "show. Nothing is fetched — the whole dataset is in this page.",
+        body=dashboard_body(sweeps),
+        footer=footer,
+        logo_uri=logo,
+        here="dashboard.html",
+    )
     for name, text in pages.items():
         (out_dir / name).write_text(text, encoding="utf-8")
 

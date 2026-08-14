@@ -526,3 +526,124 @@ def efficiency_compare_legend(sweeps: list) -> str:
                  f'<span class="key"><span class="sw dash s{slot}"></span>'
                  f"{_esc(sweep['machine'])} tokens/J dynamic</span>")
     return f'<div class="legend-row">{keys}</div>'
+
+
+# Dash patterns for the dashboard, indexed by model. Colour stays the machine
+# everywhere on this site, so a second dimension needs a second channel -- and
+# the dashboard is the one page that shows several models at once.
+MODEL_DASHES = ("", "6 3", "2 3", "9 3 2 3")
+
+
+def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -> str:
+    """One metric against concurrency, every configuration, each tagged.
+
+    Every series is emitted, always, inside a <g> carrying its machine, model
+    and tensor parallelism. The page's script hides groups rather than redrawing
+    anything, which is why there is no charting code in JavaScript: this
+    function stays the only thing that knows how a chart is built, and a browser
+    with scripting off shows the complete picture instead of an empty box.
+
+    A configuration with one concurrency level gets a marker and no line. That
+    is honest -- a single point has no slope -- and it keeps the 70B and the
+    first gemma runs visible rather than dropping them for being short.
+    """
+    series = []
+    for sweep in sweeps:
+        pts = [(r["concurrency"], r.get(metric)) for r in sweep["rows"]]
+        pts = [(c, v) for c, v in pts if c and isinstance(v, (int, float)) and v > 0]
+        if pts:
+            series.append((sweep, sorted(pts)))
+    if not series:
+        return ""
+
+    models = sorted({s["model"] for s, _ in series})
+    W, H = 760, 380
+    L, R, T, B = 58, 16, 14, 46
+    pw, ph = W - L - R, H - T - B
+    xs = [c for _, pts in series for c, _ in pts]
+    ys = [v for _, pts in series for _, v in pts]
+    x_lo, x_hi = min(xs), max(xs)
+    if log_y:
+        y_lo = 10 ** math.floor(math.log10(min(ys)))
+        y_hi = 10 ** math.ceil(math.log10(max(ys)))
+    else:
+        y_lo, y_hi = 0, max(ys) * 1.08
+
+    def px(c):
+        if x_hi == x_lo:
+            return L + pw / 2
+        return L + (math.log2(c) - math.log2(x_lo)) / (math.log2(x_hi) - math.log2(x_lo)) * pw
+
+    def py(v):
+        if log_y:
+            f = (math.log10(v) - math.log10(y_lo)) / (math.log10(y_hi) - math.log10(y_lo))
+        else:
+            f = (v - y_lo) / (y_hi - y_lo)
+        return T + (1 - f) * ph
+
+    parts = [f'<svg class="chart" data-metric="{_esc(metric)}" viewBox="0 0 {W} {H}" '
+             f'role="img" aria-label="{_esc(label)} against concurrency">']
+
+    if log_y:
+        d = math.log10(y_lo)
+        while d <= math.log10(y_hi) + 1e-9:
+            v = 10 ** d
+            y = py(v)
+            lab = f"{v:g}" if v >= 1 else f"{v:.3f}".rstrip("0")
+            parts.append(f'<line class="grid" x1="{L}" y1="{y:.1f}" x2="{L+pw}" y2="{y:.1f}"/>')
+            parts.append(f'<text class="tick" x="{L-8}" y="{y+3.5:.1f}" text-anchor="end">{lab}</text>')
+            d += 1
+    else:
+        for i in range(5):
+            v = y_hi * i / 4
+            y = py(v)
+            parts.append(f'<line class="grid" x1="{L}" y1="{y:.1f}" x2="{L+pw}" y2="{y:.1f}"/>')
+            parts.append(f'<text class="tick" x="{L-8}" y="{y+3.5:.1f}" text-anchor="end">{v:,.0f}</text>')
+    for c in sorted(set(xs)):
+        x = px(c)
+        parts.append(f'<line class="grid" x1="{x:.1f}" y1="{T}" x2="{x:.1f}" y2="{T+ph}"/>')
+        parts.append(f'<text class="tick" x="{x:.1f}" y="{T+ph+18}" text-anchor="middle">{c}</text>')
+
+    for sweep, pts in series:
+        machine = sweep["machine"]
+        model = (sweep["model"] or "?").split("/")[-1]
+        dash = MODEL_DASHES[models.index(sweep["model"]) % len(MODEL_DASHES)]
+        style = f' style="stroke-dasharray:{dash}"' if dash else ""
+        tp = sweep.get("tp") or ""
+        parts.append(
+            f'<g class="series s{_slot(machine)}" data-machine="{_esc(machine)}" '
+            f'data-model="{_esc(model)}" data-tp="{_esc(tp)}">'
+        )
+        if len(pts) > 1:
+            line = " ".join(f"{px(c):.1f},{py(v):.1f}" for c, v in pts)
+            parts.append(f'<polyline class="ln" points="{line}"{style}/>')
+        for c, v in pts:
+            parts.append(
+                f'<circle class="dot" cx="{px(c):.1f}" cy="{py(v):.1f}" r="4">'
+                f'<title>{_esc(machine)} {_esc(model)} TP={_esc(tp)} — '
+                f'concurrency {c}: {v:,.3g} {_esc(label)}</title></circle>'
+            )
+        parts.append("</g>")
+
+    parts.append(f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6}" '
+                 f'text-anchor="middle">concurrent requests (log scale)</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def dashboard_legend(sweeps: list) -> str:
+    """One key per configuration, tagged so the script can dim what is hidden."""
+    models = sorted({s["model"] for s in sweeps})
+    keys = ""
+    for sweep in sorted(sweeps, key=lambda s: (s["machine"], s["model"] or "")):
+        machine = sweep["machine"]
+        model = (sweep["model"] or "?").split("/")[-1]
+        dash = MODEL_DASHES[models.index(sweep["model"]) % len(MODEL_DASHES)]
+        bg = (f"repeating-linear-gradient(90deg,var(--c) 0 6px,transparent 6px 9px)"
+              if dash else "var(--c)")
+        keys += (f'<span class="key s{_slot(machine)}" data-machine="{_esc(machine)}" '
+                 f'data-model="{_esc(model)}">'
+                 f'<span class="sw" style="background:{bg}"></span>'
+                 f'{_esc(machine)} · {_esc(model)}'
+                 + (f' · TP={_esc(sweep["tp"])}' if sweep.get("tp") else "") + "</span>")
+    return f'<div class="legend-row">{keys}</div>'

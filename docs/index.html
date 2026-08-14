@@ -185,6 +185,27 @@ a:hover { border-bottom-color:var(--accent); }
 .mhead { display:flex; align-items:baseline; gap:.55rem; flex-wrap:wrap;
   margin:2.75rem 0 .2rem; }
 .mhead h2 { margin:0; }
+
+/* Dashboard controls. Chips rather than a multi-select because a checkbox
+   shows its state without being opened, and the whole point of this page is
+   seeing what is currently included. */
+.controls { display:flex; flex-wrap:wrap; gap:1.4rem 2rem; margin:1.4rem 0 1rem;
+  padding:1rem 1.2rem; background:var(--card); border:1px solid var(--line);
+  border-radius:10px; }
+.ctl { display:flex; flex-direction:column; gap:.45rem; font-size:.72rem;
+  text-transform:uppercase; letter-spacing:.07em; color:var(--dim); }
+.ctl select { font:inherit; font-size:.85rem; text-transform:none;
+  letter-spacing:0; color:var(--fg); background:var(--bg);
+  border:1px solid var(--line); border-radius:6px; padding:.35rem .5rem; }
+.chips { display:flex; flex-wrap:wrap; gap:.4rem; }
+.chip { display:inline-flex; align-items:center; gap:.35rem; cursor:pointer;
+  font-size:.78rem; text-transform:none; letter-spacing:0; color:var(--fg);
+  border:1px solid var(--line); border-radius:999px; padding:.22rem .7rem; }
+.chip:hover { border-color:var(--accent); }
+.chip input { margin:0; accent-color:var(--accent); }
+/* Hidden series keep their key visible but dimmed: which machines exist is
+   part of the answer, and removing the key would hide that one was excluded. */
+.legend-row .key { transition:opacity .12s; }
 </style></head><body><div class="wrap">
 
 <header class="head">
@@ -198,7 +219,7 @@ a:hover { border-bottom-color:var(--accent); }
 <a href="https://github.com/avasyuuu/ALCFBenchmark">github.com/avasyuuu/ALCFBenchmark</a>
 </aside>
 </header>
-<nav class="nav"><span class="here">Data &amp; analysis</span><a href="power.html">Power profiles</a></nav>
+<nav class="nav"><span class="here">Data &amp; analysis</span><a href="power.html">Power profiles</a><a href="dashboard.html">Dashboard</a></nav>
 
 <h2>Machines</h2>
 <div class="cards">
@@ -258,7 +279,7 @@ compare cleanly — but this is a handful of runs per machine on a workload at
 
 
 <footer>
-Generated 2026-08-14 19:06 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
+Generated 2026-08-14 19:20 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.
