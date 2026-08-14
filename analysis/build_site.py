@@ -35,6 +35,7 @@ from pathlib import Path
 # imported under its own name so the two never shadow each other.
 from charts import (SERIES_SLOT, accuracy_chart, canonical_runs,
                     dashboard_chart, dashboard_legend, machine_tag,
+                    power_throughput_chart,
                     efficiency_chart, efficiency_compare_chart,
                     efficiency_compare_legend, inference_chart, inference_legend,
                     series_legend, tail_chart)
@@ -1288,6 +1289,15 @@ DASHBOARD_METRICS = [
     ("dynamic_w", "dynamic power (W)", False),
 ]
 
+# Throughput against power, which is a different chart shape: not a metric over
+# concurrency but a trajectory through the two. Two x-axis choices, because
+# which power you divide by is the entire disagreement between these machines --
+# dynamic compares silicon, node compares what an allocation is billed.
+DASHBOARD_XY = [
+    ("xy_dynamic_w", "dynamic power (W)", "dynamic_w"),
+    ("xy_avg_gpu_w", "node power (W)", "avg_gpu_w"),
+]
+
 
 def dashboard_body(sweeps: list) -> str:
     """Every inference configuration, filterable in the browser.
@@ -1315,14 +1325,27 @@ def dashboard_body(sweeps: list) -> str:
             for v in values
         )
 
-    options = "".join(
-        f'<option value="{key}"{" selected" if i == 0 else ""}>{html.escape(label)}</option>'
-        for i, (key, label, _) in enumerate(DASHBOARD_METRICS)
+    options = (
+        '<optgroup label="against concurrency">'
+        + "".join(
+            f'<option value="{key}"{" selected" if i == 0 else ""}>{html.escape(label)}</option>'
+            for i, (key, label, _) in enumerate(DASHBOARD_METRICS)
+        )
+        + '</optgroup><optgroup label="throughput against power">'
+        + "".join(
+            f'<option value="{key}">{html.escape(label)}</option>'
+            for key, label, _ in DASHBOARD_XY
+        )
+        + "</optgroup>"
     )
     charts = "".join(
         f'<div class="chartwrap" data-metric="{key}"{"" if i == 0 else " hidden"}>'
         f"{dashboard_chart(sweeps, key, label, log_y)}</div>"
         for i, (key, label, log_y) in enumerate(DASHBOARD_METRICS)
+    ) + "".join(
+        f'<div class="chartwrap" data-metric="{key}" hidden>'
+        f"{power_throughput_chart(sweeps, col, label)}</div>"
+        for key, label, col in DASHBOARD_XY
     )
 
     rows = []

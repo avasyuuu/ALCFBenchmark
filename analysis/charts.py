@@ -665,3 +665,105 @@ def dashboard_legend(sweeps: list) -> str:
                  f'{machine_tag(machine)} · {_esc(model)}'
                  + (f' · TP={_esc(sweep["tp"])}' if sweep.get("tp") else "") + "</span>")
     return f'<div class="legend-row">{keys}</div>'
+
+
+def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
+    """Throughput against power, one trajectory per configuration.
+
+    Log-log on purpose, and not for range: tokens/joule is tokens/s over watts,
+    so a line of constant efficiency is y = kx, and on log axes that is a
+    straight line of slope 1. The faint diagonals are those lines. Efficiency
+    stops being a column to cross-reference and becomes a position on the grid --
+    a point sitting above a diagonal beats that efficiency, and the vertical gap
+    to it is by how much.
+
+    Each configuration is drawn in concurrency order with the marker growing
+    along the way, so direction is visible without an arrowhead: small dot is
+    one concurrent request, large is the most. Up and to the left is better.
+
+    power_key picks the x axis. Dynamic power compares silicon; node power
+    compares what an allocation is billed, and switching between them slides
+    each machine right by its own idle floor -- which is the whole argument
+    about these two machines, as one movement.
+    """
+    series = []
+    for sweep in sweeps:
+        pts = [(r.get(power_key), r.get("out_tok_per_s"), r["concurrency"])
+               for r in sweep["rows"] if r.get("concurrency")]
+        pts = [(x, y, c) for x, y, c in pts
+               if isinstance(x, (int, float)) and isinstance(y, (int, float))
+               and x > 0 and y > 0]
+        if pts:
+            series.append((sweep, sorted(pts, key=lambda p: p[2])))
+    if not series:
+        return ""
+
+    models = sorted({s["model"] for s, _ in series})
+    W, H = 760, 420
+    L, R, T, B = 58, 16, 14, 46
+    pw, ph = W - L - R, H - T - B
+    xs = [x for _, pts in series for x, _, _ in pts]
+    ys = [y for _, pts in series for _, y, _ in pts]
+    x_lo, x_hi = 10 ** math.floor(math.log10(min(xs))), 10 ** math.ceil(math.log10(max(xs)))
+    y_lo, y_hi = 10 ** math.floor(math.log10(min(ys))), 10 ** math.ceil(math.log10(max(ys)))
+
+    def px(v):
+        return L + (math.log10(v) - math.log10(x_lo)) / (math.log10(x_hi) - math.log10(x_lo)) * pw
+
+    def py(v):
+        return T + (1 - (math.log10(v) - math.log10(y_lo)) / (math.log10(y_hi) - math.log10(y_lo))) * ph
+
+    parts = [f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="'
+             f'Output throughput against {_esc(label)}, one line per configuration">']
+
+    d = math.log10(x_lo)
+    while d <= math.log10(x_hi) + 1e-9:
+        v = 10 ** d
+        parts.append(f'<line class="grid" x1="{px(v):.1f}" y1="{T}" x2="{px(v):.1f}" y2="{T+ph}"/>')
+        parts.append(f'<text class="tick" x="{px(v):.1f}" y="{T+ph+18}" '
+                     f'text-anchor="middle">{v:,g}</text>')
+        d += 1
+    d = math.log10(y_lo)
+    while d <= math.log10(y_hi) + 1e-9:
+        v = 10 ** d
+        parts.append(f'<line class="grid" x1="{L}" y1="{py(v):.1f}" x2="{L+pw}" y2="{py(v):.1f}"/>')
+        parts.append(f'<text class="tick" x="{L-8}" y="{py(v)+3.5:.1f}" text-anchor="end">{v:,g}</text>')
+        d += 1
+
+    # Iso-efficiency diagonals: y = kx, clipped to the plot box. Drawn under the
+    # data and labelled where they leave the frame.
+    k = 10 ** math.floor(math.log10(min(ys) / max(xs)))
+    while k <= max(ys) / min(xs):
+        a = (max(x_lo, y_lo / k), min(x_hi, y_hi / k))
+        if a[0] < a[1]:
+            parts.append(f'<line class="target" x1="{px(a[0]):.1f}" y1="{py(k*a[0]):.1f}" '
+                         f'x2="{px(a[1]):.1f}" y2="{py(k*a[1]):.1f}" opacity=".45"/>')
+            lbl = f"{k:g}" if k >= 1 else f"{k:.3f}".rstrip("0")
+            parts.append(f'<text class="tick" x="{px(a[1])-4:.1f}" y="{py(k*a[1])-5:.1f}" '
+                         f'text-anchor="end" opacity=".7">{lbl} tok/J</text>')
+        k *= 10
+
+    for sweep, pts in series:
+        machine = sweep["machine"]
+        model = (sweep["model"] or "?").split("/")[-1]
+        dash = MODEL_DASHES[models.index(sweep["model"]) % len(MODEL_DASHES)]
+        style = f' style="stroke-dasharray:{dash}"' if dash else ""
+        parts.append(f'<g class="series s{_slot(machine)}" data-machine="{_esc(machine)}" '
+                     f'data-model="{_esc(model)}" data-tp="{_esc(sweep.get("tp") or "")}">')
+        if len(pts) > 1:
+            line = " ".join(f"{px(x):.1f},{py(y):.1f}" for x, y, _ in pts)
+            parts.append(f'<polyline class="ln" points="{line}"{style}/>')
+        for i, (x, y, c) in enumerate(pts):
+            r = 2.6 + 2.6 * (i / max(1, len(pts) - 1))
+            parts.append(
+                f'<circle class="dot" cx="{px(x):.1f}" cy="{py(y):.1f}" r="{r:.1f}">'
+                f'<title>{_esc(machine)} {_esc(model)} — concurrency {c}: '
+                f'{y:,.1f} tok/s at {x:,.0f} W = {y/x:.3f} tok/J</title></circle>')
+        parts.append("</g>")
+
+    parts.append(f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6}" text-anchor="middle">'
+                 f'{_esc(label)} — both axes logarithmic, diagonals are constant tokens/joule</text>')
+    parts.append(f'<text class="axis-title" x="14" y="{T+ph/2:.0f}" text-anchor="middle" '
+                 f'transform="rotate(-90 14 {T+ph/2:.0f})">output tokens/s</text>')
+    parts.append("</svg>")
+    return "".join(parts)
