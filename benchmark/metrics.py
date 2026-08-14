@@ -259,8 +259,10 @@ class RunRecord:
         self,
         flops_per_sample_fwd: int,
         samples_per_s: float,
-        peak_per_device: float | None,
+        peak_per_unit: float | None,
+        peak_unit: str,
         world_size: int,
+        nodes: int,
     ):
         """Achieved FLOP/s and MFU.
 
@@ -268,26 +270,56 @@ class RunRecord:
         is roughly two forwards' work (input grads + weight grads). This is the
         standard convention, so numbers stay comparable to published MFU.
 
-        samples_per_s is aggregate over every rank, so the peak it is divided by
-        has to be the aggregate peak too. peak_flops.json stores ONE DEVICE, so
-        scale it by world_size -- dividing by the per-device figure would report
-        12x the true MFU on a full Aurora node.
+        samples_per_s is aggregate over every rank, so the peak it divides has to
+        be the aggregate peak of the hardware the job occupied. What "the
+        hardware" means differs by machine, which is why peak_flops.json declares
+        a unit rather than leaving it implied:
+
+          per device -- scaled by world_size. Correct only because these submit
+                        scripts bind exactly one rank per accelerator, so ranks
+                        and devices are the same count. Aurora runs 12 ranks on
+                        12 tiles, Polaris 4 on 4.
+          per node   -- scaled by node count. What a CPU machine needs: Crux
+                        runs 8 or 16 ranks over the same 128 cores, so scaling
+                        by ranks would give one node two different peaks and
+                        make MFU a function of how the job was split.
+
+        Getting that wrong is how MFU exceeds 100%. A per-core figure scaled by
+        16 ranks understates the denominator ~16x, and the result looks like a
+        machine running at four times its own peak.
         """
         train_flops_per_sample = 3 * flops_per_sample_fwd
         achieved = train_flops_per_sample * samples_per_s
-        peak_total = peak_per_device * world_size if peak_per_device else None
+        scale = nodes if peak_unit == "node" else world_size
+        peak_total = peak_per_unit * scale if peak_per_unit else None
+        mfu = (achieved / peak_total) if peak_total else None
         self.flops = {
             "fwd_flops_per_sample": flops_per_sample_fwd,
             "train_flops_per_sample": train_flops_per_sample,
             "achieved_flops_per_s": achieved,
-            "peak_flops_per_s_per_device": peak_per_device,
+            "peak_flops_per_s_per_unit": peak_per_unit,
+            # Recorded so the scaling can be checked from the result alone,
+            # rather than inferred from a config file that may have changed.
+            "peak_unit": peak_unit if peak_per_unit else None,
+            "peak_units_counted": scale if peak_per_unit else None,
             "peak_flops_per_s": peak_total,
-            "mfu": (achieved / peak_total) if peak_total else None,
+            "mfu": mfu,
         }
         if peak_total is None:
             self.notes.append(
                 "MFU not computed: no peak FLOP/s configured for this device "
                 "in configs/peak_flops.json"
+            )
+        elif mfu > 1:
+            # Physically impossible, so it is a configuration error every time --
+            # almost always the peak being in different units than peak_unit
+            # claims. Said loudly and carried in the result, because a silent
+            # 400% MFU is the kind of number that reaches a slide.
+            self.notes.append(
+                f"MFU is {mfu * 100:.1f}%, which is impossible: no run exceeds its "
+                f"hardware's peak. The denominator is wrong -- check that the "
+                f"peak_flops.json entry really is per {peak_unit} "
+                f"({peak_per_unit:.3e} FLOP/s x {scale} = {peak_total:.3e})."
             )
 
     def set_energy(
@@ -383,18 +415,29 @@ class RunRecord:
 
 
 def load_peak_flops(config_path: str, device_name: str, precision: str):
-    """Look up vendor peak FLOP/s for MFU.
+    """(peak FLOP/s, unit) for MFU, or (None, "device") when unknown.
 
     Matched by substring against the device name reported by the runtime, so
     the config keys can stay short. Returns None when unknown — MFU is then
     omitted rather than guessed.
+
+    The unit is what the entry's `per` field says: "device" or "node". It
+    defaults to "device", which is what every accelerator entry means and what
+    the file held before units were declared. A CPU entry must say "node" — see
+    set_flops for why ranks are the wrong multiplier there.
     """
     path = Path(config_path)
     if not path.exists():
-        return None
+        return None, "device"
     table = json.loads(path.read_text(encoding="utf-8"))
     for key, entry in table.items():
         if key.lower() in device_name.lower():
             value = entry.get(precision)
-            return float(value) if value else None
-    return None
+            unit = entry.get("per", "device")
+            if unit not in ("device", "node"):
+                raise SystemExit(
+                    f"peak_flops.json: entry '{key}' has per={unit!r}; "
+                    "expected 'device' or 'node'."
+                )
+            return (float(value) if value else None), unit
+    return None, "device"

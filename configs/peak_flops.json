@@ -1,30 +1,43 @@
 {
   "_comment": [
-    "Vendor peak dense FLOP/s PER DEVICE, used only to compute MFU.",
+    "Vendor peak dense FLOP/s, used only to compute MFU.",
     "IMPORTANT: verify every number against the vendor spec sheet before you",
     "publish anything derived from it, and record where you got it in _source.",
-    "On Aurora the device is a TILE (ZE_FLAT_DEVICE_HIERARCHY=FLAT), so these",
-    "must be per-tile values -- roughly half the per-GPU figure. Leave a value",
-    "as null and MFU is omitted from the results rather than computed wrong.",
+    "",
+    "Every entry MUST declare `per`: 'device' or 'node'. It decides what the",
+    "figure is multiplied by, and getting it wrong is how MFU exceeds 100%.",
+    "  per=device -> scaled by world_size, correct only because the submit",
+    "                scripts bind one rank per accelerator. On Aurora the",
+    "                device is a TILE (ZE_FLAT_DEVICE_HIERARCHY=FLAT), so",
+    "                these must be per-tile -- roughly half the per-GPU figure.",
+    "  per=node   -> scaled by node count. What a CPU machine needs: Crux runs",
+    "                8 or 16 ranks over the same 128 cores, and scaling by",
+    "                ranks would give one node two different peaks.",
+    "",
+    "Leave a value null and MFU is omitted rather than computed wrong.",
     "Do not count sparsity-boosted 2:1 numbers; use dense figures only."
   ],
   "Data Center GPU Max": {
     "_source": "Max 1550 (2-stack): 839 TFLOP/s BF16-FP16 dense, 52 TFLOP/s FP64-FP32 vector, 419 TFLOP/s TF32, per GPU. Halved here for per-tile. CONFIRM on Intel's spec page before publishing -- these came from secondary coverage of Intel's own figures, not the datasheet directly.",
     "_check": "Reproduces from the architecture: 128 Xe-cores x 4096 bf16 FLOP/clock x 1.6 GHz = 839 TFLOP/s, and the same method gives 128 x 256 x 1.6 GHz = 52 TFLOP/s FP64, matching Intel's published FP64.",
     "_note": "Max 1550 = 2 tiles per GPU; these keys must be per-tile",
-    "bf16": 4.195e14,
-    "fp16": 4.195e14,
-    "fp32": null
+    "bf16": 419500000000000.0,
+    "fp16": 419500000000000.0,
+    "fp32": null,
+    "per": "device"
   },
   "A100": {
     "_source": "A100 SXM4 40GB (Polaris): 312 TFLOP/s dense BF16/FP16 tensor core. CONFIRM against NVIDIA's A100 datasheet for the SXM4 40GB part before publishing -- and note the widely quoted 624 figure is the 2:1 SPARSE number, which this file's policy excludes.",
     "_note": "One A100 = one device here, unlike Aurora where the device is a tile. Do not compare these per-device MFU figures without saying so.",
-    "bf16": 3.12e14,
-    "fp16": 3.12e14,
-    "fp32": null
+    "bf16": 312000000000000.0,
+    "fp16": 312000000000000.0,
+    "fp32": null,
+    "per": "device"
   },
   "cpu": {
-    "_source": "UNVERIFIED - Crux AMD EPYC, cores x FMA width x 2 x clock",
+    "_source": "UNVERIFIED - Crux is 2x AMD EPYC 7742 (Rome, Zen 2, AVX2). A per-NODE fp32 peak is 128 cores x 16 FLOP/cycle (8 fp32 lanes x 2 for FMA) x sustained all-core clock. Confirm the clock AMD actually holds under an all-core AVX2 load before filling this in -- base and boost differ enough to move MFU by tens of percent.",
+    "_warning": "per=node, NOT per=device. A per-core figure here would be scaled by 16 ranks and understate the denominator ~16x, which reports a run at roughly 400% of peak. That is the single most likely way to produce an impossible MFU in this project.",
+    "per": "node",
     "fp32": null
   }
 }

@@ -621,11 +621,16 @@ def main():
             "best_top1": best_acc,
         }
         record.memory = {"peak_bytes_per_device": platform.peak_memory_bytes()}
+        peak_per_unit, peak_unit = load_peak_flops(
+            args.peak_flops_config, platform.device_name(), args.precision
+        )
         record.set_flops(
             flops_per_sample,
             record.throughput.get("samples_per_s", 0.0),
-            load_peak_flops(args.peak_flops_config, platform.device_name(), args.precision),
+            peak_per_unit,
+            peak_unit,
             world_size,
+            node_count,
         )
         # This rank's device only, against this rank's samples -- so the ratios
         # are per device. Summing across ranks would double count on Aurora,
