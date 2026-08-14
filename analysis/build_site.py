@@ -249,6 +249,10 @@ compare cleanly — but this is a handful of runs per machine on a workload at
 # here rather than in the table captions because a caption explains what a
 # table is for, and this answers the narrower question of what one number is --
 # and because a reader who needs "what is MFU" needs it once, not three times.
+#
+# Rendered under the heading "Glossary". It defines terms, which is what a
+# glossary does; a legend keys the marks on a chart, and the chart keys on this
+# page are the .legend-row strips beside each figure.
 LEGEND = [
     ("Shared by every table", [
         ("When", "when the run started, UTC — hover for the exact timestamp"),
@@ -825,7 +829,7 @@ def index_body(runs: list, specs: dict | None = None,
 {tta_section}
 
 <details class="fold">
-<summary>Runs <span class="count">({len(run_rows)} on disk)</span></summary>
+<summary>Runs <span class="count">({len(run_rows)} run{"" if len(run_rows) == 1 else "s"} on disk)</span></summary>
 {table(
     ["When","Machine","Nodes","Ranks","Prec","Global BS","Steps","Epochs",
      "Samples/s","Step ms","Best top-1","TTA s","MFU"],
@@ -840,14 +844,17 @@ def index_body(runs: list, specs: dict | None = None,
 
 {eff_section}
 
-<h2>Energy — per rank</h2>
+<details class="fold">
+<summary>Energy — per rank <span class="count">({len(energy_rows)} metered run{"" if len(energy_rows) == 1 else "s"})</span></summary>
 {table(
     ["When","Machine","Ranks","Avg W","Joules","Samples","Samples/J","J to acc","Scope"],
     energy_rows,
     SCOPE_WARNING,
 )}
+</details>
 
-<h2>Energy — per node</h2>
+<details class="fold">
+<summary>Energy — per node <span class="count">({len(node_rows)} metered run{"" if len(node_rows) == 1 else "s"})</span></summary>
 {table(
     ["When","Machine","Devices","Idle","Node J","Idle J","Idle %","Samples/J"],
     node_rows,
@@ -856,6 +863,7 @@ def index_body(runs: list, specs: dict | None = None,
     "samples over whole-node joules, the unit an allocation is billed in.",
 )}
 {equal_work_note(runs)}
+</details>
 
 <div class="note">A device left idle still draws power. A single-rank run on a
 12-tile Aurora node spent over 90% of node energy on tiles nobody used — the
@@ -863,7 +871,7 @@ per-rank column cannot see that, which is the reason both tables exist.</div>
 
 {takeaway(machine_stats)}
 
-<h2>Legend</h2>
+<h2>Glossary</h2>
 {legend()}
 """
 
