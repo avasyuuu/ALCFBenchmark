@@ -432,6 +432,12 @@ def efficiency_compare_chart(sweeps: list) -> str:
     same machine is dashed instead: total and dynamic tokens/joule are two
     measures of one machine, and giving the second one its own colour would
     say they were two machines.
+
+    One model per chart, therefore. Colour has no room left to encode a model
+    too, and two sweeps of different models on one machine would draw two
+    identical-looking lines. The caller groups by model and calls this once per
+    group; comparing machines is the job, and that only means anything with the
+    model held fixed anyway.
     """
     usable = [s for s in sweeps if len(s.get("rows") or []) >= 3]
     if not usable:
@@ -506,8 +512,14 @@ def efficiency_compare_chart(sweeps: list) -> str:
 
 
 def efficiency_compare_legend(sweeps: list) -> str:
+    """A key for the lines actually drawn, and no others.
+
+    Filtered on the same rule the chart uses. Iterating every sweep listed ten
+    entries against four lines, with the same colour and the same words twice --
+    which is what a legend is for and exactly what it stopped doing.
+    """
     keys = ""
-    for sweep in sweeps:
+    for sweep in [s for s in sweeps if len(s.get("rows") or []) >= 3]:
         slot = _slot(sweep["machine"])
         keys += (f'<span class="key"><span class="sw s{slot}"></span>'
                  f"{_esc(sweep['machine'])} tokens/J</span>"

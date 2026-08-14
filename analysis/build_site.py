@@ -983,13 +983,23 @@ def inference_section(sweeps: list) -> str:
     "rank was given, and Idle % is their share of node energy — the gap between "
     "Tok/J and Tok/J dyn, in one column.",
 )}"""
+    # One chart per model, because colour encodes the machine and has nothing
+    # left for a model. Only models at least two machines swept: a single line
+    # is not a comparison, and the heading would promise one.
+    by_model: dict = defaultdict(list)
+    for s in sweeps:
+        if len(s["rows"]) >= 3:
+            by_model[s["model"]].append(s)
     compare = ""
-    if len(sweeps) > 1:
-        compare = f"""
-<h2>Which machine serves more per joule</h2>
-{efficiency_compare_chart(sweeps)}
-{efficiency_compare_legend(sweeps)}
-{_compare_takeaway(sweeps)}"""
+    for model, group in sorted(by_model.items()):
+        if len({s["machine"] for s in group}) < 2:
+            continue
+        name = html.escape((model or "?").split("/")[-1])
+        compare += f"""
+<h2>Which machine serves more per joule — {name}</h2>
+{efficiency_compare_chart(group)}
+{efficiency_compare_legend(group)}
+{_compare_takeaway(group)}"""
 
     return f"""
 <h2>Serving, not training</h2>
