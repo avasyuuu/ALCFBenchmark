@@ -1031,24 +1031,6 @@ def inference_section(sweeps: list) -> str:
         rows = sweep["rows"]
         first, last = rows[0], rows[-1]
         chart = inference_chart(rows)
-        table_rows = [
-            [
-                num(r.get("concurrency")),
-                num(r.get("out_tok_per_s"), 1),
-                num(r.get("ttft_ms"), 0),
-                num(r.get("itl_ms"), 1),
-                num(r.get("avg_gpu_w"), 0),
-                num(r.get("dynamic_w"), 0),
-                num(r.get("total_energy_j")),
-                num(r.get("idle_devices")),
-                (f'{r["idle_share"] * 100:.1f}'
-                 if r.get("idle_share") is not None else "—"),
-                f'<strong>{r["tok_per_joule"]:.2f}</strong>'
-                if r.get("tok_per_joule") else "—",
-                num(r.get("tok_per_joule_dynamic"), 2),
-            ]
-            for r in rows
-        ]
         served = " · ".join(
             bit for bit in (
                 f"<strong>{html.escape(str(sweep['model']))}</strong>" if sweep["model"] else None,
@@ -1063,19 +1045,7 @@ def inference_section(sweeps: list) -> str:
 <p class="workload">{served}</p>
 {chart}
 {inference_legend()}
-{_inference_takeaway(first, last)}
-{table(
-    ["Conc", "Out tok/s", "TTFT ms", "ITL ms", "Node W", "Dyn W", "Joules",
-     "Idle dev", "Idle %", "Tok/J", "Tok/J dyn"],
-    table_rows,
-    "Every row served the same 128 requests for the same 32,768 output tokens, "
-    "with generation pinned to exactly OSL by ignore_eos and min_tokens — so the "
-    "Joules column reads straight across rather than needing a ratio. Node W is "
-    "every accelerator on the node; Dyn W subtracts the idle floor measured on "
-    "that node before the server started. Idle dev counts the accelerators no "
-    "rank was given, and Idle % is their share of node energy — the gap between "
-    "Tok/J and Tok/J dyn, in one column.",
-)}"""
+{_inference_takeaway(first, last)}"""
     # One chart per model, because colour encodes the machine and has nothing
     # left for a model. Only models at least two machines swept: a single line
     # is not a comparison, and the heading would promise one.
@@ -1105,6 +1075,11 @@ amdsmi, so on NVIDIA it measures its own; on Intel it can read nothing, and the
 energy comes instead from <code>analysis/power_sidecar.py</code> sampling the
 same hwmon counters the training runs use, from beside the run. The Src column
 on each table says which.</p>
+<p class="fineprint">These sections carry the charts and what they mean. Every
+concurrency level of every sweep, in numbers and filterable by machine and
+model, is on the <a href="dashboard.html">dashboard</a> — it was printed under
+each section too, and one table maintained in two places is one table that
+disagrees with itself.</p>
 {_xcheck_note(sweeps)}
 {model_table(sweeps)}
 {compare}
