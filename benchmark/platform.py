@@ -17,6 +17,7 @@ from pathlib import Path
 import torch
 
 from .hwmon import intel_energy_counters, intel_energy_sources
+from .nvml import load_nvml, nvml_energy_sources
 from .power import EnergySource
 
 # Env vars that carry rank info, in priority order. Different launchers set
@@ -305,45 +306,6 @@ class AuroraPlatform(Platform):
         return env
 
 
-def _nvml_energy_reader(nvml, handle):
-    """(read, kind) for one GPU, in joules.
-
-    nvmlDeviceGetTotalEnergyConsumption is a cumulative millijoule counter since
-    the last driver reload -- the same shape as Aurora's hwmon node, so the
-    subtract-two-readings design carries over unchanged. It is Volta and newer;
-    anything older falls back to integrating instantaneous power, which is named
-    in the scope string because it is the weaker measurement: it misses whatever
-    happens between samples.
-    """
-    try:
-        nvml.nvmlDeviceGetTotalEnergyConsumption(handle)
-
-        def read():
-            try:
-                return nvml.nvmlDeviceGetTotalEnergyConsumption(handle) / 1e3
-            except Exception:
-                return None
-
-        return read, "nvml energy counter"
-    except Exception:
-        pass
-
-    state = {"t": None, "j": 0.0}
-
-    def read():
-        try:
-            watts = nvml.nvmlDeviceGetPowerUsage(handle) / 1e3
-        except Exception:
-            return None
-        now = time.perf_counter()
-        if state["t"] is not None:
-            state["j"] += watts * (now - state["t"])
-        state["t"] = now
-        return state["j"]
-
-    return read, "nvml power sampling integrated (no energy counter)"
-
-
 class CudaPlatform(Platform):
     """Polaris / Sophia — NVIDIA A100 via CUDA + NCCL."""
 
@@ -381,16 +343,8 @@ class CudaPlatform(Platform):
     # NOT YET RUN ON HARDWARE: written against the NVML docs, needs a Polaris or
     # Sophia run to confirm before any number from it is reported.
     def _nvml(self):
-        if hasattr(self, "_nvml_mod"):
-            return self._nvml_mod
-        self._nvml_mod = None
-        try:
-            import pynvml
-
-            pynvml.nvmlInit()
-            self._nvml_mod = pynvml
-        except Exception:
-            pass  # no pynvml, or no driver: energy stays unsupported
+        if not hasattr(self, "_nvml_mod"):
+            self._nvml_mod = load_nvml()
         return self._nvml_mod
 
     def _visible_devices(self):
@@ -412,39 +366,14 @@ class CudaPlatform(Platform):
         return [int(t) for t in raw.split(",") if t.strip().isdigit()] or None
 
     def _energy_sources(self):
-        if hasattr(self, "_sources"):
-            return self._sources
+        """Every GPU on the node, indexed into torch's numbering. See nvml.py.
 
-        self._sources = []
-        nvml = self._nvml()
-        if nvml is None:
-            return self._sources
-        visible = self._visible_devices()
-        try:
-            count = nvml.nvmlDeviceGetCount()
-        except Exception:
-            return self._sources
-
-        for i in range(count):
-            try:
-                handle = nvml.nvmlDeviceGetHandleByIndex(i)
-            except Exception:
-                continue
-            read, kind = _nvml_energy_reader(nvml, handle)
-            if visible is None:
-                torch_index = i
-            elif i in visible:
-                torch_index = visible.index(i)
-            else:
-                torch_index = None  # masked out of this job, still drawing power
-            self._sources.append(
-                EnergySource(
-                    key=f"gpu{i}",
-                    scope=f"whole gpu {i} incl. HBM ({kind})",
-                    read=read,
-                    device_index=torch_index,
-                )
-            )
+        Delegated so the training run and analysis/power_sidecar.py enumerate
+        the same devices through the same code. The remap is the one piece that
+        belongs here: a rank owns a torch device, and only this class knows it.
+        """
+        if not hasattr(self, "_sources"):
+            self._sources = nvml_energy_sources(self._visible_devices())
         return self._sources
 
     def node_energy_sources(self) -> list[EnergySource]:

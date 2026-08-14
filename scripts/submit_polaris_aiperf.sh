@@ -302,23 +302,38 @@ for c in ${CONCURRENCIES}; do
     # a longer generation amortises the fixed prefill over more decode tokens.
     # This is the single most important flag on the command, and Ollama has no
     # equivalent, which is why this benchmark uses vLLM.
-    aiperf profile \
-        --model "${MODEL}" \
-        --tokenizer "${MODEL}" \
-        --url "http://localhost:${PORT}" \
-        --endpoint-type chat \
-        --streaming \
-        --concurrency "${c}" \
-        --request-count "${REQUESTS}" \
-        --warmup-request-count 8 \
-        --isl "${ISL}" \
-        --osl "${OSL}" \
-        --osl-stddev 0 \
-        --extra-inputs ignore_eos:true \
-        --extra-inputs "min_tokens:${OSL}" \
-        --gpu-telemetry pynvml \
-        --ui none \
-        --output-artifact-dir "${OUTROOT}/c${c}" \
+    # Wrapped in the sidecar even though AIPerf reads NVML itself. Two
+    # instruments on the same four A100s is the only cross-check available
+    # anywhere in this project -- Aurora has no second opinion and its numbers
+    # rest entirely on this method being right. The sidecar also reports the
+    # bound/idle device split, which AIPerf does not, so the idle columns stop
+    # coming back blank on this machine.
+    #
+    # summarize_aiperf keeps AIPerf's own figures when both exist and reports
+    # the disagreement rather than averaging: the two measure the same silicon,
+    # so a gap between them is an error in one of them, not a range.
+    python analysis/power_sidecar.py \
+        --out "${OUTROOT}/c${c}/sidecar_power.json" \
+        --machine polaris \
+        --bound-devices "$(seq -s, 0 $(( TP - 1 )))" \
+        --label "concurrency ${c}" \
+        -- aiperf profile \
+            --model "${MODEL}" \
+            --tokenizer "${MODEL}" \
+            --url "http://localhost:${PORT}" \
+            --endpoint-type chat \
+            --streaming \
+            --concurrency "${c}" \
+            --request-count "${REQUESTS}" \
+            --warmup-request-count 8 \
+            --isl "${ISL}" \
+            --osl "${OSL}" \
+            --osl-stddev 0 \
+            --extra-inputs ignore_eos:true \
+            --extra-inputs "min_tokens:${OSL}" \
+            --gpu-telemetry pynvml \
+            --ui none \
+            --output-artifact-dir "${OUTROOT}/c${c}" \
         > "${OUTROOT}/aiperf-c${c}.log" 2>&1 \
         || { echo "  FAILED (see ${OUTROOT}/aiperf-c${c}.log)"; continue; }
     # Exit code is not enough. AIPerf can log a fatal error and still exit 0 --
