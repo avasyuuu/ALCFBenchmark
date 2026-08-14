@@ -624,19 +624,33 @@ a:hover {{ border-bottom-color:var(--accent); }}
 /* Hidden series keep their key visible but dimmed: which machines exist is
    part of the answer, and removing the key would hide that one was excluded. */
 .legend-row .key {{ transition:opacity .12s; }}
-/* Collapsed by default: the table is the reference behind the chart, not the
-   thing a reader came for. <details> rather than a scripted toggle so it still
-   opens with JavaScript off, like everything else here. */
-.rows {{ margin-top:2.5rem; border-top:1px solid var(--line); padding-top:1rem; }}
-.rows summary {{ cursor:pointer; font-size:1.15rem; letter-spacing:-.01em;
-  list-style:none; display:flex; align-items:center; gap:.55rem; }}
-.rows summary::-webkit-details-marker {{ display:none; }}
-.rows summary::before {{ content:"▸"; color:var(--accent); font-size:.9em;
-  transition:transform .15s; }}
-.rows[open] summary::before {{ transform:rotate(90deg); }}
-.rows summary span {{ color:var(--dim); font-size:.8rem; font-weight:400; }}
-.rows summary:hover {{ color:var(--accent); }}
-.rows figure {{ margin-top:.9rem; }}
+/* Collapsible reference tables. Closed by default: these are what a claim can
+   be checked against, not what a reader came for. <details> rather than a
+   scripted toggle so they still open with JavaScript off, like everything here.
+   
+   The disclosure triangle alone was too quiet -- a small glyph beside a heading
+   reads as decoration. The word show/hide on the right says what it is, and the
+   whole bar takes a border and a hover so it looks like a control rather than a
+   title that happens to move. */
+.fold {{ margin-top:2.2rem; border:1px solid var(--line); border-radius:10px;
+  background:var(--card); }}
+.fold summary {{ cursor:pointer; font-size:1.05rem; letter-spacing:-.01em;
+  list-style:none; display:flex; align-items:center; gap:.55rem;
+  padding:.75rem 1.1rem; user-select:none; }}
+.fold summary::-webkit-details-marker {{ display:none; }}
+.fold summary::before {{ content:"▶"; color:var(--accent); font-size:.7em;
+  transition:transform .15s; flex:none; }}
+.fold[open] summary::before {{ transform:rotate(90deg); }}
+.fold summary::after {{ content:"show"; margin-left:auto; font-size:.7rem;
+  text-transform:uppercase; letter-spacing:.09em; color:var(--accent);
+  border:1px solid var(--line); border-radius:999px; padding:.15rem .6rem; }}
+.fold[open] summary::after {{ content:"hide"; }}
+.fold summary:hover {{ color:var(--accent); }}
+.fold summary:hover::after {{ border-color:var(--accent); background:var(--tag); }}
+.fold summary .count {{ color:var(--dim); font-size:.78rem; font-weight:400; }}
+.fold[open] summary {{ border-bottom:1px solid var(--line); }}
+.fold figure {{ margin:.9rem 1.1rem 1.1rem; }}
+.fold > p {{ margin:.9rem 1.1rem 1.1rem; }}
 </style></head><body><div class="wrap">
 
 <header class="head">
@@ -810,7 +824,8 @@ def index_body(runs: list, specs: dict | None = None,
 
 {tta_section}
 
-<h2>Runs</h2>
+<details class="fold">
+<summary>Runs <span class="count">({len(run_rows)} on disk)</span></summary>
 {table(
     ["When","Machine","Nodes","Ranks","Prec","Global BS","Steps","Epochs",
      "Samples/s","Step ms","Best top-1","TTA s","MFU"],
@@ -819,6 +834,7 @@ def index_body(runs: list, specs: dict | None = None,
     "not as an efficiency claim — this workload runs at 0.5–1.4% of peak, so it "
     "largely measures kernel-launch overhead rather than the accelerator.",
 )}
+</details>
 
 {tail_section}
 
@@ -1344,8 +1360,8 @@ def dashboard_body(sweeps: list) -> str:
 {dashboard_legend(sweeps)}
 <p class="fineprint" id="empty" hidden>Nothing selected — tick a machine and a model.</p>
 
-<details class="rows">
-<summary>Every row <span id="rowcount"></span></summary>
+<details class="fold">
+<summary>Every row <span class="count" id="rowcount"></span></summary>
 <figure><div class="scroll"><table id="rows"><thead><tr>{head}</tr></thead>
 <tbody>{body}</tbody></table></div>
 <figcaption>Every concurrency level of every sweep, filtered by the same
