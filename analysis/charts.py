@@ -28,6 +28,24 @@ SERIES_SLOT = {"aurora": 1, "polaris": 2, "crux": 3, "sophia": 4}
 
 TARGET_LABEL = "target 0.90"
 
+# Left margin on the charts that name their y axis. Wide enough for a rotated
+# title at x=14 plus the tick labels it must not touch.
+Y_TITLE_L = 62
+
+
+def _y_title(text: str, T: float, ph: float, x: float = 14) -> str:
+    """The y axis said in words, rotated up the left margin.
+
+    Every chart here named its x axis and left the y to the caption beside it --
+    and on the dashboard, where the reader changes the metric, to a dropdown
+    outside the frame entirely. A chart that only means something while the
+    control above it is in view is a chart that cannot be screenshotted into a
+    slide or a report, which is most of what these get used for.
+    """
+    y = T + ph / 2
+    return (f'<text class="axis-title" x="{x:.0f}" y="{y:.0f}" text-anchor="middle" '
+            f'transform="rotate(-90 {x:.0f} {y:.0f})">{_esc(text)}</text>')
+
 
 def machine_tag(machine) -> str:
     """A machine name in its own series colour, matching every chart here.
@@ -124,7 +142,7 @@ def accuracy_chart(runs: dict) -> str:
         return ""
 
     W, H = 720, 330
-    L, R, T, B = 46, 20, 14, 46          # margins; B holds the x-axis band
+    L, R, T, B = Y_TITLE_L, 20, 14, 46   # margins; B holds the x-axis band
     pw, ph = W - L - R, H - T - B
 
     xs = [p["elapsed_s"] for b in runs.values() for p in b["curve"] if p["elapsed_s"] > 0]
@@ -200,6 +218,7 @@ def accuracy_chart(runs: dict) -> str:
         f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6}" text-anchor="middle">'
         "wall-clock seconds (log scale)</text>"
     )
+    parts.append(_y_title("validation accuracy", T, ph))
     parts.append("</svg>")
     return "".join(parts)
 
@@ -360,7 +379,7 @@ def inference_chart(rows: list) -> str:
         return ""
 
     W, H = 720, 330
-    L, R, T, B = 46, 20, 14, 46
+    L, R, T, B = Y_TITLE_L, 20, 14, 46
     pw, ph = W - L - R, H - T - B
 
     concs = [r["concurrency"] for r in rows]
@@ -423,6 +442,7 @@ def inference_chart(rows: list) -> str:
         f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6}" text-anchor="middle">'
         "concurrent requests (log scale)</text>"
     )
+    parts.append(_y_title("× the concurrency-1 value", T, ph))
     parts.append("</svg>")
     return "".join(parts)
 
@@ -475,7 +495,7 @@ def efficiency_compare_chart(sweeps: list) -> str:
         return ""
 
     W, H = 720, 360
-    L, R, T, B = 52, 20, 14, 46
+    L, R, T, B = Y_TITLE_L, 20, 14, 46
     pw, ph = W - L - R, H - T - B
 
     xs = [c for _, _, _, pts in series for c, _ in pts]
@@ -525,6 +545,7 @@ def efficiency_compare_chart(sweeps: list) -> str:
     parts.append(
         f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6}" text-anchor="middle">'
         "concurrent requests (both axes logarithmic)</text>")
+    parts.append(_y_title("tokens per joule", T, ph))
     parts.append("</svg>")
     return "".join(parts)
 
@@ -645,6 +666,10 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
 
     parts.append(f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6}" '
                  f'text-anchor="middle">concurrent requests (log scale)</text>')
+    # The metric is the reader's choice here, so the axis has to say which one
+    # it ended up on -- the dropdown that made the choice scrolls away, and a
+    # saved image of this chart carries no dropdown at all.
+    parts.append(_y_title(label, T, ph))
     parts.append("</svg>")
     return "".join(parts)
 
@@ -819,7 +844,6 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
 
     parts.append(f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6:.0f}" text-anchor="middle">'
                  f'{_esc(label)} — both axes logarithmic, diagonals are constant tokens/joule</text>')
-    parts.append(f'<text class="axis-title" x="14" y="{T+ph/2:.0f}" text-anchor="middle" '
-                 f'transform="rotate(-90 14 {T+ph/2:.0f})">output tokens/s</text>')
+    parts.append(_y_title("output tokens/s", T, ph))
     parts.append("</svg>")
     return "".join(parts)
