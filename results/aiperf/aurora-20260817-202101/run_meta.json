@@ -1,0 +1,41 @@
+{
+  "kind": "aiperf_run_meta",
+  "machine": "aurora",
+  "hostname": "x4503c7s2b0n0",
+  "pbs_jobid": "8762523.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov",
+  "git_commit": "86f22dc",
+  "vllm": "0.15.0+xpu",
+  "torch": "2.10.0a0+git449b176",
+  "aiperf": "0.12.0",
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "tensor_parallel": 1,
+  "isl": null,
+  "osl": null,
+  "shapes": [
+    {
+      "isl": 1024,
+      "osl": 64
+    },
+    {
+      "isl": 1024,
+      "osl": 256
+    },
+    {
+      "isl": 1024,
+      "osl": 1024
+    },
+    {
+      "isl": 256,
+      "osl": 256
+    },
+    {
+      "isl": 4096,
+      "osl": 256
+    }
+  ],
+  "requests_per_level": 128,
+  "concurrencies": [
+    32
+  ],
+  "enforce_eager": true
+}
