@@ -269,7 +269,12 @@ def launch_agents(hosts, out: Path, args, repo_root: Path):
         stop_file.touch()
         raise SystemExit(
             f"power sidecar: no agent reported ready on {', '.join(missing)} "
-            "within 60 s. Refusing to run rather than measure part of the job."
+            "within 60 s. Refusing to run rather than measure part of the job.\n"
+            f"  --out was {out}, so the handshake files are in {out.parent}.\n"
+            "  That directory has to be visible from every node: the agents "
+            "announce themselves by creating a file in it and stop when one "
+            "appears. A node-local path like /tmp is the usual cause -- put the "
+            "output on home, eagle or flare and the same command works."
         )
     return agents, stop_file
 
