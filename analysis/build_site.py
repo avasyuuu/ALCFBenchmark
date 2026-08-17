@@ -563,6 +563,12 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
 .s3 {{ --c:var(--series-3); --ct:var(--series-3-text); }}
 .s4 {{ --c:var(--series-4); --ct:var(--series-4-text); }}
 .chart {{ display:block; width:100%; height:auto; overflow:visible; }}
+/* The throughput-against-power chart sizes its own height so that a decade of
+   one axis keeps a fixed relationship to a decade of the other -- that ratio is
+   what the iso-efficiency diagonals are read against. Stretching it to a wide
+   viewport would scale both axes and keep the ratio, but at 1.5x it is a chart
+   taller than the window, so it stops at its natural width and centres. */
+.chart.xy {{ max-width:760px; margin-inline:auto; }}
 /* Grid and axes: hairline, solid, one step off the surface. Never dashed --
    dashing reads as "projection" when it is only a grid. */
 .grid {{ stroke:var(--line); stroke-width:1; }}

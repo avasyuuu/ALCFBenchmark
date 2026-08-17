@@ -667,6 +667,38 @@ def dashboard_legend(sweeps: list) -> str:
     return f'<div class="legend-row">{keys}</div>'
 
 
+def _nice_log_bounds(values: list, pad: float = 0.03) -> tuple:
+    """Round a range out to the next 1-2-5 step rather than the next decade.
+
+    Snapping to whole decades is the obvious rule on a log axis, and the cost is
+    paid in whole decades: a sweep peaking at 1088 tokens/s pushed the ceiling
+    to 10,000 and spent a third of the plot on empty space above the data.
+
+    That is not only wasted room. Pixels per decade is what sets the slope of
+    the iso-efficiency diagonals, so an axis padded out to a decade it does not
+    use flattens them toward horizontal, and a line that reads as a gridline
+    cannot be read as an efficiency.
+
+    pad is then a few percent of a decade beyond the snapped bound, because the
+    snap can land exactly on the extreme value -- 102 W under a bound of 100 put
+    a marker on top of the axis. It is margin, not range: the decade gridlines
+    stay where they were and sit just inside the frame.
+    """
+    steps = (1, 2, 5, 10)
+
+    def snap(v, up):
+        exp = math.floor(math.log10(v))
+        mantissa = v / 10 ** exp
+        if up:
+            mantissa = next(s for s in steps if s >= mantissa - 1e-9)
+        else:
+            mantissa = next(s for s in reversed(steps) if s <= mantissa + 1e-9)
+        return mantissa * 10 ** exp
+
+    return (snap(min(values), False) / 10 ** pad,
+            snap(max(values), True) * 10 ** pad)
+
+
 def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
     """Throughput against power, one trajectory per configuration.
 
@@ -676,6 +708,11 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
     stops being a column to cross-reference and becomes a position on the grid --
     a point sitting above a diagonal beats that efficiency, and the vertical gap
     to it is by how much.
+
+    Slope 1 holds in log space; on screen it is whatever the pixels per decade
+    make it, which is why this chart computes its own height rather than taking
+    a fixed box. See _nice_log_bounds and the height below -- between them they
+    are the difference between a diagonal and a second set of gridlines.
 
     Each configuration is drawn in concurrency order with the marker growing
     along the way, so direction is visible without an arrowhead: small dot is
@@ -699,13 +736,25 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
         return ""
 
     models = sorted({s["model"] for s, _ in series})
-    W, H = 760, 420
+    W = 760
     L, R, T, B = 58, 16, 14, 46
-    pw, ph = W - L - R, H - T - B
+    pw = W - L - R
     xs = [x for _, pts in series for x, _, _ in pts]
     ys = [y for _, pts in series for _, y, _ in pts]
-    x_lo, x_hi = 10 ** math.floor(math.log10(min(xs))), 10 ** math.ceil(math.log10(max(xs)))
-    y_lo, y_hi = 10 ** math.floor(math.log10(min(ys))), 10 ** math.ceil(math.log10(max(ys)))
+    x_lo, x_hi = _nice_log_bounds(xs)
+    y_lo, y_hi = _nice_log_bounds(ys)
+    x_dec = math.log10(x_hi) - math.log10(x_lo)
+    y_dec = math.log10(y_hi) - math.log10(y_lo)
+
+    # Height comes from the data's own shape, not from a fixed box. Equal pixels
+    # per decade on both axes is what puts the diagonals at 45 degrees, which is
+    # the entire reason for drawing them -- but these sweeps span two decades of
+    # throughput inside one of power, and honouring that literally gives a plot
+    # three times taller than it is wide. Half a decade of y per decade of x is
+    # the compromise: steep enough to read as a diagonal rather than as a second
+    # set of gridlines, capped so the chart still fits on a screen.
+    ph = max(300.0, min(640.0, pw * 0.5 * y_dec / x_dec))
+    H = ph + T + B
 
     def px(v):
         return L + (math.log10(v) - math.log10(x_lo)) / (math.log10(x_hi) - math.log10(x_lo)) * pw
@@ -713,17 +762,21 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
     def py(v):
         return T + (1 - (math.log10(v) - math.log10(y_lo)) / (math.log10(y_hi) - math.log10(y_lo))) * ph
 
-    parts = [f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="'
+    parts = [f'<svg class="chart xy" viewBox="0 0 {W} {H:.0f}" role="img" aria-label="'
              f'Output throughput against {_esc(label)}, one line per configuration">']
 
-    d = math.log10(x_lo)
+    # Gridlines stay on the decades even though the bounds no longer have to be
+    # decades, so every labelled line is still a round number. Starting the walk
+    # at the bound itself would put them at 2, 20, 200 the moment a bound landed
+    # on a 2 or a 5.
+    d = math.ceil(math.log10(x_lo) - 1e-9)
     while d <= math.log10(x_hi) + 1e-9:
         v = 10 ** d
-        parts.append(f'<line class="grid" x1="{px(v):.1f}" y1="{T}" x2="{px(v):.1f}" y2="{T+ph}"/>')
-        parts.append(f'<text class="tick" x="{px(v):.1f}" y="{T+ph+18}" '
+        parts.append(f'<line class="grid" x1="{px(v):.1f}" y1="{T}" x2="{px(v):.1f}" y2="{T+ph:.1f}"/>')
+        parts.append(f'<text class="tick" x="{px(v):.1f}" y="{T+ph+18:.1f}" '
                      f'text-anchor="middle">{v:,g}</text>')
         d += 1
-    d = math.log10(y_lo)
+    d = math.ceil(math.log10(y_lo) - 1e-9)
     while d <= math.log10(y_hi) + 1e-9:
         v = 10 ** d
         parts.append(f'<line class="grid" x1="{L}" y1="{py(v):.1f}" x2="{L+pw}" y2="{py(v):.1f}"/>')
@@ -731,11 +784,14 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
         d += 1
 
     # Iso-efficiency diagonals: y = kx, clipped to the plot box. Drawn under the
-    # data and labelled where they leave the frame.
+    # data and labelled where they leave the frame. A decade whose line only
+    # clips a corner is dropped rather than drawn: a 40 px stub carrying a full
+    # "0.01 tok/J" label is all label and no line, and the reader can find that
+    # efficiency by counting decades off the neighbour it was crowding.
     k = 10 ** math.floor(math.log10(min(ys) / max(xs)))
     while k <= max(ys) / min(xs):
         a = (max(x_lo, y_lo / k), min(x_hi, y_hi / k))
-        if a[0] < a[1]:
+        if a[0] < a[1] and math.log10(a[1] / a[0]) >= 0.12 * x_dec:
             parts.append(f'<line class="target" x1="{px(a[0]):.1f}" y1="{py(k*a[0]):.1f}" '
                          f'x2="{px(a[1]):.1f}" y2="{py(k*a[1]):.1f}" opacity=".45"/>')
             lbl = f"{k:g}" if k >= 1 else f"{k:.3f}".rstrip("0")
@@ -761,7 +817,7 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
                 f'{y:,.1f} tok/s at {x:,.0f} W = {y/x:.3f} tok/J</title></circle>')
         parts.append("</g>")
 
-    parts.append(f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6}" text-anchor="middle">'
+    parts.append(f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6:.0f}" text-anchor="middle">'
                  f'{_esc(label)} — both axes logarithmic, diagonals are constant tokens/joule</text>')
     parts.append(f'<text class="axis-title" x="14" y="{T+ph/2:.0f}" text-anchor="middle" '
                  f'transform="rotate(-90 14 {T+ph/2:.0f})">output tokens/s</text>')
