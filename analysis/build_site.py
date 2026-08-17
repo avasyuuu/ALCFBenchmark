@@ -981,37 +981,6 @@ def load_aiperf(results_dir: str) -> list:
                      for r in sorted(rows, key=lambda r: r["concurrency"])],
             **_aiperf_config(path.parent),
         })
-    return _add_tp_ratio(sweeps)
-
-
-def _add_tp_ratio(sweeps: list) -> list:
-    """Each sweep's tokens/joule against its own TP=1 run.
-
-    Curves for one model on one machine at different tensor parallelism sit
-    within a few percent of each other -- 0.015 decades between the closest
-    pair, which is two pixels. No axis fixes that, because the same chart also
-    carries a 1.19-decade spread between the far-apart configurations and the
-    range has to cover both. A ratio spends the whole axis on the difference.
-
-    Only sweeps with a TP=1 sibling get one, and the TP=1 sweep itself is left
-    out: a line that is 1.0 by construction says nothing the gridline at 1.0
-    does not, and two machines' baselines would overlap exactly.
-    """
-    # Keyed on shape as well, and only over sweeps that vary concurrency: the
-    # ratio is plotted against concurrency, and a baseline measured at another
-    # prompt shape is not a baseline.
-    base = {(s["machine"], s["model"], s.get("isl"), s.get("osl")): s
-            for s in sweeps if s.get("tp") == 1 and swept_over_concurrency(s["rows"])}
-    for sweep in sweeps:
-        ref = base.get((sweep["machine"], sweep["model"],
-                        sweep.get("isl"), sweep.get("osl")))
-        if ref is None or sweep.get("tp") == 1:
-            continue
-        at = {r["concurrency"]: r.get("tok_per_joule") for r in ref["rows"]}
-        for row in sweep["rows"]:
-            ref_v, v = at.get(row["concurrency"]), row.get("tok_per_joule")
-            if ref_v and v:
-                row["tok_per_joule_vs_tp1"] = v / ref_v
     return sweeps
 
 
@@ -1394,10 +1363,6 @@ def _compare_takeaway(sweeps: list) -> str:
 DASHBOARD_METRICS = [
     ("tok_per_joule", "tokens per joule", True),
     ("tok_per_joule_dynamic", "tokens per joule (dynamic)", True),
-    # Log scale because it is a ratio: x2 and /2 are the same distance from 1,
-    # which a linear axis anchored at zero gets wrong in both directions at
-    # once -- it would also spend most of its range below the data.
-    ("tok_per_joule_vs_tp1", "tokens per joule, relative to TP=1", True),
     ("out_tok_per_s", "output tokens per second", True),
     ("itl_ms", "inter-token latency (ms)", False),
     ("ttft_ms", "time to first token (ms)", False),
@@ -1415,6 +1380,15 @@ DASHBOARD_METRICS = [
 # concurrency but a trajectory through the two. Two x-axis choices, because
 # which power you divide by is the entire disagreement between these machines --
 # dynamic compares silicon, node compares what an allocation is billed.
+# Which coordinate runs along the bottom. Concurrency was hardcoded until a
+# sweep varied the prompt shape instead and had nowhere to go -- five levels at
+# one x. Shape is an axis, not another line style: as an axis it adds one line,
+# as a style it would have added five.
+DASHBOARD_X = [
+    ("concurrency", "concurrent requests"),
+    ("requested_osl", "output tokens (OSL)"),
+    ("requested_isl", "input tokens (ISL)"),
+]
 DASHBOARD_XY = [
     ("xy_dynamic_w", "dynamic power (W)", "dynamic_w"),
     ("xy_avg_gpu_w", "node power (W)", "avg_gpu_w"),
@@ -1438,6 +1412,26 @@ def dashboard_body(sweeps: list) -> str:
     # Sorted numerically, not as the strings they become in the DOM: TP 10 has
     # to sit after TP 8 rather than between 1 and 4.
     tps = [str(t) for t in sorted({s.get("tp") for s in sweeps if s.get("tp")})]
+    # The coordinates a level sits at. Radios, not checkboxes: these pick which
+    # slice you are looking at, and ticking two of them draws two lines that are
+    # identical in colour, dash and marker -- the encoding has nothing left to
+    # tell them apart with, so the control should not offer it.
+    def coord_values(key):
+        vals = {r.get(key) for s in sweeps for r in s["rows"] if r.get(key)}
+        return [str(int(v)) for v in sorted(vals)]
+    coords = {k: coord_values(k) for k in ("concurrency", "requested_isl", "requested_osl")}
+    coord_label = {"concurrency": "Concurrency", "requested_isl": "Input tokens",
+                   "requested_osl": "Output tokens"}
+    coord_short = {"concurrency": "conc", "requested_isl": "isl", "requested_osl": "osl"}
+    # The slice a reader lands on: the busiest setting of each coordinate, which
+    # is the one the most sweeps actually visited.
+    def commonest(key):
+        counts = {}
+        for sw in sweeps:
+            for r in sw["rows"]:
+                if r.get(key):
+                    counts[str(int(r[key]))] = counts.get(str(int(r[key])), 0) + 1
+        return max(counts, key=counts.get) if counts else None
 
     # Opening with everything ticked put seven configurations on one axis, which
     # is a browsing state rather than a picture -- and it grows with every sweep
@@ -1451,6 +1445,14 @@ def dashboard_body(sweeps: list) -> str:
     busiest = max(models, key=lambda m: sum(
         1 for s in sweeps if (s["model"] or "?").split("/")[-1] == m))
     defaults = {"model": {busiest}}
+
+    def radios(key, values):
+        pick = commonest(key)
+        return "".join(
+            f'<label class="chip"><input type="radio" name="coord-{coord_short[key]}" '
+            f'data-coord="{coord_short[key]}" value="{html.escape(v)}"'
+            f'{" checked" if v == pick else ""}> {html.escape(f"{int(v):,}")}</label>'
+            for v in values)
 
     def boxes(kind, values):
         # Machines are labelled in their own colour, models plainly -- a model
@@ -1480,11 +1482,20 @@ def dashboard_body(sweeps: list) -> str:
         )
         + "</optgroup>"
     )
-    charts = "".join(
-        f'<div class="chartwrap" data-metric="{key}"{"" if i == 0 else " hidden"}>'
-        f"{dashboard_chart(sweeps, key, label, log_y)}</div>"
-        for i, (key, label, log_y) in enumerate(DASHBOARD_METRICS)
-    ) + "".join(
+    # One chart per (x axis, metric), and only where something can be drawn --
+    # most combinations are empty, since a concurrency sweep has nothing to say
+    # against OSL and vice versa, and rendering the empty ones would triple the
+    # page for blank frames.
+    charts = ""
+    for x_key, x_label in DASHBOARD_X:
+        for i, (key, label, log_y) in enumerate(DASHBOARD_METRICS):
+            svg = dashboard_chart(sweeps, key, label, log_y, x_key, x_label)
+            if not svg:
+                continue
+            first = (x_key == DASHBOARD_X[0][0] and i == 0)
+            charts += (f'<div class="chartwrap" data-x="{x_key}" data-metric="{key}"'
+                       f'{"" if first else " hidden"}>{svg}</div>')
+    charts += "".join(
         f'<div class="chartwrap" data-metric="{key}" hidden>'
         f"{power_throughput_chart(sweeps, col, label)}</div>"
         for key, label, col in DASHBOARD_XY
@@ -1524,14 +1535,26 @@ def dashboard_body(sweeps: list) -> str:
         for m, mo, tp, cells in rows
     )
 
+    coord_rows = "".join(
+        f'<div class="ctl coord" data-for="{coord_short[k]}"><span>{coord_label[k]}</span>'
+        f'<div class="chips">{radios(k, v)}</div></div>'
+        for k, v in coords.items() if len(v) > 1)
+    xopts = "".join(
+        f'<option value="{k}"{" selected" if i == 0 else ""}>{html.escape(lab)}</option>'
+        for i, (k, lab) in enumerate(DASHBOARD_X))
+
     return f"""
 <div class="controls">
   <label class="ctl">Metric
     <select id="metric">{options}</select>
   </label>
+  <label class="ctl">X axis
+    <select id="xaxis">{xopts}</select>
+  </label>
   <div class="ctl"><span>Machines</span><div class="chips">{boxes("machine", machines)}</div></div>
   <div class="ctl"><span>Models</span><div class="chips">{boxes("model", models)}</div></div>
   <div class="ctl"><span>Tensor parallel</span><div class="chips">{boxes("tp", tps)}</div></div>
+  {coord_rows}
 </div>
 {charts}
 {dashboard_legend(sweeps)}
@@ -1549,6 +1572,11 @@ count — see each sweep's run_meta.json.</figcaption></figure>
 <script>
 (function () {{
   var metric = document.getElementById('metric');
+  var xaxis = document.getElementById('xaxis');
+  // Which coordinate is the axis is also which coordinate has no filter: you
+  // cannot hold fixed the thing you are plotting, and a control that did
+  // nothing would be the most confusing one on the page.
+  var SHORT = {{concurrency: 'conc', requested_isl: 'isl', requested_osl: 'osl'}};
   function selected(kind) {{
     var out = {{}};
     document.querySelectorAll('[data-filter="' + kind + '"]').forEach(function (b) {{
@@ -1556,17 +1584,34 @@ count — see each sweep's run_meta.json.</figcaption></figure>
     }});
     return out;
   }}
+  function coord(short) {{
+    var el = document.querySelector('[data-coord="' + short + '"]:checked');
+    return el ? el.value : null;
+  }}
   function apply() {{
     var m = selected('machine'), mo = selected('model'), tp = selected('tp'), shown = 0;
+    var onAxis = SHORT[xaxis.value];
+    document.querySelectorAll('.ctl.coord').forEach(function (row) {{
+      row.hidden = row.getAttribute('data-for') === onAxis;
+    }});
     // A sweep with no recorded TP is never hidden by the TP filter -- it has
-    // no chip to tick, and filtering it out would make it unreachable.
+    // no chip to tick, and filtering it out would make it unreachable. Same for
+    // a held coordinate a series does not carry.
     function keep(el) {{
       var t = el.getAttribute('data-tp');
-      return m[el.getAttribute('data-machine')] && mo[el.getAttribute('data-model')]
-             && (!t || tp[t]);
+      if (!(m[el.getAttribute('data-machine')] && mo[el.getAttribute('data-model')]
+            && (!t || tp[t]))) return false;
+      for (var k in SHORT) {{
+        var short = SHORT[k];
+        if (short === onAxis) continue;
+        var v = el.getAttribute('data-' + short);
+        if (v && coord(short) && v !== coord(short)) return false;
+      }}
+      return true;
     }}
     document.querySelectorAll('.chartwrap').forEach(function (w) {{
-      w.hidden = w.getAttribute('data-metric') !== metric.value;
+      w.hidden = w.getAttribute('data-metric') !== metric.value
+                 || w.getAttribute('data-x') !== xaxis.value;
     }});
     document.querySelectorAll('.series').forEach(function (g) {{
       var on = keep(g);
@@ -1591,6 +1636,10 @@ count — see each sweep's run_meta.json.</figcaption></figure>
     document.getElementById('empty').hidden = shown > 0;
   }}
   metric.addEventListener('change', apply);
+  xaxis.addEventListener('change', apply);
+  document.querySelectorAll('[data-coord]').forEach(function (r) {{
+    r.addEventListener('change', apply);
+  }});
   document.querySelectorAll('[data-filter]').forEach(function (b) {{
     b.addEventListener('change', apply);
   }});

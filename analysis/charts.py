@@ -42,6 +42,25 @@ TARGET_LABEL = "target 0.90"
 MARKER_SHAPES = ("circle", "square", "triangle", "diamond")
 
 
+def _num(v) -> str:
+    """A coordinate as it should read: 1,024 rather than 1024.0."""
+    if v is None:
+        return ""
+    return f"{int(v):,}" if float(v) == int(v) else f"{v:g}"
+
+
+def _key(v) -> str:
+    """The same coordinate as an identifier the filter can match.
+
+    Separate from _num because the two want opposite things: a reader wants
+    1,024 and an attribute compared against a control's value cannot have a
+    thousands separator in it.
+    """
+    if v is None:
+        return ""
+    return str(int(v)) if float(v) == int(v) else f"{v:g}"
+
+
 def _tp_slot(tp, tps: list) -> int:
     """Which marker treatment one sweep's tensor parallelism gets."""
     try:
@@ -85,6 +104,17 @@ def _marker(cx: float, cy: float, r: float, slot: int, title: str = "") -> str:
     return f'<{tag} class="dot k{slot % len(MARKER_SHAPES)}" {attrs}>{inner}</{tag}>'
 
 
+# The three coordinates a level sits at. Any one can be the x axis; the other
+# two are then held fixed, which is what makes a set of levels a sweep rather
+# than a scatter.
+COORDS = ("concurrency", "requested_isl", "requested_osl")
+
+
+def varies(rows, key: str = "concurrency") -> bool:
+    """Whether these levels actually differ along `key`."""
+    return len({r.get(key) for r in rows or []} - {None}) >= 2
+
+
 def swept_over_concurrency(rows) -> bool:
     """Whether these levels actually differ in concurrency.
 
@@ -98,7 +128,7 @@ def swept_over_concurrency(rows) -> bool:
     is not a broken concurrency sweep, it is a different sweep, and it belongs
     on an axis this file does not draw yet.
     """
-    return len({r.get("concurrency") for r in rows or []} - {None}) >= 2
+    return varies(rows, "concurrency")
 
 
 def _log_ticks(lo: float, hi: float) -> list:
@@ -668,8 +698,9 @@ def efficiency_compare_legend(sweeps: list) -> str:
 MODEL_DASHES = ("", "6 3", "2 3", "9 3 2 3")
 
 
-def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -> str:
-    """One metric against concurrency, every configuration, each tagged.
+def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True,
+                    x_key: str = "concurrency", x_label: str = None) -> str:
+    """One metric against one coordinate, every configuration, each tagged.
 
     Every series is emitted, always, inside a <g> carrying its machine, model
     and tensor parallelism. The page's script hides groups rather than redrawing
@@ -677,18 +708,30 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
     function stays the only thing that knows how a chart is built, and a browser
     with scripting off shows the complete picture instead of an empty box.
 
-    A configuration with one concurrency level gets a marker and no line. That
-    is honest -- a single point has no slope -- and it keeps the 70B and the
-    first gemma runs visible rather than dropping them for being short.
+    A series is one sweep at one setting of the coordinates that are NOT on the
+    x axis -- so a shape sweep plotted against OSL contributes one line per ISL
+    it visited, not one tangled line through all of them. That grouping is what
+    lets the axis be a choice at all: the alternative, shape as another line
+    style, adds a line per level and puts five of them on one x.
+
+    A slice with one level gets a marker and no line. That is honest -- a single
+    point has no slope -- and it keeps the short runs visible rather than
+    dropping them for being short.
     """
+    others = [c for c in COORDS if c != x_key]
     series = []
     for sweep in sweeps:
-        if not swept_over_concurrency(sweep["rows"]):
+        if not varies(sweep["rows"], x_key):
             continue
-        pts = [(r["concurrency"], r.get(metric)) for r in sweep["rows"]]
-        pts = [(c, v) for c, v in pts if c and isinstance(v, (int, float)) and v > 0]
-        if pts:
-            series.append((sweep, sorted(pts)))
+        slices: dict = {}
+        for r in sweep["rows"]:
+            x, v = r.get(x_key), r.get(metric)
+            if not x or not isinstance(v, (int, float)) or v <= 0:
+                continue
+            slices.setdefault(tuple(r.get(c) for c in others), []).append((x, v))
+        for held, pts in sorted(slices.items(), key=lambda kv: [
+                (x is None, x) for x in kv[0]]):
+            series.append((sweep, dict(zip(others, held)), sorted(pts)))
     if not series:
         return ""
 
@@ -703,8 +746,8 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
     W, H = 760, 380
     L, R, T, B = 58, 16, 14, 46
     pw, ph = W - L - R, H - T - B
-    xs = [c for _, pts in series for c, _ in pts]
-    ys = [v for _, pts in series for _, v in pts]
+    xs = [c for _, _, pts in series for c, _ in pts]
+    ys = [v for _, _, pts in series for _, v in pts]
     x_lo, x_hi = min(xs), max(xs)
     if log_y:
         # Whole decades cost whole decades: tokens/joule bottoms out at 0.0091
@@ -727,7 +770,8 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
         return T + (1 - f) * ph
 
     parts = [f'<svg class="chart" data-metric="{_esc(metric)}" viewBox="0 0 {W} {H}" '
-             f'role="img" aria-label="{_esc(label)} against concurrency">']
+             f'role="img" aria-label="{_esc(label)} against '
+             f'{_esc(x_label or "concurrency")}">']
 
     if log_y:
         for v in _log_ticks(y_lo, y_hi):
@@ -744,17 +788,26 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
     for c in sorted(set(xs)):
         x = px(c)
         parts.append(f'<line class="grid" x1="{x:.1f}" y1="{T}" x2="{x:.1f}" y2="{T+ph}"/>')
-        parts.append(f'<text class="tick" x="{x:.1f}" y="{T+ph+18}" text-anchor="middle">{c}</text>')
+        parts.append(f'<text class="tick" x="{x:.1f}" y="{T+ph+18}" '
+                     f'text-anchor="middle">{_num(c)}</text>')
 
-    for sweep, pts in series:
+    # Short names for the tooltip and the filter attributes, so a series says
+    # where it sits without spelling "requested_osl" at the reader.
+    short = {"concurrency": "conc", "requested_isl": "isl", "requested_osl": "osl"}
+    for sweep, held, pts in series:
         machine = sweep["machine"]
         model = (sweep["model"] or "?").split("/")[-1]
         dash = MODEL_DASHES[models.index(sweep["model"]) % len(MODEL_DASHES)]
         style = f' style="stroke-dasharray:{dash}"' if dash else ""
         tp = sweep.get("tp") or ""
+        # The held coordinates travel with the group. The script filters on them
+        # without knowing which chart it is looking at -- whichever coordinate
+        # is the axis simply has no attribute here to match against.
+        at = "".join(f' data-{short[c]}="{_esc(_key(v))}"' for c, v in held.items())
+        where = " ".join(f"{short[c]} {_num(v)}" for c, v in held.items() if v)
         parts.append(
             f'<g class="series s{_slot(machine)}" data-machine="{_esc(machine)}" '
-            f'data-model="{_esc(model)}" data-tp="{_esc(tp)}">'
+            f'data-model="{_esc(model)}" data-tp="{_esc(tp)}"{at}>'
         )
         if len(pts) > 1:
             line = " ".join(f"{px(c):.1f},{py(v):.1f}" for c, v in pts)
@@ -763,12 +816,13 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
         for c, v in pts:
             parts.append(_marker(
                 px(c), py(v), 4, slot,
-                f'{_esc(machine)} {_esc(model)} TP={_esc(tp)} — '
-                f'concurrency {c}: {v:,.3g} {_esc(label)}'))
+                f'{_esc(machine)} {_esc(model)} TP={_esc(tp)} {_esc(where)} — '
+                f'{short[x_key]} {_num(c)}: {v:,.3g} {_esc(label)}'))
         parts.append("</g>")
 
     parts.append(f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6}" '
-                 f'text-anchor="middle">concurrent requests (log scale)</text>')
+                 f'text-anchor="middle">{_esc(x_label or "concurrent requests")} '
+                 f'(log scale)</text>')
     # The metric is the reader's choice here, so the axis has to say which one
     # it ended up on -- the dropdown that made the choice scrolls away, and a
     # saved image of this chart carries no dropdown at all.
