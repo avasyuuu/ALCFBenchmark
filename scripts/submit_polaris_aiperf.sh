@@ -102,6 +102,20 @@ ISL="${ISL:-1024}"
 OSL="${OSL:-256}"
 CONCURRENCIES="${CONCURRENCIES:-1 2 4 8 16 32}"
 
+# Prompt and generation length as ISL:OSL pairs, when the thing being swept is
+# the shape of the work rather than how much of it arrives at once. Matches
+# submit_aurora_aiperf.sh, which is the only way the two stay comparable.
+#
+#   SHAPES="1024:64 1024:256 1024:1024" CONCURRENCIES=32 qsub -v SHAPES,CONCURRENCIES ...
+#
+# The server loads once and does not care what shape it is sent, so five shapes
+# in one allocation pay vLLM startup once instead of five times.
+#
+# Empty means the single ISL/OSL pair above and the level directories keep their
+# c<N> names, which is what every sweep already on disk is called.
+SHAPES="${SHAPES:-}"
+SHAPE_LIST="${SHAPES:-${ISL}:${OSL}}"
+
 # Fixed across every concurrency level ON PURPOSE. Scaling requests with
 # concurrency makes each row a different amount of work, and then absolute
 # joules and durations cannot be compared between rows -- only ratios can. Equal
@@ -119,7 +133,14 @@ TP="${TP:-1}"
 
 # vLLM rejects a request longer than this. Sized from the sweep rather than
 # pinned at 4096, so raising ISL does not silently start failing every request.
-MAX_MODEL_LEN="${MAX_MODEL_LEN:-$(( ISL + OSL + 512 ))}"
+# Sized from the longest shape in the sweep, not the default pair: the server
+# loads once and serves all of them.
+_longest=0
+for _shape in ${SHAPE_LIST}; do
+    _need=$(( ${_shape%%:*} + ${_shape##*:} + 512 ))
+    if (( _need > _longest )); then _longest=${_need}; fi
+done
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-${_longest}}"
 if (( MAX_MODEL_LEN < 8192 )); then MAX_MODEL_LEN=8192; fi
 
 # On by default, and the reason is comparability rather than correctness here.
@@ -221,7 +242,8 @@ def ver(dist):
             return __import__(dist).__version__
         except Exception:
             return None
-machine, model, tp, isl, osl, reqs, conc, eager, job = sys.argv[1:10]
+machine, model, tp, shapes, reqs, conc, eager, job = sys.argv[1:9]
+pairs = [tuple(int(v) for v in s.split(":")) for s in shapes.split()]
 try:
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
                             capture_output=True, text=True).stdout.strip() or None
@@ -231,11 +253,18 @@ print(json.dumps({
     "kind": "aiperf_run_meta", "machine": machine, "hostname": socket.gethostname(),
     "pbs_jobid": job or None, "git_commit": commit,
     "vllm": ver("vllm"), "torch": ver("torch"), "aiperf": ver("aiperf"),
-    "model": model, "tensor_parallel": int(tp), "isl": int(isl), "osl": int(osl),
+    "model": model, "tensor_parallel": int(tp),
+    # isl/osl stay scalar for a single-shape sweep, which is what every reader
+    # of this file expects and what every sweep on disk has. A sweep that varied
+    # the shape has no single answer, and says so with null rather than naming
+    # whichever level happened to be first.
+    "isl": pairs[0][0] if len(pairs) == 1 else None,
+    "osl": pairs[0][1] if len(pairs) == 1 else None,
+    "shapes": [{"isl": i, "osl": o} for i, o in pairs],
     "requests_per_level": int(reqs), "concurrencies": [int(c) for c in conc.split()],
     "enforce_eager": eager == "1",
 }, indent=2))
-' "polaris" "${MODEL}" "${TP}" "${ISL}" "${OSL}" "${REQUESTS}"   "${CONCURRENCIES}" "${ENFORCE_EAGER:-1}" "${PBS_JOBID:-}"   > "${OUTROOT}/run_meta.json"
+' "polaris" "${MODEL}" "${TP}" "${SHAPE_LIST}" "${REQUESTS}"   "${CONCURRENCIES}" "${ENFORCE_EAGER:-1}" "${PBS_JOBID:-}"   > "${OUTROOT}/run_meta.json"
 echo "provenance -> ${OUTROOT}/run_meta.json"
 
 # --- idle floor ---------------------------------------------------------------
@@ -297,57 +326,73 @@ curl -sf "http://localhost:${PORT}/health" >/dev/null 2>&1 || {
 }
 
 # --- sweep --------------------------------------------------------------------
-for c in ${CONCURRENCIES}; do
-    echo "=== concurrency ${c} ==="
-    # ignore_eos + min_tokens force every generation to exactly OSL tokens.
-    # Without them the model stops at EOS, output length drifts with load, and
-    # tokens/joule moves for reasons that have nothing to do with concurrency --
-    # a longer generation amortises the fixed prefill over more decode tokens.
-    # This is the single most important flag on the command, and Ollama has no
-    # equivalent, which is why this benchmark uses vLLM.
-    # Wrapped in the sidecar even though AIPerf reads NVML itself. Two
-    # instruments on the same four A100s is the only cross-check available
-    # anywhere in this project -- Aurora has no second opinion and its numbers
-    # rest entirely on this method being right. The sidecar also reports the
-    # bound/idle device split, which AIPerf does not, so the idle columns stop
-    # coming back blank on this machine.
+# Level directories stay c<N> while there is one shape, and only take the
+# _i<ISL>o<OSL> suffix when there is more than one -- a suffix on every run
+# would rename every level of every future single-shape sweep.
+_nshapes=0
+for _shape in ${SHAPE_LIST}; do _nshapes=$(( _nshapes + 1 )); done
+
+for shape in ${SHAPE_LIST}; do
+    s_isl="${shape%%:*}"
+    s_osl="${shape##*:}"
+    for c in ${CONCURRENCIES}; do
+        if (( _nshapes > 1 )); then
+            lvl="c${c}_i${s_isl}o${s_osl}"
+            echo "=== concurrency ${c}, isl ${s_isl} osl ${s_osl} ==="
+        else
+            lvl="c${c}"
+            echo "=== concurrency ${c} ==="
+        fi
+        # ignore_eos + min_tokens force every generation to exactly OSL tokens.
+        # Without them the model stops at EOS, output length drifts with load, and
+        # tokens/joule moves for reasons that have nothing to do with concurrency --
+        # a longer generation amortises the fixed prefill over more decode tokens.
+        # This is the single most important flag on the command, and Ollama has no
+        # equivalent, which is why this benchmark uses vLLM.
+        # Wrapped in the sidecar even though AIPerf reads NVML itself. Two
+        # instruments on the same four A100s is the only cross-check available
+        # anywhere in this project -- Aurora has no second opinion and its numbers
+        # rest entirely on this method being right. The sidecar also reports the
+        # bound/idle device split, which AIPerf does not, so the idle columns stop
+        # coming back blank on this machine.
     #
-    # summarize_aiperf keeps AIPerf's own figures when both exist and reports
-    # the disagreement rather than averaging: the two measure the same silicon,
-    # so a gap between them is an error in one of them, not a range.
-    python analysis/power_sidecar.py \
-        --out "${OUTROOT}/c${c}/sidecar_power.json" \
-        --machine polaris \
-        --bound-devices "$(seq -s, 0 $(( TP - 1 )))" \
-        --label "concurrency ${c}" \
-        -- aiperf profile \
-            --model "${MODEL}" \
-            --tokenizer "${MODEL}" \
-            --url "http://localhost:${PORT}" \
-            --endpoint-type chat \
-            --streaming \
-            --concurrency "${c}" \
-            --request-count "${REQUESTS}" \
-            --warmup-request-count 8 \
-            --isl "${ISL}" \
-            --osl "${OSL}" \
-            --osl-stddev 0 \
-            --extra-inputs ignore_eos:true \
-            --extra-inputs "min_tokens:${OSL}" \
-            --gpu-telemetry pynvml \
-            --ui none \
-            --output-artifact-dir "${OUTROOT}/c${c}" \
-        > "${OUTROOT}/aiperf-c${c}.log" 2>&1 \
-        || { echo "  FAILED (see ${OUTROOT}/aiperf-c${c}.log)"; continue; }
-    # Exit code is not enough. AIPerf can log a fatal error and still exit 0 --
-    # a ZMQ socket path over the AF_UNIX limit did exactly that, and the sweep
-    # reported six cheerful "ok" lines and wrote no exports. The artifact is the
-    # only honest evidence a level ran.
-    if [[ -f "${OUTROOT}/c${c}/profile_export_aiperf.json" ]]; then
-        echo "  ok -> ${OUTROOT}/c${c}"
-    else
-        echo "  FAILED: exited 0 but wrote no export (see ${OUTROOT}/aiperf-c${c}.log)"
-    fi
+        # summarize_aiperf keeps AIPerf's own figures when both exist and reports
+        # the disagreement rather than averaging: the two measure the same silicon,
+        # so a gap between them is an error in one of them, not a range.
+        python analysis/power_sidecar.py \
+            --out "${OUTROOT}/${lvl}/sidecar_power.json" \
+            --machine polaris \
+            --bound-devices "$(seq -s, 0 $(( TP - 1 )))" \
+            --label "concurrency ${c} isl ${s_isl} osl ${s_osl}" \
+            -- aiperf profile \
+                --model "${MODEL}" \
+                --tokenizer "${MODEL}" \
+                --url "http://localhost:${PORT}" \
+                --endpoint-type chat \
+                --streaming \
+                --concurrency "${c}" \
+                --request-count "${REQUESTS}" \
+                --warmup-request-count 8 \
+                --isl "${s_isl}" \
+                --osl "${s_osl}" \
+                --osl-stddev 0 \
+                --extra-inputs ignore_eos:true \
+                --extra-inputs "min_tokens:${s_osl}" \
+                --gpu-telemetry pynvml \
+                --ui none \
+                --output-artifact-dir "${OUTROOT}/${lvl}" \
+            > "${OUTROOT}/aiperf-${lvl}.log" 2>&1 \
+            || { echo "  FAILED (see ${OUTROOT}/aiperf-${lvl}.log)"; continue; }
+        # Exit code is not enough. AIPerf can log a fatal error and still exit 0 --
+        # a ZMQ socket path over the AF_UNIX limit did exactly that, and the sweep
+        # reported six cheerful "ok" lines and wrote no exports. The artifact is the
+        # only honest evidence a level ran.
+        if [[ -f "${OUTROOT}/${lvl}/profile_export_aiperf.json" ]]; then
+            echo "  ok -> ${OUTROOT}/c${c}"
+        else
+            echo "  FAILED: exited 0 but wrote no export (see ${OUTROOT}/aiperf-${lvl}.log)"
+        fi
+    done
 done
 
 # --- summarise ----------------------------------------------------------------

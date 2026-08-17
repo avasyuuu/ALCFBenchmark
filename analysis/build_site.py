@@ -1029,7 +1029,14 @@ def _aiperf_config(sweep_dir: Path) -> dict:
 
     Read from an export rather than from the submit script's defaults, so a
     sweep launched with MODEL= overridden describes what it actually served.
+
+    Every level is read, not just the first. A sweep that varies ISL or OSL has
+    no single shape, and reporting whichever level sorted first would put a
+    confident wrong number in the page header -- the failure mode is a label
+    nobody rechecks, since 1024 and 256 are exactly what the reader expects to
+    see. Unanimous or null.
     """
+    first, shapes = None, set()
     for export in sorted(sweep_dir.glob("c*/profile_export_aiperf.json")):
         try:
             cfg = (json.loads(export.read_text(encoding="utf-8-sig"))
@@ -1038,15 +1045,23 @@ def _aiperf_config(sweep_dir: Path) -> dict:
             continue
         datasets = cfg.get("datasets") or [{}]
         prompts = (datasets[0].get("prompts") or {}) if datasets else {}
-        return {
-            "model": (cfg.get("tokenizer") or {}).get("name"),
-            "isl": (prompts.get("isl") or {}).get("mean"),
-            "osl": (prompts.get("osl") or {}).get("mean"),
-            "streaming": (cfg.get("endpoint") or {}).get("streaming"),
-            "tp": _tensor_parallel(sweep_dir),
-        }
-    return {"model": None, "isl": None, "osl": None, "streaming": None,
-            "tp": _tensor_parallel(sweep_dir)}
+        shapes.add(((prompts.get("isl") or {}).get("mean"),
+                    (prompts.get("osl") or {}).get("mean")))
+        if first is None:
+            first = cfg
+    if first is None:
+        return {"model": None, "isl": None, "osl": None, "streaming": None,
+                "tp": _tensor_parallel(sweep_dir), "shapes": 0}
+    count = len(shapes)
+    isl, osl = shapes.pop() if count == 1 else (None, None)
+    return {
+        "model": (first.get("tokenizer") or {}).get("name"),
+        "isl": isl,
+        "osl": osl,
+        "shapes": count,
+        "streaming": (first.get("endpoint") or {}).get("streaming"),
+        "tp": _tensor_parallel(sweep_dir),
+    }
 
 
 def _tensor_parallel(sweep_dir: Path):
