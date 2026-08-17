@@ -240,12 +240,6 @@ a:hover { border-bottom-color:var(--accent); }
 .controls { display:flex; flex-wrap:wrap; gap:1.4rem 2rem; margin:1.4rem 0 1rem;
   padding:1rem 1.2rem; background:var(--card); border:1px solid var(--line);
   border-radius:10px; }
-/* Beats .ctl's own display, which the browser's [hidden] rule does not: the
-   coordinate row for whatever is currently on the x axis has to actually
-   disappear, not merely carry the attribute. */
-.ctl[hidden] { display:none; }
-.chip input:disabled + *, .chip:has(input:disabled) { opacity:.35; }
-.chip:has(input:disabled) { cursor:not-allowed; }
 .ctl { display:flex; flex-direction:column; gap:.45rem; font-size:.72rem;
   text-transform:uppercase; letter-spacing:.07em; color:var(--dim); }
 .ctl select { font:inherit; font-size:.85rem; text-transform:none;
@@ -410,6 +404,12 @@ disagrees with itself.</p>
 <div class="legend-row"><span class="key"><span class="sw s1"></span>output tokens/s</span><span class="key"><span class="sw s2"></span>dynamic power</span></div>
 <p class="takeaway">From 1 concurrent request to 32, output throughput rises <strong>12.6×</strong> while dynamic power goes 121 W to 114 W — <strong>0.94×</strong>. The same work costs 12.7× less energy, almost entirely by finishing sooner rather than by drawing less.</p><p class="fineprint">Paid for in latency: time to first token goes 128 ms to 1,111 ms and inter-token latency 19.5 ms to 46.3 ms. Tok/J is the figure to budget with, since an allocation bills for the node either way; Tok/J dyn is what the silicon did. Dynamic power is a small difference between two large numbers, so it holds only while the floor comes from this node in this job — which is why one is sampled per run rather than carried over. Given that, it is the steadier of the two: two Aurora runs on different nodes differed 4.5% in node draw and 0.07% in dynamic, because a node that idles high runs high under load too and the offset cancels.</p>
 
+<div class="mhead"><h2>aurora — Llama-3.1-8B-Instruct, prompt shape</h2>
+<span class="key s1"><span class="sw"></span></span></div>
+<figure><div class="twrap"><table>
+<thead><tr><th>ISL</th><th>OSL</th><th>Conc</th><th>Out tok/s</th><th>TTFT ms</th><th>ITL ms</th><th>Dyn W</th><th>mJ/out tok</th><th>J/req</th></tr></thead><tbody><tr><td>256</td><td>256</td><td>32</td><td>922.0</td><td>528</td><td>32.7</td><td>115</td><td>1,284</td><td>329</td></tr><tr><td>1,024</td><td>64</td><td>32</td><td>353.1</td><td>1,089</td><td>73.9</td><td>126</td><td>3,379</td><td>216</td></tr><tr><td>1,024</td><td>256</td><td>32</td><td>637.2</td><td>1,083</td><td>46.0</td><td>118</td><td>1,862</td><td>477</td></tr><tr><td>1,024</td><td>1,024</td><td>32</td><td>755.2</td><td>1,094</td><td>41.3</td><td>112</td><td>1,560</td><td>1,597</td></tr><tr><td>4,096</td><td>256</td><td>32</td><td>265.0</td><td>3,489</td><td>106.6</td><td>127</td><td>4,503</td><td>1,153</td></tr></tbody></table></div>
+<figcaption>Dynamic energy per request fits <strong>23.9 mJ</strong> per input token plus <strong>133 mJ</strong> per output token (R² 0.9996) — an output token costs 5.6x an input one, which is decode streaming every weight for one token against prefill batching the whole prompt. Three parameters on 5 points, and the intercept is fit slack rather than a fixed per-request cost.</figcaption></figure>
+
 <h2>What a training profile will show</h2>
 <p class="fineprint">One line per accelerator on the node, sampled by
 <code>benchmark/power.py</code> at <code>--power-interval</code> seconds, plotted
@@ -420,7 +420,7 @@ Aurora's whole-card counters are excluded, as they are from every total, because
 they cover silicon the per-tile counters already report.</p>
 
 <footer>
-Generated 2026-08-17 20:51 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
+Generated 2026-08-17 20:58 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.

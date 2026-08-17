@@ -665,12 +665,6 @@ a:hover {{ border-bottom-color:var(--accent); }}
 .controls {{ display:flex; flex-wrap:wrap; gap:1.4rem 2rem; margin:1.4rem 0 1rem;
   padding:1rem 1.2rem; background:var(--card); border:1px solid var(--line);
   border-radius:10px; }}
-/* Beats .ctl's own display, which the browser's [hidden] rule does not: the
-   coordinate row for whatever is currently on the x axis has to actually
-   disappear, not merely carry the attribute. */
-.ctl[hidden] {{ display:none; }}
-.chip input:disabled + *, .chip:has(input:disabled) {{ opacity:.35; }}
-.chip:has(input:disabled) {{ cursor:not-allowed; }}
 .ctl {{ display:flex; flex-direction:column; gap:.45rem; font-size:.72rem;
   text-transform:uppercase; letter-spacing:.07em; color:var(--dim); }}
 .ctl select {{ font:inherit; font-size:.85rem; text-transform:none;
@@ -1386,15 +1380,6 @@ DASHBOARD_METRICS = [
 # concurrency but a trajectory through the two. Two x-axis choices, because
 # which power you divide by is the entire disagreement between these machines --
 # dynamic compares silicon, node compares what an allocation is billed.
-# Which coordinate runs along the bottom. Concurrency was hardcoded until a
-# sweep varied the prompt shape instead and had nowhere to go -- five levels at
-# one x. Shape is an axis, not another line style: as an axis it adds one line,
-# as a style it would have added five.
-DASHBOARD_X = [
-    ("concurrency", "concurrent requests"),
-    ("requested_osl", "output tokens (OSL)"),
-    ("requested_isl", "input tokens (ISL)"),
-]
 DASHBOARD_XY = [
     ("xy_dynamic_w", "dynamic power (W)", "dynamic_w"),
     ("xy_avg_gpu_w", "node power (W)", "avg_gpu_w"),
@@ -1418,26 +1403,6 @@ def dashboard_body(sweeps: list) -> str:
     # Sorted numerically, not as the strings they become in the DOM: TP 10 has
     # to sit after TP 8 rather than between 1 and 4.
     tps = [str(t) for t in sorted({s.get("tp") for s in sweeps if s.get("tp")})]
-    # The coordinates a level sits at. Radios, not checkboxes: these pick which
-    # slice you are looking at, and ticking two of them draws two lines that are
-    # identical in colour, dash and marker -- the encoding has nothing left to
-    # tell them apart with, so the control should not offer it.
-    def coord_values(key):
-        vals = {r.get(key) for s in sweeps for r in s["rows"] if r.get(key)}
-        return [str(int(v)) for v in sorted(vals)]
-    coords = {k: coord_values(k) for k in ("concurrency", "requested_isl", "requested_osl")}
-    coord_label = {"concurrency": "Concurrency", "requested_isl": "Input tokens",
-                   "requested_osl": "Output tokens"}
-    coord_short = {"concurrency": "conc", "requested_isl": "isl", "requested_osl": "osl"}
-    # The slice a reader lands on: the busiest setting of each coordinate, which
-    # is the one the most sweeps actually visited.
-    def commonest(key):
-        counts = {}
-        for sw in sweeps:
-            for r in sw["rows"]:
-                if r.get(key):
-                    counts[str(int(r[key]))] = counts.get(str(int(r[key])), 0) + 1
-        return max(counts, key=counts.get) if counts else None
 
     # Opening with everything ticked put seven configurations on one axis, which
     # is a browsing state rather than a picture -- and it grows with every sweep
@@ -1451,14 +1416,6 @@ def dashboard_body(sweeps: list) -> str:
     busiest = max(models, key=lambda m: sum(
         1 for s in sweeps if (s["model"] or "?").split("/")[-1] == m))
     defaults = {"model": {busiest}}
-
-    def radios(key, values):
-        pick = commonest(key)
-        return "".join(
-            f'<label class="chip"><input type="radio" name="coord-{coord_short[key]}" '
-            f'data-coord="{coord_short[key]}" value="{html.escape(v)}"'
-            f'{" checked" if v == pick else ""}> {html.escape(f"{int(v):,}")}</label>'
-            for v in values)
 
     def boxes(kind, values):
         # Machines are labelled in their own colour, models plainly -- a model
@@ -1488,28 +1445,24 @@ def dashboard_body(sweeps: list) -> str:
         )
         + "</optgroup>"
     )
-    # One chart per (x axis, metric), and only where something can be drawn --
-    # most combinations are empty, since a concurrency sweep has nothing to say
-    # against OSL and vice versa, and rendering the empty ones would triple the
-    # page for blank frames.
-    charts = ""
-    for x_key, x_label in DASHBOARD_X:
-        for i, (key, label, log_y) in enumerate(DASHBOARD_METRICS):
-            svg = dashboard_chart(sweeps, key, label, log_y, x_key, x_label)
-            if not svg:
-                continue
-            first = (x_key == DASHBOARD_X[0][0] and i == 0)
-            charts += (f'<div class="chartwrap" data-x="{x_key}" data-metric="{key}"'
-                       f'{"" if first else " hidden"}>{svg}</div>')
-    charts += "".join(
+    charts = "".join(
+        f'<div class="chartwrap" data-metric="{key}"{"" if i == 0 else " hidden"}>'
+        f"{dashboard_chart(sweeps, key, label, log_y)}</div>"
+        for i, (key, label, log_y) in enumerate(DASHBOARD_METRICS)
+    ) + "".join(
         f'<div class="chartwrap" data-metric="{key}" hidden>'
         f"{power_throughput_chart(sweeps, col, label)}</div>"
         for key, label, col in DASHBOARD_XY
     )
 
+    # Concurrency sweeps only, matching the charts above it. A shape sweep has
+    # no line on this page, and rows that appear in a table under a chart they
+    # are absent from read as points the chart forgot to draw. Those live on the
+    # power page, next to the fit that is the reason they were measured.
     rows = []
-    for sweep in sorted(sweeps, key=lambda s: (s["machine"], s["model"] or "",
-                                               s.get("tp") or 0)):
+    for sweep in sorted([s for s in sweeps if swept_over_concurrency(s["rows"])],
+                        key=lambda s: (s["machine"], s["model"] or "",
+                                       s.get("tp") or 0)):
         model = (sweep["model"] or "?").split("/")[-1]
         for r in sorted(sweep["rows"], key=lambda r: r["concurrency"]):
             rows.append((sweep["machine"], model, str(sweep.get("tp") or ""), [
@@ -1541,26 +1494,14 @@ def dashboard_body(sweeps: list) -> str:
         for m, mo, tp, cells in rows
     )
 
-    coord_rows = "".join(
-        f'<div class="ctl coord" data-for="{coord_short[k]}"><span>{coord_label[k]}</span>'
-        f'<div class="chips">{radios(k, v)}</div></div>'
-        for k, v in coords.items() if len(v) > 1)
-    xopts = "".join(
-        f'<option value="{k}"{" selected" if i == 0 else ""}>{html.escape(lab)}</option>'
-        for i, (k, lab) in enumerate(DASHBOARD_X))
-
     return f"""
 <div class="controls">
   <label class="ctl">Metric
     <select id="metric">{options}</select>
   </label>
-  <label class="ctl">X axis
-    <select id="xaxis">{xopts}</select>
-  </label>
   <div class="ctl"><span>Machines</span><div class="chips">{boxes("machine", machines)}</div></div>
   <div class="ctl"><span>Models</span><div class="chips">{boxes("model", models)}</div></div>
   <div class="ctl"><span>Tensor parallel</span><div class="chips">{boxes("tp", tps)}</div></div>
-  {coord_rows}
 </div>
 {charts}
 {dashboard_legend(sweeps)}
@@ -1578,11 +1519,6 @@ count — see each sweep's run_meta.json.</figcaption></figure>
 <script>
 (function () {{
   var metric = document.getElementById('metric');
-  var xaxis = document.getElementById('xaxis');
-  // Which coordinate is the axis is also which coordinate has no filter: you
-  // cannot hold fixed the thing you are plotting, and a control that did
-  // nothing would be the most confusing one on the page.
-  var SHORT = {{concurrency: 'conc', requested_isl: 'isl', requested_osl: 'osl'}};
   function selected(kind) {{
     var out = {{}};
     document.querySelectorAll('[data-filter="' + kind + '"]').forEach(function (b) {{
@@ -1590,72 +1526,18 @@ count — see each sweep's run_meta.json.</figcaption></figure>
     }});
     return out;
   }}
-  function coord(short) {{
-    var el = document.querySelector('[data-coord="' + short + '"]:checked');
-    return el ? el.value : null;
-  }}
   function apply() {{
     var m = selected('machine'), mo = selected('model'), tp = selected('tp'), shown = 0;
-    var onAxis = SHORT[xaxis.value];
-    document.querySelectorAll('.ctl.coord').forEach(function (row) {{
-      row.hidden = row.getAttribute('data-for') === onAxis;
-    }});
     // A sweep with no recorded TP is never hidden by the TP filter -- it has
-    // no chip to tick, and filtering it out would make it unreachable. Same for
-    // a held coordinate a series does not carry.
-    function basics(el) {{
+    // no chip to tick, and filtering it out would make it unreachable.
+    function keep(el) {{
       var t = el.getAttribute('data-tp');
       return m[el.getAttribute('data-machine')] && mo[el.getAttribute('data-model')]
              && (!t || tp[t]);
     }}
-    function keep(el) {{
-      if (!basics(el)) return false;
-      for (var k in SHORT) {{
-        var short = SHORT[k];
-        if (short === onAxis) continue;
-        var v = el.getAttribute('data-' + short);
-        if (v && coord(short) && v !== coord(short)) return false;
-      }}
-      return true;
-    }}
     document.querySelectorAll('.chartwrap').forEach(function (w) {{
-      w.hidden = w.getAttribute('data-metric') !== metric.value
-                 || w.getAttribute('data-x') !== xaxis.value;
+      w.hidden = w.getAttribute('data-metric') !== metric.value;
     }});
-    // The shape grid is sparse -- five of nine ISL x OSL combinations were
-    // measured -- so most slices hold one point or none. Offering them all lets
-    // a reader land on an empty frame and conclude the page is broken, when in
-    // fact they picked a slice nobody ran. So each option is checked against
-    // the chart in front of it and switched off when it cannot draw a line.
-    var active = document.querySelector('.chartwrap:not([hidden])');
-    if (active) {{
-      var groups = [].slice.call(active.querySelectorAll('.series')).filter(function (g) {{
-        return g.querySelectorAll('.dot').length >= 2 && basics(g);
-      }});
-      document.querySelectorAll('.ctl.coord').forEach(function (row) {{
-        var short = row.getAttribute('data-for');
-        if (short === onAxis) return;
-        var viable = null;
-        row.querySelectorAll('[data-coord]').forEach(function (r) {{
-          var ok = groups.some(function (g) {{
-            if (g.getAttribute('data-' + short) !== r.value) return false;
-            for (var k in SHORT) {{
-              var o = SHORT[k];
-              if (o === onAxis || o === short) continue;
-              var v = g.getAttribute('data-' + o);
-              if (v && coord(o) && v !== coord(o)) return false;
-            }}
-            return true;
-          }});
-          r.disabled = !ok;
-          if (ok && viable === null) viable = r;
-        }});
-        // Landing on a dead slice after switching axis is the common case, so
-        // the selection moves to one that exists rather than showing nothing.
-        var chosen = row.querySelector('[data-coord]:checked');
-        if (viable && (!chosen || chosen.disabled)) {{ viable.checked = true; }}
-      }});
-    }}
     document.querySelectorAll('.series').forEach(function (g) {{
       var on = keep(g);
       g.style.display = on ? '' : 'none';
@@ -1679,10 +1561,6 @@ count — see each sweep's run_meta.json.</figcaption></figure>
     document.getElementById('empty').hidden = shown > 0;
   }}
   metric.addEventListener('change', apply);
-  xaxis.addEventListener('change', apply);
-  document.querySelectorAll('[data-coord]').forEach(function (r) {{
-    r.addEventListener('change', apply);
-  }});
   document.querySelectorAll('[data-filter]').forEach(function (b) {{
     b.addEventListener('change', apply);
   }});
@@ -1824,6 +1702,99 @@ def machine_section(machine: str, spec: dict, tag: str, state: str) -> str:
 <div class="todo">{state}</div>"""
 
 
+def shape_section(sweeps: list) -> str:
+    """Sweeps that varied the prompt shape instead of the load.
+
+    A table and not a chart, deliberately. These sweeps hold concurrency fixed,
+    so they have nothing to say on an axis of concurrency, and giving the axis a
+    choice put two-thirds of the dashboard's controls in service of one line.
+    Five rows of numbers say the same thing and cost nothing to read.
+
+    The fit underneath is the reason the sweep exists. Energy per request comes
+    apart into a cost per input token and a cost per output token, and those are
+    properties of the machine -- tokens/joule at one shape is a blend whose
+    mixing ratio someone chose. Least squares on a*ISL + b*OSL + c, stdlib only,
+    like everything else here.
+    """
+    shaped = [s for s in sweeps
+              if not swept_over_concurrency(s["rows"]) and len(s["rows"]) >= 3]
+    if not shaped:
+        return ""
+
+    blocks = ""
+    for sweep in shaped:
+        rows = sorted(sweep["rows"], key=lambda r: (r.get("requested_isl") or 0,
+                                                    r.get("requested_osl") or 0))
+        body = ""
+        for r in rows:
+            body += "<tr>" + "".join(f"<td>{c}</td>" for c in (
+                num(r.get("requested_isl")), num(r.get("requested_osl")),
+                num(r.get("concurrency")), num(r.get("out_tok_per_s"), 1),
+                num(r.get("ttft_ms")), num(r.get("itl_ms"), 1),
+                num(r.get("dynamic_w")), num(r.get("mj_per_output_token")),
+                num(r.get("energy_per_req_j")),
+            )) + "</tr>"
+        head = "".join(f"<th>{h}</th>" for h in (
+            "ISL", "OSL", "Conc", "Out tok/s", "TTFT ms", "ITL ms", "Dyn W",
+            "mJ/out tok", "J/req"))
+        fitted = _shape_fit(rows)
+        blocks += f"""
+<div class="mhead"><h2>{html.escape(sweep["machine"])} — {html.escape((sweep["model"] or "inference").split("/")[-1])}, prompt shape</h2>
+<span class="key s{SERIES_SLOT.get(sweep["machine"], 8)}"><span class="sw"></span></span></div>
+<figure><div class="twrap"><table>
+<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>
+<figcaption>{fitted}</figcaption></figure>"""
+    return blocks
+
+
+def _shape_fit(rows: list) -> str:
+    """Solve a*ISL + b*OSL + c for dynamic energy per request, and say it plainly.
+
+    Returns a caption rather than a number, because the coefficients only mean
+    something with the caveat attached: three parameters against five points,
+    and an intercept that has no physical reading.
+    """
+    pts = [(r.get("requested_isl"), r.get("requested_osl"),
+            (r.get("dynamic_w") or 0) * (r.get("duration_s") or 0)
+            / (r.get("requests") or 1))
+           for r in rows]
+    pts = [(x, y, z) for x, y, z in pts if x and y and z]
+    if len(pts) < 4:
+        return ("Prompt shape held concurrency fixed, so these levels are points "
+                "rather than a curve. Too few for a fit.")
+    n = len(pts)
+    sums = [0.0] * 8
+    for x, y, z in pts:
+        for i, v in enumerate((x, y, z, x * x, y * y, x * y, x * z, y * z)):
+            sums[i] += v
+    Sx, Sy, Sz, Sxx, Syy, Sxy, Sxz, Syz = sums
+    A = [[Sxx, Sxy, Sx], [Sxy, Syy, Sy], [Sx, Sy, float(n)]]
+    B = [Sxz, Syz, Sz]
+    for i in range(3):
+        p = max(range(i, 3), key=lambda r: abs(A[r][i]))
+        A[i], A[p] = A[p], A[i]
+        B[i], B[p] = B[p], B[i]
+        if not A[i][i]:
+            return "Levels are collinear in ISL and OSL; no fit."
+        for r in range(3):
+            if r != i:
+                f = A[r][i] / A[i][i]
+                for c in range(3):
+                    A[r][c] -= f * A[i][c]
+                B[r] -= f * B[i]
+    a, b, _c = (B[i] / A[i][i] for i in range(3))
+    mean = Sz / n
+    ss_t = sum((z - mean) ** 2 for _, _, z in pts)
+    ss_r = sum((z - (a * x + b * y + _c)) ** 2 for x, y, z in pts)
+    r2 = 1 - ss_r / ss_t if ss_t else 0.0
+    return (f"Dynamic energy per request fits <strong>{a * 1000:,.1f} mJ</strong> per "
+            f"input token plus <strong>{b * 1000:,.0f} mJ</strong> per output token "
+            f"(R² {r2:.4f}) — an output token costs {b / a:.1f}x an input one, "
+            f"which is decode streaming every weight for one token against prefill "
+            f"batching the whole prompt. Three parameters on {n} points, and the "
+            f"intercept is fit slack rather than a fixed per-request cost.")
+
+
 def power_body(specs: dict, runs: list, timelines: dict, sweeps: list) -> str:
     """The power page: one section per targeted machine, in config order."""
     sections = ""
@@ -1844,6 +1815,7 @@ is recorded in the <code>_source</code> fields of
 {sections}
 
 {inference_section(sweeps)}
+{shape_section(sweeps)}
 
 <h2>What a training profile will show</h2>
 <p class="fineprint">One line per accelerator on the node, sampled by
