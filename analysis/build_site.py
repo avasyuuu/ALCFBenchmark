@@ -34,6 +34,7 @@ from pathlib import Path
 # `legend` here is the column glossary further down; the chart key is
 # imported under its own name so the two never shadow each other.
 from charts import (SERIES_SLOT, accuracy_chart, canonical_runs,
+                    swept_over_concurrency,
                     dashboard_chart, dashboard_legend, machine_tag,
                     power_throughput_chart,
                     efficiency_chart, efficiency_compare_chart,
@@ -961,7 +962,14 @@ def load_aiperf(results_dir: str) -> list:
             continue
         cfg = _aiperf_config(path.parent)
         machine = path.parent.name.split("-")[0]
-        key = (machine, cfg.get("model"), cfg.get("tp"))
+        # Shape is part of the identity, not a detail of it. Without it the
+        # 8B shape sweep and the 8B concurrency sweep -- same machine, same
+        # model, both TP=1 -- collided, and the newer one silently deleted the
+        # baseline every TP comparison on the page is measured against. isl and
+        # osl are None for a sweep that varied them, which is its own key and
+        # exactly right: that is a different experiment, not a rerun.
+        key = (machine, cfg.get("model"), cfg.get("tp"),
+               cfg.get("isl"), cfg.get("osl"))
         if key in seen:
             continue
         seen.add(key)
@@ -989,9 +997,14 @@ def _add_tp_ratio(sweeps: list) -> list:
     out: a line that is 1.0 by construction says nothing the gridline at 1.0
     does not, and two machines' baselines would overlap exactly.
     """
-    base = {(s["machine"], s["model"]): s for s in sweeps if s.get("tp") == 1}
+    # Keyed on shape as well, and only over sweeps that vary concurrency: the
+    # ratio is plotted against concurrency, and a baseline measured at another
+    # prompt shape is not a baseline.
+    base = {(s["machine"], s["model"], s.get("isl"), s.get("osl")): s
+            for s in sweeps if s.get("tp") == 1 and swept_over_concurrency(s["rows"])}
     for sweep in sweeps:
-        ref = base.get((sweep["machine"], sweep["model"]))
+        ref = base.get((sweep["machine"], sweep["model"],
+                        sweep.get("isl"), sweep.get("osl")))
         if ref is None or sweep.get("tp") == 1:
             continue
         at = {r["concurrency"]: r.get("tok_per_joule") for r in ref["rows"]}
@@ -1108,7 +1121,8 @@ def inference_section(sweeps: list) -> str:
     # Only multi-level runs get a section: the chart and the takeaway both
     # describe a curve, and a single point has none. Those runs are in the model
     # table above instead, which is the view they can actually support.
-    for sweep in [s for s in sweeps if len(s["rows"]) >= 3]:
+    for sweep in [s for s in sweeps if len(s["rows"]) >= 3
+                  and swept_over_concurrency(s["rows"])]:
         rows = sweep["rows"]
         first, last = rows[0], rows[-1]
         chart = inference_chart(rows)
@@ -1485,6 +1499,12 @@ def dashboard_body(sweeps: list) -> str:
                 machine_tag(sweep["machine"]),
                 html.escape(model),
                 num(sweep.get("tp")) if sweep.get("tp") else "—",
+                # Per row, not per sweep: a sweep that varied the shape has a
+                # different one on every line, and four rows reading
+                # "aurora / 8B / TP=1 / 32" with different numbers beside them
+                # look like a measurement that could not make up its mind.
+                num(r.get("requested_isl")),
+                num(r.get("requested_osl")),
                 num(r.get("concurrency")),
                 num(r.get("out_tok_per_s"), 1),
                 num(r.get("ttft_ms")),
@@ -1495,7 +1515,7 @@ def dashboard_body(sweeps: list) -> str:
                 num(r.get("tok_per_joule_dynamic"), 2),
             ]))
     head = "".join(f"<th>{h}</th>" for h in (
-        "Machine", "Model", "TP", "Conc", "Out tok/s", "TTFT ms", "ITL ms",
+        "Machine", "Model", "TP", "ISL", "OSL", "Conc", "Out tok/s", "TTFT ms", "ITL ms",
         "Dyn W", "Joules", "Tok/J", "Tok/J dyn"))
     body = "".join(
         f'<tr data-machine="{html.escape(m)}" data-model="{html.escape(mo)}" '

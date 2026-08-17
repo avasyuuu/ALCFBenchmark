@@ -85,6 +85,22 @@ def _marker(cx: float, cy: float, r: float, slot: int, title: str = "") -> str:
     return f'<{tag} class="dot k{slot % len(MARKER_SHAPES)}" {attrs}>{inner}</{tag}>'
 
 
+def swept_over_concurrency(rows) -> bool:
+    """Whether these levels actually differ in concurrency.
+
+    Three rows used to be enough to mean "a curve", because concurrency was the
+    only thing a sweep ever varied. A shape sweep holds it fixed and varies ISL
+    and OSL instead, so its levels are several points at one x: a vertical stack
+    on anything drawn against concurrency, and a divide-by-zero on the charts
+    that normalise by the axis span.
+
+    Every caller that plots against concurrency asks this first. A shape sweep
+    is not a broken concurrency sweep, it is a different sweep, and it belongs
+    on an axis this file does not draw yet.
+    """
+    return len({r.get("concurrency") for r in rows or []} - {None}) >= 2
+
+
 def _log_ticks(lo: float, hi: float) -> list:
     """Gridline values for a log axis, at a density the range can carry.
 
@@ -448,7 +464,7 @@ def inference_chart(rows: list) -> str:
     it draws, and serving more at once is nearly free in watts.
     """
     rows = [r for r in rows if r.get("concurrency") and r.get("out_tok_per_s")]
-    if len(rows) < 3:
+    if len(rows) < 3 or not swept_over_concurrency(rows):
         return ""
     rows = sorted(rows, key=lambda r: r["concurrency"])
     base_tok = rows[0]["out_tok_per_s"]
@@ -555,7 +571,8 @@ def efficiency_compare_chart(sweeps: list) -> str:
     group; comparing machines is the job, and that only means anything with the
     model held fixed anyway.
     """
-    usable = [s for s in sweeps if len(s.get("rows") or []) >= 3]
+    usable = [s for s in sweeps if len(s.get("rows") or []) >= 3
+              and swept_over_concurrency(s.get("rows"))]
     if not usable:
         return ""
 
@@ -666,6 +683,8 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
     """
     series = []
     for sweep in sweeps:
+        if not swept_over_concurrency(sweep["rows"]):
+            continue
         pts = [(r["concurrency"], r.get(metric)) for r in sweep["rows"]]
         pts = [(c, v) for c, v in pts if c and isinstance(v, (int, float)) and v > 0]
         if pts:
@@ -763,8 +782,11 @@ def dashboard_legend(sweeps: list) -> str:
     models = sorted({s["model"] for s in sweeps})
     tps = sorted({s.get("tp") for s in sweeps}, key=lambda v: (v is None, v))
     keys = ""
-    for sweep in sorted(sweeps, key=lambda s: (s["machine"], s["model"] or "",
-                                               s.get("tp") or 0)):
+    # Same set the charts draw. A key for a sweep no chart on this page can
+    # plot sends the reader looking for a line that is not there.
+    for sweep in sorted([s for s in sweeps if swept_over_concurrency(s["rows"])],
+                        key=lambda s: (s["machine"], s["model"] or "",
+                                       s.get("tp") or 0)):
         machine = sweep["machine"]
         model = (sweep["model"] or "?").split("/")[-1]
         dash = MODEL_DASHES[models.index(sweep["model"]) % len(MODEL_DASHES)]
@@ -845,6 +867,10 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
     """
     series = []
     for sweep in sweeps:
+        # Marker size runs with concurrency here, so a sweep that held it fixed
+        # would draw a trajectory whose growing dots mean nothing.
+        if not swept_over_concurrency(sweep["rows"]):
+            continue
         pts = [(r.get(power_key), r.get("out_tok_per_s"), r["concurrency"])
                for r in sweep["rows"] if r.get("concurrency")]
         pts = [(x, y, c) for x, y, c in pts
