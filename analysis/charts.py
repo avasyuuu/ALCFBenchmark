@@ -58,11 +58,14 @@ def _marker(cx: float, cy: float, r: float, slot: int, title: str = "") -> str:
     single point of unknown identity -- which is the ambiguity the shapes were
     added to remove, returned in a smaller form.
 
-    So the slot also picks a fill: solid, a paler tone of the same hue, hollow,
-    and a deeper tone. Two markers on the same spot now differ in silhouette and
-    in weight, and the hollow one shows what it lands on rather than erasing it.
-    Redundant with shape on purpose -- either channel alone identifies the
-    series, so neither has to survive being small on its own.
+    So alternating slots are hollow, in the stylesheet: adjacent slots always
+    differ in fill as well as outline, and a hollow marker shows what it lands
+    on rather than erasing it. Fill and not tint -- a tinted marker desaturates
+    into a colour that reads as another machine, and hue is the machine
+    everywhere on this site.
+
+    Redundant with shape on purpose: either channel alone identifies the series,
+    so neither has to survive being small on its own.
     """
     shape = MARKER_SHAPES[slot % len(MARKER_SHAPES)]
     if shape == "square":

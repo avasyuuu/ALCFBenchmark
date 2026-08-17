@@ -166,18 +166,19 @@ code { font-size:.85em; background:var(--tag); padding:.1rem .3rem;
 /* 2px ring in the surface colour, so a marker stays legible where a line
    passes under it -- and so the hit target beats the 8px mark. */
 .dot { fill:var(--c); stroke:var(--bg); stroke-width:2; }
-/* Fill follows the TP slot alongside the shape, so two series landing on the
-   same point stay two series: solid, a paler tone of the same hue, hollow, a
-   deeper one. k0 is the plain solid every chart drew before this existed.
-   k2 is see-through rather than surface-filled -- an opaque hollow marker still
-   erases what it covers, which is the whole problem -- with pointer-events
-   pinned so its tooltip survives having no paint in the middle.
-   color-mix is progressive enhancement: where it is unsupported the whole
-   declaration drops and the marker falls back to the solid fill above, leaving
-   shape as the encoding it already was. */
-.dot.k1 { fill:color-mix(in oklab, var(--c) 45%, var(--bg)); }
-.dot.k2 { fill:transparent; stroke:var(--c); pointer-events:all; }
-.dot.k3 { fill:color-mix(in oklab, var(--c) 72%, var(--fg)); }
+/* Alternating slots are hollow, so two markers on the same point stay two
+   markers. Hollow rather than a tinted fill: mixing the series colour toward
+   the surface desaturates it, and a browner orange reads as a third machine
+   rather than a second TP -- hue has to stay the machine's. See-through rather
+   than surface-filled, because an opaque hollow marker erases what it covers
+   just as thoroughly as a solid one, with pointer-events pinned so the tooltip
+   survives having no paint in the middle. */
+.dot.k1, .dot.k3 { fill:transparent; stroke:var(--c); pointer-events:all; }
+/* Hovering a line or its legend key drops everything else back, which is the
+   only thing that really works when series sit on top of each other. Filtering
+   is still the answer for a figure -- a screenshot cannot hover. */
+.series, .legend-row .key { transition:opacity .12s ease; }
+.legend-row .key { cursor:default; }
 .bar { fill:var(--c); }
 /* Text never wears the series colour; identity comes from the mark beside it. */
 .tick, .axis-title, .val { fill:var(--dim); font-size:11px;
@@ -349,7 +350,7 @@ compare cleanly — but this is a handful of runs per machine on a workload at
 
 
 <footer>
-Generated 2026-08-17 19:34 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
+Generated 2026-08-17 19:43 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.
