@@ -603,6 +603,16 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
    is still the answer for a figure -- a screenshot cannot hover. */
 .series, .legend-row .key {{ transition:opacity .12s ease; }}
 .legend-row .key {{ cursor:default; }}
+/* Point details. The browser's own <title> tip waits about a second before it
+   appears, cannot be styled, and renders in the OS chrome rather than the
+   page -- so the script lifts those titles out and draws this instead. The
+   markup keeps the <title> for the scripting-off case, where a slow tooltip
+   beats no tooltip. */
+.tip {{ position:fixed; z-index:50; pointer-events:none; max-width:min(340px,80vw);
+  background:var(--card); color:var(--fg); border:1px solid var(--line);
+  border-radius:6px; padding:6px 9px; font-size:12px; line-height:1.35;
+  box-shadow:0 6px 18px rgba(0,0,0,.22); }}
+.tip[hidden] {{ display:none; }}
 .bar {{ fill:var(--c); }}
 /* Text never wears the series colour; identity comes from the mark beside it. */
 .tick, .axis-title, .val {{ fill:var(--dim); font-size:11px;
@@ -1559,6 +1569,39 @@ count — see each sweep's run_meta.json.</figcaption></figure>
   document.querySelectorAll('.series, .legend-row .key').forEach(function (el) {{
     el.addEventListener('mouseenter', function () {{ highlight(ident(el)); }});
     el.addEventListener('mouseleave', function () {{ highlight(null); }});
+  }});
+
+  // Instant point details. The native <title> tip waits about a second, cannot
+  // be styled and draws outside the page. Those titles are lifted into an
+  // attribute and removed, so the browser stops offering its own -- the markup
+  // still ships them, which is what a scripting-off reader gets.
+  var tip = document.createElement('div');
+  tip.className = 'tip';
+  tip.hidden = true;
+  document.body.appendChild(tip);
+  document.querySelectorAll('.chart title').forEach(function (t) {{
+    t.parentNode.setAttribute('data-tip', t.textContent);
+    t.parentNode.removeChild(t);
+  }});
+  function place(e) {{
+    // Flip rather than clamp at the edges: a tip pinned to the right margin
+    // sits on top of the point it describes, which is the one thing it must
+    // not cover.
+    var pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    var x = e.clientX + pad, y = e.clientY + pad;
+    if (x + w > window.innerWidth - 6) x = e.clientX - w - pad;
+    if (y + h > window.innerHeight - 6) y = e.clientY - h - pad;
+    tip.style.left = Math.max(6, x) + 'px';
+    tip.style.top = Math.max(6, y) + 'px';
+  }}
+  document.querySelectorAll('[data-tip]').forEach(function (el) {{
+    el.addEventListener('mouseenter', function (e) {{
+      tip.textContent = el.getAttribute('data-tip');
+      tip.hidden = false;
+      place(e);
+    }});
+    el.addEventListener('mousemove', place);
+    el.addEventListener('mouseleave', function () {{ tip.hidden = true; }});
   }});
 
   apply();

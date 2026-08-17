@@ -179,6 +179,16 @@ code { font-size:.85em; background:var(--tag); padding:.1rem .3rem;
    is still the answer for a figure -- a screenshot cannot hover. */
 .series, .legend-row .key { transition:opacity .12s ease; }
 .legend-row .key { cursor:default; }
+/* Point details. The browser's own <title> tip waits about a second before it
+   appears, cannot be styled, and renders in the OS chrome rather than the
+   page -- so the script lifts those titles out and draws this instead. The
+   markup keeps the <title> for the scripting-off case, where a slow tooltip
+   beats no tooltip. */
+.tip { position:fixed; z-index:50; pointer-events:none; max-width:min(340px,80vw);
+  background:var(--card); color:var(--fg); border:1px solid var(--line);
+  border-radius:6px; padding:6px 9px; font-size:12px; line-height:1.35;
+  box-shadow:0 6px 18px rgba(0,0,0,.22); }
+.tip[hidden] { display:none; }
 .bar { fill:var(--c); }
 /* Text never wears the series colour; identity comes from the mark beside it. */
 .tick, .axis-title, .val { fill:var(--dim); font-size:11px;
@@ -350,7 +360,7 @@ compare cleanly — but this is a handful of runs per machine on a workload at
 
 
 <footer>
-Generated 2026-08-17 19:57 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
+Generated 2026-08-17 20:02 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.
