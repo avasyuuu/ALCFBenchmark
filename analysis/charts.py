@@ -85,6 +85,22 @@ def _marker(cx: float, cy: float, r: float, slot: int, title: str = "") -> str:
     return f'<{tag} class="dot k{slot % len(MARKER_SHAPES)}" {attrs}>{inner}</{tag}>'
 
 
+def _log_ticks(lo: float, hi: float) -> list:
+    """Gridline values for a log axis, at a density the range can carry.
+
+    Decades are the right stops for an axis covering several of them and the
+    wrong ones for an axis covering half: a ratio chart running 0.75 to 2.1 has
+    exactly one decade inside it, and a single labelled line is not an axis.
+    """
+    span = math.log10(hi / lo)
+    mults = (1,) if span >= 2 else (1, 2, 5) if span >= 0.7 else (1, 1.5, 2, 3, 5, 7)
+    out, d = [], math.floor(math.log10(lo))
+    while 10 ** d <= hi * (1 + 1e-9):
+        out += [m * 10 ** d for m in mults if lo <= m * 10 ** d <= hi]
+        d += 1
+    return out
+
+
 def _marker_swatch(slot: int) -> str:
     """The same marker at legend size, so the key and the chart agree."""
     return (f'<svg class="mk" viewBox="0 0 12 12" aria-hidden="true">'
@@ -657,12 +673,15 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
     if not series:
         return ""
 
-    models = sorted({s["model"] for s, _ in series})
-    tps = sorted({s.get("tp") for s, _ in series}, key=lambda v: (v is None, v))
-    # Taller than it is stacked, because these lines run close together and the
-    # only thing that separates two curves an eighth of a decade apart is how
-    # many pixels a decade is worth.
-    W, H = 760, 470
+    # Dash and shape come from every sweep on the page, not from the ones this
+    # chart happens to draw. Derived from `series`, a metric that only some
+    # sweeps have -- the TP=1 ratio, where the baselines are absent by
+    # construction -- renumbered the slots, and TP=8 was a triangle on one chart
+    # and a hollow square on the next. The encoding has to survive a reader
+    # changing the metric, exactly as colour survives filtering a machine out.
+    models = sorted({s["model"] for s in sweeps})
+    tps = sorted({s.get("tp") for s in sweeps}, key=lambda v: (v is None, v))
+    W, H = 760, 380
     L, R, T, B = 58, 16, 14, 46
     pw, ph = W - L - R, H - T - B
     xs = [c for _, pts in series for c, _ in pts]
@@ -692,17 +711,11 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
              f'role="img" aria-label="{_esc(label)} against concurrency">']
 
     if log_y:
-        # Decades only, walked from the first one inside the range -- the bounds
-        # are no longer decades themselves, and starting at one would label the
-        # gridlines 0.0047, 0.047, 0.47.
-        d = math.ceil(math.log10(y_lo) - 1e-9)
-        while d <= math.log10(y_hi) + 1e-9:
-            v = 10 ** d
+        for v in _log_ticks(y_lo, y_hi):
             y = py(v)
-            lab = f"{v:g}" if v >= 1 else f"{v:.3f}".rstrip("0")
+            lab = f"{v:g}" if v >= 1 else f"{v:.3f}".rstrip("0").rstrip(".")
             parts.append(f'<line class="grid" x1="{L}" y1="{y:.1f}" x2="{L+pw}" y2="{y:.1f}"/>')
             parts.append(f'<text class="tick" x="{L-8}" y="{y+3.5:.1f}" text-anchor="end">{lab}</text>')
-            d += 1
     else:
         for i in range(5):
             v = y_hi * i / 4
@@ -787,7 +800,11 @@ def _nice_log_bounds(values: list, pad: float = 0.03) -> tuple:
     a marker on top of the axis. It is margin, not range: the decade gridlines
     stay where they were and sit just inside the frame.
     """
-    steps = (1, 2, 5, 10)
+    # A 1-2-5 grid is too coarse for data that spans less than a decade: a ratio
+    # running 0.96 to 1.52 snaps out to 0.5..2 and spends most of the axis on
+    # emptiness. Finer stops where the range is already tight.
+    span = math.log10(max(values) / min(values)) if min(values) > 0 else 1.0
+    steps = (1, 2, 5, 10) if span >= 0.7 else (1, 1.5, 2, 3, 4, 5, 6, 8, 9, 10)
 
     def snap(v, up):
         exp = math.floor(math.log10(v))
@@ -838,8 +855,14 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
     if not series:
         return ""
 
-    models = sorted({s["model"] for s, _ in series})
-    tps = sorted({s.get("tp") for s, _ in series}, key=lambda v: (v is None, v))
+    # Dash and shape come from every sweep on the page, not from the ones this
+    # chart happens to draw. Derived from `series`, a metric that only some
+    # sweeps have -- the TP=1 ratio, where the baselines are absent by
+    # construction -- renumbered the slots, and TP=8 was a triangle on one chart
+    # and a hollow square on the next. The encoding has to survive a reader
+    # changing the metric, exactly as colour survives filtering a machine out.
+    models = sorted({s["model"] for s in sweeps})
+    tps = sorted({s.get("tp") for s in sweeps}, key=lambda v: (v is None, v))
     W = 760
     L, R, T, B = 58, 16, 14, 46
     pw = W - L - R

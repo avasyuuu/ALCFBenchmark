@@ -963,6 +963,32 @@ def load_aiperf(results_dir: str) -> list:
                      for r in sorted(rows, key=lambda r: r["concurrency"])],
             **_aiperf_config(path.parent),
         })
+    return _add_tp_ratio(sweeps)
+
+
+def _add_tp_ratio(sweeps: list) -> list:
+    """Each sweep's tokens/joule against its own TP=1 run.
+
+    Curves for one model on one machine at different tensor parallelism sit
+    within a few percent of each other -- 0.015 decades between the closest
+    pair, which is two pixels. No axis fixes that, because the same chart also
+    carries a 1.19-decade spread between the far-apart configurations and the
+    range has to cover both. A ratio spends the whole axis on the difference.
+
+    Only sweeps with a TP=1 sibling get one, and the TP=1 sweep itself is left
+    out: a line that is 1.0 by construction says nothing the gridline at 1.0
+    does not, and two machines' baselines would overlap exactly.
+    """
+    base = {(s["machine"], s["model"]): s for s in sweeps if s.get("tp") == 1}
+    for sweep in sweeps:
+        ref = base.get((sweep["machine"], sweep["model"]))
+        if ref is None or sweep.get("tp") == 1:
+            continue
+        at = {r["concurrency"]: r.get("tok_per_joule") for r in ref["rows"]}
+        for row in sweep["rows"]:
+            ref_v, v = at.get(row["concurrency"]), row.get("tok_per_joule")
+            if ref_v and v:
+                row["tok_per_joule_vs_tp1"] = v / ref_v
     return sweeps
 
 
@@ -1329,6 +1355,10 @@ def _compare_takeaway(sweeps: list) -> str:
 DASHBOARD_METRICS = [
     ("tok_per_joule", "tokens per joule", True),
     ("tok_per_joule_dynamic", "tokens per joule (dynamic)", True),
+    # Log scale because it is a ratio: x2 and /2 are the same distance from 1,
+    # which a linear axis anchored at zero gets wrong in both directions at
+    # once -- it would also spend most of its range below the data.
+    ("tok_per_joule_vs_tp1", "tokens per joule, relative to TP=1", True),
     ("out_tok_per_s", "output tokens per second", True),
     ("itl_ms", "inter-token latency (ms)", False),
     ("ttft_ms", "time to first token (ms)", False),
