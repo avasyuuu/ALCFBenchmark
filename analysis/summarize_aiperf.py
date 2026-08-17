@@ -218,39 +218,60 @@ def _sidecar(directory: Path, profiling_s: float | None = None) -> dict | None:
         "window_source": None,
     }
 
-    series_name = blob.get("series_file")
-    if not profiling_s or not series_name:
-        return row
-    series_path = directory / series_name
-    if not series_path.exists():
-        return row
-    try:
-        series = json.loads(series_path.read_text(encoding="utf-8-sig"))
-    except (OSError, ValueError):
+    if not profiling_s:
         return row
 
-    bound = frozenset(blob.get("bound_devices") or [])
-    window = _profiling_window(directory, blob)
-    windowed = joules_from_series(
-        series,
-        window=window,
-        tail_s=None if window else profiling_s,
-        bound_devices=bound,
-    )
-    if not windowed or not windowed.get("joules_total"):
-        return row
-    row["window_source"] = "manifest" if window else "tail"
+    # One entry per node since the sidecar learned to span them; sweeps recorded
+    # before that have no list and describe the single node they ran on. Each
+    # node is re-integrated against its OWN start time -- the samplers are
+    # separate processes with separate clocks, and one shared offset would slide
+    # every other node's window off the phase it is supposed to bracket.
+    nodes = blob.get("nodes") or [{
+        "started_utc": blob.get("started_utc"),
+        "bound_devices": blob.get("bound_devices"),
+        "series_file": blob.get("series_file"),
+    }]
+
+    joules = idle_j = 0.0
+    spans, sources, windowed_any = [], None, False
+    for node in nodes:
+        name = node.get("series_file")
+        if not name or not (directory / name).exists():
+            return row       # a node we cannot read is not a node we can subtract
+        try:
+            series = json.loads((directory / name).read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            return row
+        window = _profiling_window(directory, node.get("started_utc"))
+        part = joules_from_series(
+            series,
+            window=window,
+            tail_s=None if window else profiling_s,
+            bound_devices=frozenset(node.get("bound_devices") or []),
+        )
+        if not part or not part.get("joules_total"):
+            return row
+        joules += part["joules_total"]
+        idle_j += part.get("joules_idle") or 0.0
+        spans.append(part["span_s"])
+        windowed_any = windowed_any or part["windowed"]
+        sources = "manifest" if window else "tail"
+
+    # Concurrent samplers, so the job's span is the longest node's, never the
+    # sum -- watts is joules over that, and adding the spans would halve it.
+    span = max(spans)
+    row["window_source"] = sources
     row.update(
-        joules=windowed["joules_total"],
-        watts=windowed["watts"],
-        wall_s=windowed["span_s"],
-        idle_fraction=windowed["idle_fraction"],
-        windowed=windowed["windowed"],
+        joules=joules,
+        watts=joules / span if span else None,
+        wall_s=span,
+        idle_fraction=(idle_j / joules) if joules else None,
+        windowed=windowed_any,
     )
     return row
 
 
-def _profiling_window(directory: Path, sidecar: dict) -> tuple | None:
+def _profiling_window(directory: Path, started_utc: str | None) -> tuple | None:
     """The profiling phase's bounds, in the power series' own seconds.
 
     AIPerf 0.12 writes phase_manifest.json with start_ns/end_ns per phase in
@@ -264,10 +285,14 @@ def _profiling_window(directory: Path, sidecar: dict) -> tuple | None:
     same amount of early profiling, worth 0.1-0.6% of the energy. Small, but
     there is no reason to carry an assumption when the file states the fact.
 
+    Takes the start time rather than the whole sidecar record because each node
+    of a multi-node run has its own: the phase bounds are wall-clock and shared,
+    but the offset from them into a series is per-sampler.
+
     Returns None whenever anything is missing or unparseable -- older artifacts
     have no manifest, and the caller falls back to the tail slice.
     """
-    started = sidecar.get("started_utc")
+    started = started_utc
     if not started:
         return None
     path = directory / "phase_manifest.json"

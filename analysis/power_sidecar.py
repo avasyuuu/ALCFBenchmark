@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import socket
 import subprocess
 import sys
@@ -128,6 +129,222 @@ def parse_devices(spec: str, sources) -> frozenset:
     return frozenset(int(x) for x in spec.split(",") if x.strip())
 
 
+def job_hosts() -> list[str]:
+    """Every node in this PBS job, in nodefile order, deduplicated.
+
+    A one-node job and no job at all look the same from here -- one host, the
+    one we are on -- and both take the single-node path unchanged.
+    """
+    nodefile = os.environ.get("PBS_NODEFILE")
+    if not nodefile or not Path(nodefile).exists():
+        return [socket.gethostname()]
+    seen, hosts = set(), []
+    for line in Path(nodefile).read_text(encoding="utf-8").split():
+        host = line.strip()
+        if host and host not in seen:
+            seen.add(host)
+            hosts.append(host)
+    return hosts or [socket.gethostname()]
+
+
+def _short(host: str) -> str:
+    return host.split(".")[0]
+
+
+def run_agent(args) -> None:
+    """Sample this node's counters until told to stop. No command, no output.
+
+    The counterpart to the orchestrator below, and the whole reason multi-node
+    energy is possible at all: a sidecar can only read the node it runs on, so
+    a job spanning two nodes needs a sampler on each. This half samples; the
+    node running the command does the deciding.
+
+    Readiness is a file rather than a return code because the orchestrator has
+    to know sampling has *started* before it launches the command. An agent that
+    comes up late does not fail -- it silently measures a shorter window, and the
+    joules come out low by however long it took. So it announces itself, and the
+    orchestrator refuses to start until every node has.
+    """
+    machine = args.machine or detect_machine()
+    if machine is None:
+        raise SystemExit(f"agent on {socket.gethostname()}: no machine detected")
+    sources, scope = build_sources(machine)
+    if not sources:
+        raise SystemExit(f"agent on {socket.gethostname()}: no readable counter")
+
+    bound = parse_devices(args.bound_devices, sources)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    stop_file, ready_file = Path(args.stop_file), Path(args.ready_file)
+
+    started = datetime.now(timezone.utc)
+    sampler = PowerSampler(sources, interval_s=args.interval, bound_devices=bound).start()
+    sampler.mark("agent_start")
+    ready_file.write_text(socket.gethostname(), encoding="utf-8")
+
+    # The deadline is not a timeout on the work -- it is what stops an agent
+    # orphaned by a killed orchestrator from sampling until the job's walltime.
+    deadline = time.monotonic() + args.max_seconds
+    while not stop_file.exists() and time.monotonic() < deadline:
+        time.sleep(0.25)
+    sampler.mark("agent_stop")
+    timeline = sampler.stop()
+    if not timeline:
+        raise SystemExit(f"agent on {socket.gethostname()}: fewer than two samples")
+
+    series_path = timeline.write(
+        out.parent, machine, out.stem.replace(".", "_"), socket.gethostname()
+    )
+    out.write_text(json.dumps({
+        "kind": "power_sidecar_agent",
+        "machine": machine,
+        "hostname": socket.gethostname(),
+        "started_utc": started.isoformat(),
+        "counter_scope": scope,
+        "bound_devices": sorted(bound),
+        "series_file": series_path.name,
+        "power": timeline.summary(),
+    }, indent=2), encoding="utf-8")
+    print(f"agent {socket.gethostname()}: wrote {out.name}")
+
+
+def launch_agents(hosts, out: Path, args, repo_root: Path):
+    """Start a sampling agent on every node except this one.
+
+    ssh rather than mpiexec: the launcher differs between Aurora (PALS) and
+    Polaris, and a sidecar that has to know which machine's mpiexec it is under
+    has picked up a dependency it does not need. ALCF permits passwordless ssh
+    between the nodes of a job, which is all this wants.
+
+    sys.executable rather than `python`: a non-login ssh shell has none of the
+    module or venv setup the job script did, and the interpreter that can import
+    pynvml is the one already running this. Both live on a shared filesystem.
+    """
+    stem = out.stem.replace(".", "_")
+    stop_file = out.parent / f".{stem}.stop"
+    stop_file.unlink(missing_ok=True)
+
+    agents, expected = [], []
+    for host in hosts:
+        agent_out = out.parent / f"{stem}.{_short(host)}.agent.json"
+        ready = out.parent / f".{stem}.{_short(host)}.ready"
+        ready.unlink(missing_ok=True)
+        remote = " ".join(shlex.quote(x) for x in [
+            sys.executable, str(repo_root / "analysis" / "power_sidecar.py"),
+            "--agent",
+            "--out", str(agent_out),
+            "--stop-file", str(stop_file),
+            "--ready-file", str(ready),
+            "--interval", str(args.interval),
+            "--bound-devices", args.bound_devices,
+            "--max-seconds", str(args.max_seconds),
+        ] + (["--machine", args.machine] if args.machine else []))
+        proc = subprocess.Popen(
+            ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=no", host,
+             f"cd {shlex.quote(str(repo_root))} && {remote}"],
+        )
+        agents.append((host, proc, agent_out))
+        expected.append((host, ready))
+
+    # Refusing to proceed is the point. Measuring one node of two and reporting
+    # it as the job's energy would halve every joule on the page and look
+    # entirely plausible doing it -- there is no downstream check that catches
+    # a number that is merely wrong by a factor.
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        if all(ready.exists() for _, ready in expected):
+            break
+        for host, proc, _ in agents:
+            if proc.poll() is not None:
+                stop_file.touch()
+                raise SystemExit(
+                    f"power sidecar: the agent on {host} exited "
+                    f"{proc.returncode} before it started sampling. Refusing to "
+                    "run: energy for that node would be missing and the "
+                    "tokens/joule would come out high by roughly the node count."
+                )
+        time.sleep(0.25)
+    else:
+        missing = [h for h, ready in expected if not ready.exists()]
+        stop_file.touch()
+        raise SystemExit(
+            f"power sidecar: no agent reported ready on {', '.join(missing)} "
+            "within 60 s. Refusing to run rather than measure part of the job."
+        )
+    return agents, stop_file
+
+
+def collect_agents(agents, stop_file: Path) -> list[dict]:
+    """Stop every agent, wait for it, and read back what it measured.
+
+    An agent that failed is fatal here for the same reason a late one was fatal
+    at startup: the alternative is a summary that silently covers fewer nodes
+    than the job ran on. The command has already finished by this point, so the
+    cost of refusing is a re-run, not a lost allocation -- and the artifacts are
+    all still on disk to re-derive from by hand if the run was expensive.
+    """
+    stop_file.touch()
+    records, failed = [], []
+    for host, proc, agent_out in agents:
+        try:
+            proc.wait(timeout=120)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            failed.append(f"{host} (agent did not exit)")
+            continue
+        if proc.returncode != 0 or not agent_out.exists():
+            failed.append(f"{host} (exit {proc.returncode})")
+            continue
+        try:
+            records.append(json.loads(agent_out.read_text(encoding="utf-8")))
+        except (OSError, ValueError) as exc:
+            failed.append(f"{host} ({exc})")
+    stop_file.unlink(missing_ok=True)
+    if failed:
+        raise SystemExit(
+            "power sidecar: agent(s) failed on " + ", ".join(failed) +
+            ".\nThe command ran, but its energy is only partly measured. "
+            "Refusing to write a summary that would understate the joules -- "
+            "the per-node artifacts are on disk beside the output."
+        )
+    return [{
+        "hostname": r.get("hostname"),
+        "started_utc": r.get("started_utc"),
+        "counter_scope": r.get("counter_scope"),
+        "bound_devices": r.get("bound_devices"),
+        "series_file": r.get("series_file"),
+        "power": r.get("power") or {},
+    } for r in records]
+
+
+def merge_power(summaries: list[dict]) -> dict:
+    """One node rollup out of several, as if the counters shared a machine.
+
+    Joules add across nodes because they are joules. Spans do not -- the nodes
+    sampled the same wall-clock stretch concurrently, so the span of the whole
+    is the longest of them, not their sum. Getting that backwards would divide
+    the right energy by twice the time and report half the watts.
+    """
+    devices = [d for s in summaries for d in s.get("devices") or []]
+    measured = [s for s in summaries if s.get("joules_total") is not None]
+    total = sum(s["joules_total"] for s in measured)
+    used = sum(s.get("joules_bound") or 0.0 for s in measured)
+    idle = sum(s.get("joules_idle") or 0.0 for s in measured)
+    return {
+        "devices": devices,
+        "device_count": sum(s.get("device_count") or 0 for s in summaries),
+        "devices_bound": sum(s.get("devices_bound") or 0 for s in summaries),
+        "devices_idle": sum(s.get("devices_idle") or 0 for s in summaries),
+        "joules_total": total if measured else None,
+        "joules_bound": used if measured else None,
+        "joules_idle": idle if measured else None,
+        "idle_fraction": (idle / total) if total else None,
+        "sample_interval_s": max((s.get("sample_interval_s") or 0) for s in summaries),
+        "sample_count": sum(s.get("sample_count") or 0 for s in summaries),
+        "span_s": max((s.get("span_s") or 0.0) for s in summaries),
+    }
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(
         description=__doc__.splitlines()[0],
@@ -142,9 +359,22 @@ def main() -> None:
                     help="'all' (default), 'none', or a comma-separated index list")
     ap.add_argument("--label", default=None,
                     help="free-text label recorded in the summary, e.g. the concurrency")
+    ap.add_argument("--single-node", action="store_true",
+                    help="measure only this node even inside a multi-node job")
+    ap.add_argument("--agent", action="store_true",
+                    help=argparse.SUPPRESS)   # internal: started over ssh
+    ap.add_argument("--stop-file", default=None, help=argparse.SUPPRESS)
+    ap.add_argument("--ready-file", default=None, help=argparse.SUPPRESS)
+    ap.add_argument("--max-seconds", type=float, default=7200.0,
+                    help="agent safety stop, in case the orchestrator is killed")
     ap.add_argument("command", nargs=argparse.REMAINDER,
                     help="-- then the command to run")
     args = ap.parse_args()
+
+    if args.agent:
+        if not (args.stop_file and args.ready_file):
+            raise SystemExit("--agent needs --stop-file and --ready-file")
+        return run_agent(args)
 
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     if not command:
@@ -173,6 +403,17 @@ def main() -> None:
     print(f"sidecar: {len(sources)} counter(s) on {machine} via {scope}")
     print(f"         sampling every {args.interval}s while: {' '.join(command)}")
 
+    # Other nodes first, and their samplers are up before the command starts --
+    # a node that begins sampling late reports a short window and low joules,
+    # with nothing downstream able to tell that from a genuinely efficient node.
+    repo_root = Path(__file__).resolve().parent.parent
+    hosts = [] if args.single_node else job_hosts()[1:]
+    agents, stop_file = (launch_agents(hosts, out, args, repo_root)
+                         if hosts else ([], None))
+    if hosts:
+        print(f"         + {len(hosts)} agent(s) sampling on "
+              f"{', '.join(_short(h) for h in hosts)}")
+
     started = datetime.now(timezone.utc)
     sampler = PowerSampler(sources, interval_s=args.interval, bound_devices=bound).start()
     sampler.mark("command_start")
@@ -184,6 +425,7 @@ def main() -> None:
     wall_s = time.perf_counter() - t0
     sampler.mark("command_end")
     timeline = sampler.stop()
+    node_records = collect_agents(agents, stop_file) if agents else []
 
     if not timeline:
         raise SystemExit(
@@ -200,6 +442,20 @@ def main() -> None:
         out.parent, machine, out.stem.replace(".", "_"), socket.gethostname()
     )
 
+    # This node is always the first entry. Written even for a single-node run,
+    # so every consumer has one shape to read and the n=1 case is not special --
+    # the top-level fields stay beside it for the sweeps recorded before this
+    # existed, which have no nodes list at all.
+    nodes = [{
+        "hostname": socket.gethostname(),
+        "started_utc": started.isoformat(),
+        "counter_scope": scope,
+        "bound_devices": sorted(bound),
+        "series_file": series_path.name,
+        "power": summary,
+    }] + node_records
+    node_summary = merge_power([n["power"] for n in nodes]) if node_records else summary
+
     record = {
         "kind": "power_sidecar",
         "machine": machine,
@@ -212,13 +468,16 @@ def main() -> None:
         "counter_scope": scope,
         "bound_devices": sorted(bound),
         "series_file": series_path.name,
-        "power": summary,
+        "node_count": len(nodes),
+        "nodes": nodes,
+        "power": node_summary,
     }
     out.write_text(json.dumps(record, indent=2), encoding="utf-8")
 
-    joules = summary.get("joules_total")
+    joules = node_summary.get("joules_total")
     print(f"\nsidecar: {joules:,.1f} J over {wall_s:,.1f} s "
-          f"({joules / wall_s:,.1f} W avg) across {summary['device_count']} device(s)"
+          f"({joules / wall_s:,.1f} W avg) across {node_summary['device_count']} "
+          f"device(s) on {len(nodes)} node(s)"
           if joules else "\nsidecar: no energy measured")
     print(f"         wrote {out} and {series_path.name}")
     if completed.returncode != 0:
