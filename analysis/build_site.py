@@ -1425,6 +1425,19 @@ def dashboard_body(sweeps: list) -> str:
     # to sit after TP 8 rather than between 1 and 4.
     tps = [str(t) for t in sorted({s.get("tp") for s in sweeps if s.get("tp")})]
 
+    # Opening with everything ticked put seven configurations on one axis, which
+    # is a browsing state rather than a picture -- and it grows with every sweep
+    # added, so the first thing a reader sees gets worse as the work goes better.
+    # The page opens on the most-swept model instead, which is where the machine
+    # comparison and the TP comparison both live, and the rest is one click and
+    # one dimmed legend key away.
+    #
+    # Chosen by count rather than named, so it follows the results: whatever has
+    # been measured most is what the page is currently about.
+    busiest = max(models, key=lambda m: sum(
+        1 for s in sweeps if (s["model"] or "?").split("/")[-1] == m))
+    defaults = {"model": {busiest}}
+
     def boxes(kind, values):
         # Machines are labelled in their own colour, models plainly -- a model
         # has no colour anywhere on this site, and inventing one here would
@@ -1432,9 +1445,11 @@ def dashboard_body(sweeps: list) -> str:
         label = machine_tag if kind == "machine" else html.escape
         if kind == "tp":
             label = lambda v: f"TP={html.escape(v)}"   # noqa: E731
+        on = defaults.get(kind)
         return "".join(
             f'<label class="chip"><input type="checkbox" data-filter="{kind}" '
-            f'value="{html.escape(v)}" checked> {label(v)}</label>'
+            f'value="{html.escape(v)}"{"" if on and v not in on else " checked"}>'
+            f' {label(v)}</label>'
             for v in values
         )
 
@@ -1797,8 +1812,9 @@ def main() -> None:
         title="ALCF Benchmark Dashboard",
         heading="Dashboard",
         lede="Every inference configuration measured so far, filtered in the "
-             "browser. Pick a metric, then choose which machines and models to "
-             "show. Nothing is fetched — the whole dataset is in this page.",
+             "browser. It opens on the most-swept model; tick another to add it, "
+             "and the dimmed keys in the legend are the ones currently hidden. "
+             "Nothing is fetched — the whole dataset is in this page.",
         body=dashboard_body(sweeps),
         footer=footer,
         logo_uri=logo,
