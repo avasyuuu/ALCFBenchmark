@@ -946,10 +946,33 @@ def load_aiperf(results_dir: str) -> list:
             "name": path.parent.name,
             "machine": path.parent.name.split("-")[0],
             "idle_w": blob.get("idle_w"),
-            "rows": sorted(rows, key=lambda r: r["concurrency"]),
+            "rows": [_with_latency_split(r)
+                     for r in sorted(rows, key=lambda r: r["concurrency"])],
             **_aiperf_config(path.parent),
         })
     return sweeps
+
+
+def _with_latency_split(row: dict) -> dict:
+    """Add the prefill/decode split of a request, derived not measured.
+
+    TTFT + ITL x (tokens - 1) is the whole of a request's latency: the wait for
+    the first token, then one inter-token gap for each one after it. It holds
+    exactly -- checked against AIPerf's own request_latency across every level
+    of every sweep here, and it reconstructs it to 0.00%.
+
+    Derived at read time rather than written by summarize_aiperf because it adds
+    no measurement: both terms are already in the row, and a stored copy would
+    be a third number that can disagree with the two it came from.
+    """
+    ttft, itl = row.get("ttft_ms"), row.get("itl_ms")
+    osl = row.get("osl_avg") or row.get("requested_osl")
+    if None in (ttft, itl, osl) or osl < 2:
+        return row
+    latency = ttft + itl * (osl - 1)
+    return {**row,
+            "request_latency_ms": latency,
+            "prefill_share_pct": (ttft / latency * 100) if latency else None}
 
 
 def _aiperf_config(sweep_dir: Path) -> dict:
@@ -1296,6 +1319,13 @@ DASHBOARD_METRICS = [
     ("out_tok_per_s", "output tokens per second", True),
     ("itl_ms", "inter-token latency (ms)", False),
     ("ttft_ms", "time to first token (ms)", False),
+    # The two halves of a request, and how the split moves under load. Drawn as
+    # shares rather than stacked absolutes on purpose: prefill is 1-16% of a
+    # request here, and a stack of 1% on 99% shows a line of colour and hides
+    # the thing worth seeing. The share is the finding; request latency beside
+    # it is what the share is a share of.
+    ("request_latency_ms", "request latency (ms)", False),
+    ("prefill_share_pct", "prefill share of request latency (%)", False),
     ("dynamic_w", "dynamic power (W)", False),
 ]
 
