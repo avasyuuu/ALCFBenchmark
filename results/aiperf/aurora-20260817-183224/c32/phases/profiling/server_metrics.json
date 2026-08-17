@@ -1,0 +1,1504 @@
+{
+  "data": {
+    "benchmark_id": "75f31c5996a7",
+    "end_ns": 1786993562998134404,
+    "endpoint_summaries": {
+      "localhost:8000": {
+        "endpoint_url": "http://localhost:8000/metrics",
+        "info": {
+          "avg_fetch_latency_ms": 4.406874339130435,
+          "avg_update_interval_ms": 323.35956044247786,
+          "duration_seconds": 36.53963033,
+          "first_fetch_ns": 1786993526462689770,
+          "first_update_ns": 1786993526462689770,
+          "last_fetch_ns": 1786993563016722377,
+          "last_update_ns": 1786993563002320100,
+          "median_update_interval_ms": 333.426802,
+          "total_fetches": 115,
+          "unique_updates": 114
+        },
+        "metrics": {
+          "http_request_duration_highr_seconds": {
+            "description": "Latency with many buckets but no API specific labels. Made for more accurate percentile calculations.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "0.01": 0,
+                  "0.025": 0,
+                  "0.05": 0,
+                  "0.075": 0,
+                  "0.1": 0,
+                  "0.25": 0,
+                  "0.5": 0,
+                  "0.75": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 122,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "3.0": 0,
+                  "3.5": 0,
+                  "30.0": 136,
+                  "4.0": 0,
+                  "4.5": 0,
+                  "5.0": 0,
+                  "60.0": 136,
+                  "7.5": 8
+                },
+                "stats": {
+                  "avg": 8.925284939507412,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 7.877353349993621,
+                  "p1_estimate": 5.752200079500199,
+                  "p25_estimate": 8.283729152363938,
+                  "p50_estimate": 8.958670000386292,
+                  "p5_estimate": 7.42633126987505,
+                  "p75_estimate": 9.60950125014486,
+                  "p90_estimate": 10.014812619565294,
+                  "p95_estimate": 10.535444381903131,
+                  "p99_estimate": 11.17409359275257,
+                  "sum": 1213.838751773008,
+                  "sum_rate": 33.05251934431877
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "http_request_duration_seconds": {
+            "description": "Latency with only few buckets by handler. Made to be only used if aggregation by handler is important.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "0.1": 0,
+                  "0.5": 0,
+                  "1.0": 0
+                },
+                "labels": {
+                  "handler": "/v1/chat/completions",
+                  "method": "POST"
+                },
+                "stats": {
+                  "avg": 8.925284939507412,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 2.585056987901482,
+                  "p1_estimate": 1.1585056987901483,
+                  "p25_estimate": 4.962642469753707,
+                  "p50_estimate": 8.925284939507414,
+                  "p5_estimate": 1.7925284939507413,
+                  "p75_estimate": 12.887927409261119,
+                  "p90_estimate": 15.265512891113342,
+                  "p95_estimate": 16.05804138506408,
+                  "p99_estimate": 16.692064180224676,
+                  "sum": 1213.838751773008,
+                  "sum_rate": 33.05251934431877
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "http_requests": {
+            "description": "Total number of requests by method, status and handler.",
+            "series": [
+              {
+                "labels": {
+                  "handler": "/v1/chat/completions",
+                  "method": "POST",
+                  "status": "2xx"
+                },
+                "stats": {
+                  "rate": 3.703245282177282,
+                  "total": 136.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "process_cpu_seconds": {
+            "description": "Total user and system CPU time spent in seconds.",
+            "series": [
+              {
+                "stats": {
+                  "rate": 0.06725746946307266,
+                  "total": 2.469999999999999
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "process_max_fds": {
+            "description": "Maximum number of open file descriptors.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 1048575.0,
+                  "max": 1048575.0,
+                  "min": 1048575.0,
+                  "p1": 1048575.0,
+                  "p10": 1048575.0,
+                  "p25": 1048575.0,
+                  "p5": 1048575.0,
+                  "p50": 1048575.0,
+                  "p75": 1048575.0,
+                  "p90": 1048575.0,
+                  "p95": 1048575.0,
+                  "p99": 1048575.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_open_fds": {
+            "description": "Number of open file descriptors.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 395.8053097345133,
+                  "max": 396.0,
+                  "min": 374.0,
+                  "p1": 396.0,
+                  "p10": 396.0,
+                  "p25": 396.0,
+                  "p5": 396.0,
+                  "p50": 396.0,
+                  "p75": 396.0,
+                  "p90": 396.0,
+                  "p95": 396.0,
+                  "p99": 396.0,
+                  "std": 2.069585910443915
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_resident_memory_bytes": {
+            "description": "Resident memory size in bytes.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 4914495125.522124,
+                  "max": 4914728960.0,
+                  "min": 4910542848.0,
+                  "p1": 4913999872.0,
+                  "p10": 4914266112.0,
+                  "p25": 4914266112.0,
+                  "p5": 4913999872.0,
+                  "p50": 4914728960.0,
+                  "p75": 4914728960.0,
+                  "p90": 4914728960.0,
+                  "p95": 4914728960.0,
+                  "p99": 4914728960.0,
+                  "std": 440647.3397550857
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_start_time_seconds": {
+            "description": "Start time of the process since unix epoch in seconds.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 1786991587.59,
+                  "max": 1786991587.59,
+                  "min": 1786991587.59,
+                  "p1": 1786991587.59,
+                  "p10": 1786991587.59,
+                  "p25": 1786991587.59,
+                  "p5": 1786991587.59,
+                  "p50": 1786991587.59,
+                  "p75": 1786991587.59,
+                  "p90": 1786991587.59,
+                  "p95": 1786991587.59,
+                  "p99": 1786991587.59,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_virtual_memory_bytes": {
+            "description": "Virtual memory size in bytes.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 54090611379680.28,
+                  "max": 54090611449856.0,
+                  "min": 54090610401280.0,
+                  "p1": 54090610401280.0,
+                  "p10": 54090611417088.0,
+                  "p25": 54090611417088.0,
+                  "p5": 54090611417088.0,
+                  "p50": 54090611417088.0,
+                  "p75": 54090611417088.0,
+                  "p90": 54090611449856.0,
+                  "p95": 54090611449856.0,
+                  "p99": 54090611449856.0,
+                  "std": 211902.97728085495
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "python_gc_collections": {
+            "description": "Number of times this generation was collected",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 0.29952719194080957,
+                  "total": 11.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 0.02722974472189178,
+                  "total": 1.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_gc_objects_collected": {
+            "description": "Objects collected during gc",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_gc_objects_uncollectable": {
+            "description": "Uncollectable objects found during GC",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_info": {
+            "description": "Python platform information",
+            "series": [
+              {
+                "labels": {
+                  "implementation": "CPython",
+                  "major": "3",
+                  "minor": "12",
+                  "patchlevel": "12",
+                  "version": "3.12.12"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:cache_config_info": {
+            "description": "Information of the LLMEngine CacheConfig",
+            "series": [
+              {
+                "labels": {
+                  "block_size": "64",
+                  "cache_dtype": "auto",
+                  "calculate_kv_scales": "False",
+                  "cpu_kvcache_space_bytes": "None",
+                  "cpu_offload_gb": "0.0",
+                  "enable_prefix_caching": "True",
+                  "engine": "0",
+                  "gpu_memory_utilization": "0.9",
+                  "is_attention_free": "False",
+                  "kv_cache_memory_bytes": "None",
+                  "kv_offloading_backend": "native",
+                  "kv_offloading_size": "None",
+                  "kv_sharing_fast_prefill": "False",
+                  "mamba_block_size": "None",
+                  "mamba_cache_dtype": "auto",
+                  "mamba_cache_mode": "none",
+                  "mamba_page_size_padded": "None",
+                  "mamba_ssm_cache_dtype": "auto",
+                  "num_cpu_blocks": "None",
+                  "num_gpu_blocks": "26053",
+                  "num_gpu_blocks_override": "None",
+                  "prefix_caching_hash_algo": "sha256",
+                  "sliding_window": "None",
+                  "swap_space": "4.0"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:e2e_request_latency_seconds": {
+            "description": "Histogram of e2e request latency in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "0.3": 0,
+                  "0.5": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 124,
+                  "120.0": 136,
+                  "15.0": 136,
+                  "1920.0": 136,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "20.0": 136,
+                  "240.0": 136,
+                  "30.0": 136,
+                  "40.0": 136,
+                  "480.0": 136,
+                  "5.0": 0,
+                  "50.0": 136,
+                  "60.0": 136,
+                  "7680.0": 136,
+                  "960.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 8.91529022420154,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 7.338986201130611,
+                  "p1_estimate": 6.93893103607564,
+                  "p25_estimate": 8.00574480955556,
+                  "p50_estimate": 9.042665829515276,
+                  "p5_estimate": 7.116733331655627,
+                  "p75_estimate": 9.735748960179679,
+                  "p90_estimate": 10.0,
+                  "p95_estimate": 10.663103268021636,
+                  "p99_estimate": 11.372215709632037,
+                  "sum": 1212.4794704914093,
+                  "sum_rate": 33.015506462015594
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:engine_sleep_state": {
+            "description": "Engine sleep state; awake = 0 means engine is sleeping; awake = 1 means engine is awake; weights_offloaded = 1 means sleep level 1; discard_all = 1 means sleep level 2.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659",
+                  "sleep_state": "awake"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659",
+                  "sleep_state": "weights_offloaded"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659",
+                  "sleep_state": "discard_all"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:external_prefix_cache_hits": {
+            "description": "External prefix cache hits from KV connector cross-instance cache sharing, in terms of number of cached tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:external_prefix_cache_queries": {
+            "description": "External prefix cache queries from KV connector cross-instance cache sharing, in terms of number of queried tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:generation_tokens": {
+            "description": "Number of generation tokens processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 893.1900863674941,
+                  "total": 32802.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:inter_token_latency_seconds": {
+            "description": "Histogram of inter-token latency in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32674,
+                  "0.01": 0,
+                  "0.025": 98,
+                  "0.05": 30898,
+                  "0.075": 30960,
+                  "0.1": 31246,
+                  "0.15": 32642,
+                  "0.2": 32674,
+                  "0.3": 32674,
+                  "0.4": 32674,
+                  "0.5": 32674,
+                  "0.75": 32674,
+                  "1.0": 32674,
+                  "10.0": 32674,
+                  "2.5": 32674,
+                  "20.0": 32674,
+                  "40.0": 32674,
+                  "5.0": 32674,
+                  "7.5": 32674,
+                  "80.0": 32674
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.03331875978095734,
+                  "count": 32674,
+                  "count_rate": 889.704679043092,
+                  "p10_estimate": 0.028084472624933635,
+                  "p1_estimate": 0.027978831577703728,
+                  "p25_estimate": 0.028260541036983486,
+                  "p50_estimate": 0.02855398839039991,
+                  "p5_estimate": 0.028025783154250354,
+                  "p75_estimate": 0.028847435743816326,
+                  "p90_estimate": 0.029023504155866176,
+                  "p95_estimate": 0.08179003524809698,
+                  "p99_estimate": 0.1333400601259668,
+                  "sum": 1088.6571570830001,
+                  "sum_rate": 29.643856477030532
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:iteration_tokens_total": {
+            "description": "Histogram of number of tokens per engine_step.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 1055,
+                  "1.0": 1,
+                  "1024.0": 981,
+                  "128.0": 981,
+                  "16.0": 15,
+                  "16384.0": 1055,
+                  "2048.0": 1001,
+                  "256.0": 981,
+                  "32.0": 981,
+                  "4096.0": 1055,
+                  "512.0": 981,
+                  "64.0": 981,
+                  "8.0": 11,
+                  "8192.0": 1055
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 159.59336492890995,
+                  "count": 1055,
+                  "count_rate": 28.72738068159583,
+                  "p10_estimate": 31.440101503767785,
+                  "p1_estimate": 8.436530662031643,
+                  "p25_estimate": 31.51085762989358,
+                  "p50_estimate": 31.61605344105902,
+                  "p5_estimate": 31.41651612839252,
+                  "p75_estimate": 31.62026384963643,
+                  "p90_estimate": 31.62279009478287,
+                  "p95_estimate": 2101.8240736838584,
+                  "p99_estimate": 2127.368015593814,
+                  "sum": 168371.0,
+                  "sum_rate": 4584.699348569641
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:kv_cache_usage_perc": {
+            "description": "KV-cache usage. 1 means 100 percent usage.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.0213487252859835,
+                  "max": 0.02579456471672037,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.018562874251496966,
+                  "p25": 0.020881314294487918,
+                  "p5": 0.007961001074773535,
+                  "p50": 0.02233993551358826,
+                  "p75": 0.02410563488407802,
+                  "p90": 0.024658375556579147,
+                  "p95": 0.0256487025948104,
+                  "p99": 0.02579456471672037,
+                  "std": 0.005288364511201142
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:mm_cache_hits": {
+            "description": "Multi-modal cache hits, in terms of number of cached items.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:mm_cache_queries": {
+            "description": "Multi-modal cache queries, in terms of number of queried items.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:num_preemptions": {
+            "description": "Cumulative number of preemption from the engine.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:num_requests_running": {
+            "description": "Number of requests in model execution batches.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 29.47787610619469,
+                  "max": 32.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 28.0,
+                  "p25": 30.0,
+                  "p5": 12.600000000000003,
+                  "p50": 32.0,
+                  "p75": 32.0,
+                  "p90": 32.0,
+                  "p95": 32.0,
+                  "p99": 32.0,
+                  "std": 6.867492452974093
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:num_requests_waiting": {
+            "description": "Number of requests waiting to be processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.8053097345132744,
+                  "max": 29.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.799999999999983,
+                  "p99": 22.279999999999973,
+                  "std": 4.017502793757687
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:prefix_cache_hits": {
+            "description": "Prefix cache hits, in terms of number of cached tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:prefix_cache_queries": {
+            "description": "Prefix cache queries, in terms of number of queried tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 3691.5092622021466,
+                  "total": 135569.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:prompt_tokens": {
+            "description": "Number of prefill tokens processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 3691.5092622021466,
+                  "total": 135569.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:request_decode_time_seconds": {
+            "description": "Histogram of time spent in DECODE phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "0.3": 0,
+                  "0.5": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 136,
+                  "120.0": 136,
+                  "15.0": 136,
+                  "1920.0": 136,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "20.0": 136,
+                  "240.0": 136,
+                  "30.0": 136,
+                  "40.0": 136,
+                  "480.0": 136,
+                  "5.0": 0,
+                  "50.0": 136,
+                  "60.0": 136,
+                  "7680.0": 136,
+                  "960.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 8.354234915485343,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 6.954464348286871,
+                  "p1_estimate": 6.6299183767396235,
+                  "p25_estimate": 7.495374300865617,
+                  "p50_estimate": 8.396263594776103,
+                  "p5_estimate": 6.774161030760622,
+                  "p75_estimate": 9.213722823825826,
+                  "p90_estimate": 9.703821985023207,
+                  "p95_estimate": 9.867188372089,
+                  "p99_estimate": 9.993752466304763,
+                  "sum": 1136.1759485060065,
+                  "sum_rate": 30.937781036971817
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_generation_tokens": {
+            "description": "Number of generation tokens processed.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 136,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 136,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 136,
+                  "5000.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 256.0,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 200.0,
+                  "p1_estimate": 200.0,
+                  "p25_estimate": 200.0,
+                  "p50_estimate": 241.2745458477509,
+                  "p5_estimate": 200.0,
+                  "p75_estimate": 315.72307525951555,
+                  "p90_estimate": 360.3921929065744,
+                  "p95_estimate": 375.2818987889273,
+                  "p99_estimate": 387.1936634948097,
+                  "sum": 34816.0,
+                  "sum_rate": 948.0307922373842
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_inference_time_seconds": {
+            "description": "Histogram of time spent in RUNNING phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "0.3": 0,
+                  "0.5": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 136,
+                  "120.0": 136,
+                  "15.0": 136,
+                  "1920.0": 136,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "20.0": 136,
+                  "240.0": 136,
+                  "30.0": 136,
+                  "40.0": 136,
+                  "480.0": 136,
+                  "5.0": 0,
+                  "50.0": 136,
+                  "60.0": 136,
+                  "7680.0": 136,
+                  "960.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 8.640187870507281,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 7.304001136532325,
+                  "p1_estimate": 6.976859529114445,
+                  "p25_estimate": 7.84923714889546,
+                  "p50_estimate": 8.756231836672349,
+                  "p5_estimate": 7.122255799077948,
+                  "p75_estimate": 9.432870591614105,
+                  "p90_estimate": 9.837814644882158,
+                  "p95_estimate": 9.972795995971508,
+                  "p99_estimate": 10.0,
+                  "sum": 1175.0655503889902,
+                  "sum_rate": 31.996734968581467
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_max_num_generation_tokens": {
+            "description": "Histogram of maximum number of requested generation tokens.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 136,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 136,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 136,
+                  "5000.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 256.0,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 200.0,
+                  "p1_estimate": 200.0,
+                  "p25_estimate": 200.0,
+                  "p50_estimate": 241.2745458477509,
+                  "p5_estimate": 200.0,
+                  "p75_estimate": 315.72307525951555,
+                  "p90_estimate": 360.3921929065744,
+                  "p95_estimate": 375.2818987889273,
+                  "p99_estimate": 387.1936634948097,
+                  "sum": 34816.0,
+                  "sum_rate": 948.0307922373842
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_params_max_tokens": {
+            "description": "Histogram of the max_tokens request parameter.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 136,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 136,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 136,
+                  "5000.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 256.0,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 200.0,
+                  "p1_estimate": 200.0,
+                  "p25_estimate": 200.0,
+                  "p50_estimate": 241.2745458477509,
+                  "p5_estimate": 200.0,
+                  "p75_estimate": 315.72307525951555,
+                  "p90_estimate": 360.3921929065744,
+                  "p95_estimate": 375.2818987889273,
+                  "p99_estimate": 387.1936634948097,
+                  "sum": 34816.0,
+                  "sum_rate": 948.0307922373842
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_params_n": {
+            "description": "Histogram of the n request parameter.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "1.0": 136,
+                  "10.0": 136,
+                  "2.0": 136,
+                  "20.0": 136,
+                  "5.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 0.5029411764705882,
+                  "p1_estimate": 0.4136029411764706,
+                  "p25_estimate": 0.6518382352941177,
+                  "p50_estimate": 0.9,
+                  "p5_estimate": 0.4533088235294118,
+                  "p75_estimate": 1.0,
+                  "p90_estimate": 1.0,
+                  "p95_estimate": 1.0,
+                  "p99_estimate": 1.0,
+                  "sum": 136.0,
+                  "sum_rate": 3.703245282177282
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_prefill_kv_computed_tokens": {
+            "description": "Histogram of new KV tokens computed during prefill (excluding cached tokens).",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 0,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 136,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 0,
+                  "5000.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 1059.2573529411766,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 1059.2610820505743,
+                  "p1_estimate": 1059.2610820505743,
+                  "p25_estimate": 1059.2610820505743,
+                  "p50_estimate": 1059.2610820505743,
+                  "p5_estimate": 1059.2610820505743,
+                  "p75_estimate": 1059.2610820505743,
+                  "p90_estimate": 1059.2610820505743,
+                  "p95_estimate": 1059.2610820505743,
+                  "p99_estimate": 1059.2610820505743,
+                  "sum": 144059.0,
+                  "sum_rate": 3922.6897948910078
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_prefill_time_seconds": {
+            "description": "Histogram of time spent in PREFILL phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "0.3": 78,
+                  "0.5": 136,
+                  "0.8": 136,
+                  "1.0": 136,
+                  "1.5": 136,
+                  "10.0": 136,
+                  "120.0": 136,
+                  "15.0": 136,
+                  "1920.0": 136,
+                  "2.0": 136,
+                  "2.5": 136,
+                  "20.0": 136,
+                  "240.0": 136,
+                  "30.0": 136,
+                  "40.0": 136,
+                  "480.0": 136,
+                  "5.0": 136,
+                  "50.0": 136,
+                  "60.0": 136,
+                  "7680.0": 136,
+                  "960.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.28595295502193896,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 0.09538016554202966,
+                  "p1_estimate": 0.04708250454541644,
+                  "p25_estimate": 0.17587626720305166,
+                  "p50_estimate": 0.3,
+                  "p5_estimate": 0.0685481316550223,
+                  "p75_estimate": 0.38,
+                  "p90_estimate": 0.4353355589300391,
+                  "p95_estimate": 0.45861142099900465,
+                  "p99_estimate": 0.47723211065417703,
+                  "sum": 38.8896018829837,
+                  "sum_rate": 1.058953931609648
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_prompt_tokens": {
+            "description": "Number of prefill tokens processed.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 0,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 136,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 0,
+                  "5000.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 1059.2573529411766,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 1059.2610820505743,
+                  "p1_estimate": 1059.2610820505743,
+                  "p25_estimate": 1059.2610820505743,
+                  "p50_estimate": 1059.2610820505743,
+                  "p5_estimate": 1059.2610820505743,
+                  "p75_estimate": 1059.2610820505743,
+                  "p90_estimate": 1059.2610820505743,
+                  "p95_estimate": 1059.2610820505743,
+                  "p99_estimate": 1059.2610820505743,
+                  "sum": 144059.0,
+                  "sum_rate": 3922.6897948910078
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_queue_time_seconds": {
+            "description": "Histogram of time spent in WAITING phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "0.3": 113,
+                  "0.5": 117,
+                  "0.8": 121,
+                  "1.0": 125,
+                  "1.5": 132,
+                  "10.0": 136,
+                  "120.0": 136,
+                  "15.0": 136,
+                  "1920.0": 136,
+                  "2.0": 136,
+                  "2.5": 136,
+                  "20.0": 136,
+                  "240.0": 136,
+                  "30.0": 136,
+                  "40.0": 136,
+                  "480.0": 136,
+                  "5.0": 136,
+                  "50.0": 136,
+                  "60.0": 136,
+                  "7680.0": 136,
+                  "960.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.18611612732361743,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 0.0017625201567205168,
+                  "p1_estimate": 0.0002790548221569818,
+                  "p25_estimate": 0.004234962380993075,
+                  "p50_estimate": 0.017957246998538602,
+                  "p5_estimate": 0.0009383727486296634,
+                  "p75_estimate": 0.05025643888480417,
+                  "p90_estimate": 0.8525606127274421,
+                  "p95_estimate": 1.2177181191099626,
+                  "p99_estimate": 1.7574200629528627,
+                  "sum": 25.311793316011972,
+                  "sum_rate": 0.6892336704482926
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_success": {
+            "description": "Count of successfully processed requests.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "stop",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "length",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 3.703245282177282,
+                  "total": 136.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "abort",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "error",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:request_time_per_output_token_seconds": {
+            "description": "Histogram of time_per_output_token_seconds per request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 136,
+                  "0.01": 0,
+                  "0.025": 8,
+                  "0.05": 136,
+                  "0.075": 136,
+                  "0.1": 136,
+                  "0.15": 136,
+                  "0.2": 136,
+                  "0.3": 136,
+                  "0.4": 136,
+                  "0.5": 136,
+                  "0.75": 136,
+                  "1.0": 136,
+                  "10.0": 136,
+                  "2.5": 136,
+                  "20.0": 136,
+                  "40.0": 136,
+                  "5.0": 136,
+                  "7.5": 136,
+                  "80.0": 136
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.03276170555092264,
+                  "count": 136,
+                  "count_rate": 3.703245282177282,
+                  "p10_estimate": 0.02999805783920046,
+                  "p1_estimate": 0.019713911818198343,
+                  "p25_estimate": 0.03118737360361094,
+                  "p50_estimate": 0.03316956654429508,
+                  "p5_estimate": 0.025,
+                  "p75_estimate": 0.035151759484979214,
+                  "p90_estimate": 0.0363410752493897,
+                  "p95_estimate": 0.03673751383752653,
+                  "p99_estimate": 0.037054664708035985,
+                  "sum": 4.455591954925479,
+                  "sum_rate": 0.12132463151753554
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:time_to_first_token_seconds": {
+            "description": "Histogram of time to first token in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "0.001": 0,
+                  "0.005": 0,
+                  "0.01": 0,
+                  "0.02": 0,
+                  "0.04": 0,
+                  "0.06": 0,
+                  "0.08": 0,
+                  "0.1": 1,
+                  "0.25": 12,
+                  "0.5": 102,
+                  "0.75": 106,
+                  "1.0": 110,
+                  "10.0": 128,
+                  "160.0": 128,
+                  "2.5": 128,
+                  "20.0": 128,
+                  "2560.0": 128,
+                  "40.0": 128,
+                  "5.0": 128,
+                  "640.0": 128,
+                  "7.5": 128,
+                  "80.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/flare/datasets/model-weights/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.5728044416755438,
+                  "count": 128,
+                  "count_rate": 3.4854073244021477,
+                  "p10_estimate": 0.35151022826771694,
+                  "p1_estimate": 0.10352276161870282,
+                  "p25_estimate": 0.37406783294074547,
+                  "p50_estimate": 0.41166384072912643,
+                  "p5_estimate": 0.16695264644258867,
+                  "p75_estimate": 0.4492598485175074,
+                  "p90_estimate": 1.2751114001793225,
+                  "p95_estimate": 1.7759791738545778,
+                  "p99_estimate": 2.269438544454432,
+                  "sum": 73.3189685344696,
+                  "sum_rate": 1.9964567964660231
+                }
+              }
+            ],
+            "type": "histogram"
+          }
+        }
+      }
+    },
+    "endpoints_configured": [
+      "http://localhost:8000/metrics"
+    ],
+    "endpoints_successful": [
+      "http://localhost:8000/metrics"
+    ],
+    "error_summary": [],
+    "start_ns": 1786993526437473827,
+    "warmup_end_ns": 1786993526483336609
+  },
+  "phase": {
+    "end_ns": 1786993562998124940,
+    "phase_index": 1,
+    "phase_kind": "profiling",
+    "phase_name": "profiling",
+    "profiling_index": 0,
+    "start_ns": 1786993526437485545,
+    "was_cancelled": false
+  },
+  "schema_version": 1,
+  "warnings": []
+}
