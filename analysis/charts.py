@@ -659,15 +659,20 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
 
     models = sorted({s["model"] for s, _ in series})
     tps = sorted({s.get("tp") for s, _ in series}, key=lambda v: (v is None, v))
-    W, H = 760, 380
+    # Taller than it is stacked, because these lines run close together and the
+    # only thing that separates two curves an eighth of a decade apart is how
+    # many pixels a decade is worth.
+    W, H = 760, 470
     L, R, T, B = 58, 16, 14, 46
     pw, ph = W - L - R, H - T - B
     xs = [c for _, pts in series for c, _ in pts]
     ys = [v for _, pts in series for _, v in pts]
     x_lo, x_hi = min(xs), max(xs)
     if log_y:
-        y_lo = 10 ** math.floor(math.log10(min(ys)))
-        y_hi = 10 ** math.ceil(math.log10(max(ys)))
+        # Whole decades cost whole decades: tokens/joule bottoms out at 0.0091
+        # and the floor snapped to 0.001, spending a third of the axis below any
+        # data. Same fix, and the same reason, as the power chart's.
+        y_lo, y_hi = _nice_log_bounds(ys)
     else:
         y_lo, y_hi = 0, max(ys) * 1.08
 
@@ -687,7 +692,10 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
              f'role="img" aria-label="{_esc(label)} against concurrency">']
 
     if log_y:
-        d = math.log10(y_lo)
+        # Decades only, walked from the first one inside the range -- the bounds
+        # are no longer decades themselves, and starting at one would label the
+        # gridlines 0.0047, 0.047, 0.47.
+        d = math.ceil(math.log10(y_lo) - 1e-9)
         while d <= math.log10(y_hi) + 1e-9:
             v = 10 ** d
             y = py(v)
