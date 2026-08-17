@@ -33,24 +33,38 @@ TARGET_LABEL = "target 0.90"
 # position among the TPs present rather than by value, matching MODEL_DASHES, so
 # adding a TP=2 sweep does not repaint the ones already on the page.
 #
-# Shape rather than another dash or a lighter tint: dash is taken, and lightness
-# is the one channel that has to keep working in both themes and under the
-# colour-vision check the palette was picked against. Shape survives all of it,
-# and survives being four pixels across.
+# Shape leads rather than colour: dash is taken by the model, and hue has to
+# stay the machine's. Shape survives being four pixels across and survives the
+# colour-vision check the palette was picked against.
+#
+# Fill varies with it, in the stylesheet, for the case shape alone does not
+# cover -- two markers on the same point. See _marker.
 MARKER_SHAPES = ("circle", "square", "triangle", "diamond")
 
 
-def _tp_shape(tp, tps: list) -> str:
-    """The marker for one sweep's tensor parallelism."""
+def _tp_slot(tp, tps: list) -> int:
+    """Which marker treatment one sweep's tensor parallelism gets."""
     try:
-        return MARKER_SHAPES[tps.index(tp) % len(MARKER_SHAPES)]
+        return tps.index(tp) % len(MARKER_SHAPES)
     except ValueError:
-        return MARKER_SHAPES[0]
+        return 0
 
 
-def _marker(cx: float, cy: float, r: float, shape: str, title: str = "") -> str:
-    """One data point. Same class and so the same fill, ring and hit target as
-    the circle every chart here used before shape meant something."""
+def _marker(cx: float, cy: float, r: float, slot: int, title: str = "") -> str:
+    """One data point: a shape from the slot, and a fill from it too.
+
+    Shape alone was not enough where two sweeps cross. A solid marker hides the
+    one under it completely, so a TP=4 point landing on a TP=8 point read as a
+    single point of unknown identity -- which is the ambiguity the shapes were
+    added to remove, returned in a smaller form.
+
+    So the slot also picks a fill: solid, a paler tone of the same hue, hollow,
+    and a deeper tone. Two markers on the same spot now differ in silhouette and
+    in weight, and the hollow one shows what it lands on rather than erasing it.
+    Redundant with shape on purpose -- either channel alone identifies the
+    series, so neither has to survive being small on its own.
+    """
+    shape = MARKER_SHAPES[slot % len(MARKER_SHAPES)]
     if shape == "square":
         tag, attrs = "rect", (f'x="{cx - r:.1f}" y="{cy - r:.1f}" '
                               f'width="{2 * r:.1f}" height="{2 * r:.1f}"')
@@ -65,13 +79,13 @@ def _marker(cx: float, cy: float, r: float, shape: str, title: str = "") -> str:
     else:
         tag, attrs = "circle", f'cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}"'
     inner = f"<title>{title}</title>" if title else ""
-    return f'<{tag} class="dot" {attrs}>{inner}</{tag}>'
+    return f'<{tag} class="dot k{slot % len(MARKER_SHAPES)}" {attrs}>{inner}</{tag}>'
 
 
-def _marker_swatch(shape: str) -> str:
-    """The same shape at legend size, so the key and the chart agree."""
+def _marker_swatch(slot: int) -> str:
+    """The same marker at legend size, so the key and the chart agree."""
     return (f'<svg class="mk" viewBox="0 0 12 12" aria-hidden="true">'
-            f'{_marker(6, 6, 3.6, shape)}</svg>')
+            f'{_marker(6, 6, 3.4, slot)}</svg>')
 
 # Left margin on the charts that name their y axis. Wide enough for a rotated
 # title at x=14 plus the tick labels it must not touch.
@@ -702,10 +716,10 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
         if len(pts) > 1:
             line = " ".join(f"{px(c):.1f},{py(v):.1f}" for c, v in pts)
             parts.append(f'<polyline class="ln" points="{line}"{style}/>')
-        shape = _tp_shape(sweep.get("tp"), tps)
+        slot = _tp_slot(sweep.get("tp"), tps)
         for c, v in pts:
             parts.append(_marker(
-                px(c), py(v), 4, shape,
+                px(c), py(v), 4, slot,
                 f'{_esc(machine)} {_esc(model)} TP={_esc(tp)} — '
                 f'concurrency {c}: {v:,.3g} {_esc(label)}'))
         parts.append("</g>")
@@ -739,7 +753,7 @@ def dashboard_legend(sweeps: list) -> str:
         keys += (f'<span class="key s{_slot(machine)}" data-machine="{_esc(machine)}" '
                  f'data-model="{_esc(model)}" data-tp="{_esc(sweep.get("tp") or "")}">'
                  f'<span class="sw" style="background:{bg}"></span>'
-                 f'{_marker_swatch(_tp_shape(sweep.get("tp"), tps))}'
+                 f'{_marker_swatch(_tp_slot(sweep.get("tp"), tps))}'
                  f'{machine_tag(machine)} · {_esc(model)}'
                  + (f' · TP={_esc(sweep["tp"])}' if sweep.get("tp") else "") + "</span>")
     return f'<div class="legend-row">{keys}</div>'
@@ -890,11 +904,11 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
             parts.append(f'<polyline class="ln" points="{line}"{style}/>')
         # Size still runs with concurrency and shape now runs with TP. The two
         # do not collide: size is read along a line, shape between lines.
-        shape = _tp_shape(sweep.get("tp"), tps)
+        slot = _tp_slot(sweep.get("tp"), tps)
         for i, (x, y, c) in enumerate(pts):
             r = 2.6 + 2.6 * (i / max(1, len(pts) - 1))
             parts.append(_marker(
-                px(x), py(y), r, shape,
+                px(x), py(y), r, slot,
                 f'{_esc(machine)} {_esc(model)} TP={_esc(sweep.get("tp") or "?")} — '
                 f'concurrency {c}: {y:,.1f} tok/s at {x:,.0f} W = {y/x:.3f} tok/J'))
         parts.append("</g>")
