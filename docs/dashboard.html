@@ -240,6 +240,12 @@ a:hover { border-bottom-color:var(--accent); }
 .controls { display:flex; flex-wrap:wrap; gap:1.4rem 2rem; margin:1.4rem 0 1rem;
   padding:1rem 1.2rem; background:var(--card); border:1px solid var(--line);
   border-radius:10px; }
+/* Beats .ctl's own display, which the browser's [hidden] rule does not: the
+   coordinate row for whatever is currently on the x axis has to actually
+   disappear, not merely carry the attribute. */
+.ctl[hidden] { display:none; }
+.chip input:disabled + *, .chip:has(input:disabled) { opacity:.35; }
+.chip:has(input:disabled) { cursor:not-allowed; }
 .ctl { display:flex; flex-direction:column; gap:.45rem; font-size:.72rem;
   text-transform:uppercase; letter-spacing:.07em; color:var(--dim); }
 .ctl select { font:inherit; font-size:.85rem; text-transform:none;
@@ -349,10 +355,13 @@ count — see each sweep's run_meta.json.</figcaption></figure>
     // A sweep with no recorded TP is never hidden by the TP filter -- it has
     // no chip to tick, and filtering it out would make it unreachable. Same for
     // a held coordinate a series does not carry.
-    function keep(el) {
+    function basics(el) {
       var t = el.getAttribute('data-tp');
-      if (!(m[el.getAttribute('data-machine')] && mo[el.getAttribute('data-model')]
-            && (!t || tp[t]))) return false;
+      return m[el.getAttribute('data-machine')] && mo[el.getAttribute('data-model')]
+             && (!t || tp[t]);
+    }
+    function keep(el) {
+      if (!basics(el)) return false;
       for (var k in SHORT) {
         var short = SHORT[k];
         if (short === onAxis) continue;
@@ -365,6 +374,40 @@ count — see each sweep's run_meta.json.</figcaption></figure>
       w.hidden = w.getAttribute('data-metric') !== metric.value
                  || w.getAttribute('data-x') !== xaxis.value;
     });
+    // The shape grid is sparse -- five of nine ISL x OSL combinations were
+    // measured -- so most slices hold one point or none. Offering them all lets
+    // a reader land on an empty frame and conclude the page is broken, when in
+    // fact they picked a slice nobody ran. So each option is checked against
+    // the chart in front of it and switched off when it cannot draw a line.
+    var active = document.querySelector('.chartwrap:not([hidden])');
+    if (active) {
+      var groups = [].slice.call(active.querySelectorAll('.series')).filter(function (g) {
+        return g.querySelectorAll('.dot').length >= 2 && basics(g);
+      });
+      document.querySelectorAll('.ctl.coord').forEach(function (row) {
+        var short = row.getAttribute('data-for');
+        if (short === onAxis) return;
+        var viable = null;
+        row.querySelectorAll('[data-coord]').forEach(function (r) {
+          var ok = groups.some(function (g) {
+            if (g.getAttribute('data-' + short) !== r.value) return false;
+            for (var k in SHORT) {
+              var o = SHORT[k];
+              if (o === onAxis || o === short) continue;
+              var v = g.getAttribute('data-' + o);
+              if (v && coord(o) && v !== coord(o)) return false;
+            }
+            return true;
+          });
+          r.disabled = !ok;
+          if (ok && viable === null) viable = r;
+        });
+        // Landing on a dead slice after switching axis is the common case, so
+        // the selection moves to one that exists rather than showing nothing.
+        var chosen = row.querySelector('[data-coord]:checked');
+        if (viable && (!chosen || chosen.disabled)) { viable.checked = true; }
+      });
+    }
     document.querySelectorAll('.series').forEach(function (g) {
       var on = keep(g);
       g.style.display = on ? '' : 'none';
@@ -460,7 +503,7 @@ count — see each sweep's run_meta.json.</figcaption></figure>
 </script>
 
 <footer>
-Generated 2026-08-17 20:45 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
+Generated 2026-08-17 20:51 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.
