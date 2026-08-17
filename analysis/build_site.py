@@ -569,6 +569,10 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
    viewport would scale both axes and keep the ratio, but at 1.5x it is a chart
    taller than the window, so it stops at its natural width and centres. */
 .chart.xy {{ max-width:760px; margin-inline:auto; }}
+/* Legend marker: the same shape the chart draws, at the size a key needs.
+   Sits on the text baseline so a row of keys does not go ragged. */
+.mk {{ width:12px; height:12px; vertical-align:-2px; margin-right:4px;
+  overflow:visible; }}
 /* Grid and axes: hairline, solid, one step off the surface. Never dashed --
    dashing reads as "projection" when it is only a grid. */
 .grid {{ stroke:var(--line); stroke-width:1; }}
@@ -1319,12 +1323,17 @@ def dashboard_body(sweeps: list) -> str:
 
     machines = sorted({s["machine"] for s in sweeps})
     models = sorted({(s["model"] or "?").split("/")[-1] for s in sweeps})
+    # Sorted numerically, not as the strings they become in the DOM: TP 10 has
+    # to sit after TP 8 rather than between 1 and 4.
+    tps = [str(t) for t in sorted({s.get("tp") for s in sweeps if s.get("tp")})]
 
     def boxes(kind, values):
         # Machines are labelled in their own colour, models plainly -- a model
         # has no colour anywhere on this site, and inventing one here would
         # imply a mapping the charts do not share.
         label = machine_tag if kind == "machine" else html.escape
+        if kind == "tp":
+            label = lambda v: f"TP={html.escape(v)}"   # noqa: E731
         return "".join(
             f'<label class="chip"><input type="checkbox" data-filter="{kind}" '
             f'value="{html.escape(v)}" checked> {label(v)}</label>'
@@ -1355,10 +1364,11 @@ def dashboard_body(sweeps: list) -> str:
     )
 
     rows = []
-    for sweep in sorted(sweeps, key=lambda s: (s["machine"], s["model"] or "")):
+    for sweep in sorted(sweeps, key=lambda s: (s["machine"], s["model"] or "",
+                                               s.get("tp") or 0)):
         model = (sweep["model"] or "?").split("/")[-1]
         for r in sorted(sweep["rows"], key=lambda r: r["concurrency"]):
-            rows.append((sweep["machine"], model, [
+            rows.append((sweep["machine"], model, str(sweep.get("tp") or ""), [
                 machine_tag(sweep["machine"]),
                 html.escape(model),
                 num(sweep.get("tp")) if sweep.get("tp") else "—",
@@ -1375,9 +1385,10 @@ def dashboard_body(sweeps: list) -> str:
         "Machine", "Model", "TP", "Conc", "Out tok/s", "TTFT ms", "ITL ms",
         "Dyn W", "Joules", "Tok/J", "Tok/J dyn"))
     body = "".join(
-        f'<tr data-machine="{html.escape(m)}" data-model="{html.escape(mo)}">'
+        f'<tr data-machine="{html.escape(m)}" data-model="{html.escape(mo)}" '
+        f'data-tp="{html.escape(tp)}">'
         + "".join(f"<td>{c}</td>" for c in cells) + "</tr>"
-        for m, mo, cells in rows
+        for m, mo, tp, cells in rows
     )
 
     return f"""
@@ -1387,6 +1398,7 @@ def dashboard_body(sweeps: list) -> str:
   </label>
   <div class="ctl"><span>Machines</span><div class="chips">{boxes("machine", machines)}</div></div>
   <div class="ctl"><span>Models</span><div class="chips">{boxes("model", models)}</div></div>
+  <div class="ctl"><span>Tensor parallel</span><div class="chips">{boxes("tp", tps)}</div></div>
 </div>
 {charts}
 {dashboard_legend(sweeps)}
@@ -1412,18 +1424,25 @@ count — see each sweep's run_meta.json.</figcaption></figure>
     return out;
   }}
   function apply() {{
-    var m = selected('machine'), mo = selected('model'), shown = 0;
+    var m = selected('machine'), mo = selected('model'), tp = selected('tp'), shown = 0;
+    // A sweep with no recorded TP is never hidden by the TP filter -- it has
+    // no chip to tick, and filtering it out would make it unreachable.
+    function keep(el) {{
+      var t = el.getAttribute('data-tp');
+      return m[el.getAttribute('data-machine')] && mo[el.getAttribute('data-model')]
+             && (!t || tp[t]);
+    }}
     document.querySelectorAll('.chartwrap').forEach(function (w) {{
       w.hidden = w.getAttribute('data-metric') !== metric.value;
     }});
     document.querySelectorAll('.series').forEach(function (g) {{
-      var on = m[g.getAttribute('data-machine')] && mo[g.getAttribute('data-model')];
+      var on = keep(g);
       g.style.display = on ? '' : 'none';
       if (on) shown++;
     }});
     var rows = document.querySelectorAll('#rows tbody tr'), visible = 0;
     rows.forEach(function (tr) {{
-      var on = m[tr.getAttribute('data-machine')] && mo[tr.getAttribute('data-model')];
+      var on = keep(tr);
       tr.style.display = on ? '' : 'none';
       if (on) visible++;
     }});
@@ -1434,8 +1453,7 @@ count — see each sweep's run_meta.json.</figcaption></figure>
       visible === rows.length ? '(' + rows.length + ')'
                               : '(' + visible + ' of ' + rows.length + ')';
     document.querySelectorAll('.legend-row .key').forEach(function (k) {{
-      var on = m[k.getAttribute('data-machine')] && mo[k.getAttribute('data-model')];
-      k.style.opacity = on ? '' : '0.3';
+      k.style.opacity = keep(k) ? '' : '0.3';
     }});
     document.getElementById('empty').hidden = shown > 0;
   }}

@@ -28,6 +28,51 @@ SERIES_SLOT = {"aurora": 1, "polaris": 2, "crux": 3, "sophia": 4}
 
 TARGET_LABEL = "target 0.90"
 
+# Marker shape is tensor parallelism -- the third thing a line has to say, after
+# the machine it ran on (colour) and the model it served (dash). Assigned by
+# position among the TPs present rather than by value, matching MODEL_DASHES, so
+# adding a TP=2 sweep does not repaint the ones already on the page.
+#
+# Shape rather than another dash or a lighter tint: dash is taken, and lightness
+# is the one channel that has to keep working in both themes and under the
+# colour-vision check the palette was picked against. Shape survives all of it,
+# and survives being four pixels across.
+MARKER_SHAPES = ("circle", "square", "triangle", "diamond")
+
+
+def _tp_shape(tp, tps: list) -> str:
+    """The marker for one sweep's tensor parallelism."""
+    try:
+        return MARKER_SHAPES[tps.index(tp) % len(MARKER_SHAPES)]
+    except ValueError:
+        return MARKER_SHAPES[0]
+
+
+def _marker(cx: float, cy: float, r: float, shape: str, title: str = "") -> str:
+    """One data point. Same class and so the same fill, ring and hit target as
+    the circle every chart here used before shape meant something."""
+    if shape == "square":
+        tag, attrs = "rect", (f'x="{cx - r:.1f}" y="{cy - r:.1f}" '
+                              f'width="{2 * r:.1f}" height="{2 * r:.1f}"')
+    elif shape == "triangle":
+        k = r * 1.3
+        tag, attrs = "path", (f'd="M{cx:.1f},{cy - k:.1f} L{cx + k:.1f},{cy + k * 0.72:.1f} '
+                              f'L{cx - k:.1f},{cy + k * 0.72:.1f} Z"')
+    elif shape == "diamond":
+        k = r * 1.35
+        tag, attrs = "path", (f'd="M{cx:.1f},{cy - k:.1f} L{cx + k:.1f},{cy:.1f} '
+                              f'L{cx:.1f},{cy + k:.1f} L{cx - k:.1f},{cy:.1f} Z"')
+    else:
+        tag, attrs = "circle", f'cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}"'
+    inner = f"<title>{title}</title>" if title else ""
+    return f'<{tag} class="dot" {attrs}>{inner}</{tag}>'
+
+
+def _marker_swatch(shape: str) -> str:
+    """The same shape at legend size, so the key and the chart agree."""
+    return (f'<svg class="mk" viewBox="0 0 12 12" aria-hidden="true">'
+            f'{_marker(6, 6, 3.6, shape)}</svg>')
+
 # Left margin on the charts that name their y axis. Wide enough for a rotated
 # title at x=14 plus the tick labels it must not touch.
 Y_TITLE_L = 62
@@ -596,6 +641,7 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
         return ""
 
     models = sorted({s["model"] for s, _ in series})
+    tps = sorted({s.get("tp") for s, _ in series}, key=lambda v: (v is None, v))
     W, H = 760, 380
     L, R, T, B = 58, 16, 14, 46
     pw, ph = W - L - R, H - T - B
@@ -656,12 +702,12 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
         if len(pts) > 1:
             line = " ".join(f"{px(c):.1f},{py(v):.1f}" for c, v in pts)
             parts.append(f'<polyline class="ln" points="{line}"{style}/>')
+        shape = _tp_shape(sweep.get("tp"), tps)
         for c, v in pts:
-            parts.append(
-                f'<circle class="dot" cx="{px(c):.1f}" cy="{py(v):.1f}" r="4">'
-                f'<title>{_esc(machine)} {_esc(model)} TP={_esc(tp)} — '
-                f'concurrency {c}: {v:,.3g} {_esc(label)}</title></circle>'
-            )
+            parts.append(_marker(
+                px(c), py(v), 4, shape,
+                f'{_esc(machine)} {_esc(model)} TP={_esc(tp)} — '
+                f'concurrency {c}: {v:,.3g} {_esc(label)}'))
         parts.append("</g>")
 
     parts.append(f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6}" '
@@ -677,16 +723,23 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
 def dashboard_legend(sweeps: list) -> str:
     """One key per configuration, tagged so the script can dim what is hidden."""
     models = sorted({s["model"] for s in sweeps})
+    tps = sorted({s.get("tp") for s in sweeps}, key=lambda v: (v is None, v))
     keys = ""
-    for sweep in sorted(sweeps, key=lambda s: (s["machine"], s["model"] or "")):
+    for sweep in sorted(sweeps, key=lambda s: (s["machine"], s["model"] or "",
+                                               s.get("tp") or 0)):
         machine = sweep["machine"]
         model = (sweep["model"] or "?").split("/")[-1]
         dash = MODEL_DASHES[models.index(sweep["model"]) % len(MODEL_DASHES)]
         bg = (f"repeating-linear-gradient(90deg,var(--c) 0 6px,transparent 6px 9px)"
               if dash else "var(--c)")
+        # Line and marker both, because the line carries two of the three
+        # encodings and the marker carries the third. A key showing only the
+        # line cannot tell two TPs of the same model apart -- which is the exact
+        # ambiguity this legend existed to resolve.
         keys += (f'<span class="key s{_slot(machine)}" data-machine="{_esc(machine)}" '
-                 f'data-model="{_esc(model)}">'
+                 f'data-model="{_esc(model)}" data-tp="{_esc(sweep.get("tp") or "")}">'
                  f'<span class="sw" style="background:{bg}"></span>'
+                 f'{_marker_swatch(_tp_shape(sweep.get("tp"), tps))}'
                  f'{machine_tag(machine)} · {_esc(model)}'
                  + (f' · TP={_esc(sweep["tp"])}' if sweep.get("tp") else "") + "</span>")
     return f'<div class="legend-row">{keys}</div>'
@@ -761,6 +814,7 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
         return ""
 
     models = sorted({s["model"] for s, _ in series})
+    tps = sorted({s.get("tp") for s, _ in series}, key=lambda v: (v is None, v))
     W = 760
     L, R, T, B = 58, 16, 14, 46
     pw = W - L - R
@@ -834,12 +888,15 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
         if len(pts) > 1:
             line = " ".join(f"{px(x):.1f},{py(y):.1f}" for x, y, _ in pts)
             parts.append(f'<polyline class="ln" points="{line}"{style}/>')
+        # Size still runs with concurrency and shape now runs with TP. The two
+        # do not collide: size is read along a line, shape between lines.
+        shape = _tp_shape(sweep.get("tp"), tps)
         for i, (x, y, c) in enumerate(pts):
             r = 2.6 + 2.6 * (i / max(1, len(pts) - 1))
-            parts.append(
-                f'<circle class="dot" cx="{px(x):.1f}" cy="{py(y):.1f}" r="{r:.1f}">'
-                f'<title>{_esc(machine)} {_esc(model)} — concurrency {c}: '
-                f'{y:,.1f} tok/s at {x:,.0f} W = {y/x:.3f} tok/J</title></circle>')
+            parts.append(_marker(
+                px(x), py(y), r, shape,
+                f'{_esc(machine)} {_esc(model)} TP={_esc(sweep.get("tp") or "?")} — '
+                f'concurrency {c}: {y:,.1f} tok/s at {x:,.0f} W = {y/x:.3f} tok/J'))
         parts.append("</g>")
 
     parts.append(f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6:.0f}" text-anchor="middle">'

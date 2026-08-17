@@ -145,6 +145,10 @@ code { font-size:.85em; background:var(--tag); padding:.1rem .3rem;
    viewport would scale both axes and keep the ratio, but at 1.5x it is a chart
    taller than the window, so it stops at its natural width and centres. */
 .chart.xy { max-width:760px; margin-inline:auto; }
+/* Legend marker: the same shape the chart draws, at the size a key needs.
+   Sits on the text baseline so a row of keys does not go ragged. */
+.mk { width:12px; height:12px; vertical-align:-2px; margin-right:4px;
+  overflow:visible; }
 /* Grid and axes: hairline, solid, one step off the surface. Never dashed --
    dashing reads as "projection" when it is only a grid. */
 .grid { stroke:var(--line); stroke-width:1; }
@@ -333,7 +337,7 @@ compare cleanly — but this is a handful of runs per machine on a workload at
 
 
 <footer>
-Generated 2026-08-17 17:00 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
+Generated 2026-08-17 19:17 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.
