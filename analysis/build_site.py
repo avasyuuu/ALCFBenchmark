@@ -405,9 +405,9 @@ def table(headers: list, rows: list, caption: str = "") -> str:
 # across them is meaningless. The power page keeps its name because it is the
 # one page that is deliberately both, sectioned per machine.
 PAGES = [
-    ("index.html", "Training"),
+    ("index.html", "Training data"),
     ("power.html", "Power profiles"),
-    ("dashboard.html", "Inference"),
+    ("dashboard.html", "Inference dashboard"),
 ]
 
 
@@ -1095,10 +1095,11 @@ def _tensor_parallel(sweep_dir: Path):
 def serving_comparison(sweeps: list) -> str:
     """The cross-machine serving comparison, for the index page.
 
-    Opens the inference page: the findings before the explorer, so a reader
-    who never touches a filter still leaves with the result. The per-machine
+    Closes the inference page: the dashboard is what the page is for, so the
+    controls come first and this is what they add up to -- the comparison a
+    reader would otherwise have to assemble by filtering. The per-machine
     serving material -- traces, saturation charts, sweet spots -- is in each
-    machine's power profile, and every curve is in the controls below.
+    machine's power profile.
     """
     if not sweeps:
         return ""
@@ -1130,7 +1131,7 @@ the energy comes from <code>analysis/power_sidecar.py</code> sampling the same
 hwmon counters the training runs use, from beside the run. Each machine's power
 traces and operating points are in its
 <a href="power.html">power profile</a>; every curve, filterable, is
-below.</p>
+above.</p>
 {_xcheck_note(sweeps)}
 {model_table(sweeps)}
 {compare}"""
@@ -1431,7 +1432,7 @@ def _compare_takeaway(sweeps: list) -> str:
         'Prompt-shape sweeps are excluded — they hold concurrency fixed, so their '
         'spread is across prompts and not across load. Both measures against '
         'concurrency, for every machine and model, are on the '
-        '<a href="dashboard.html">inference page</a> as the tokens per joule and '
+        '<a href="dashboard.html">inference dashboard</a> as the tokens per joule and '
         'tokens per joule (dynamic) metrics. The machines did not run the same '
         "vLLM: versions are recorded in each sweep's run_meta.json, and both ran "
         'with <code>--enforce-eager</code>.</p>'
@@ -1577,11 +1578,10 @@ def dashboard_body(sweeps: list) -> str:
     )
 
     return f"""
-{serving_comparison(sweeps)}
-
 <h2>Every configuration, filtered</h2>
-<p class="fineprint">The same sweeps as above, every concurrency level of each,
-with the controls below applying to the charts and the table together.</p>
+<p class="fineprint">Every concurrency level of every sweep, with the controls
+below applying to the charts and the table together. What the numbers add up
+to is under them.</p>
 <div class="controls">
   <label class="ctl">Metric
     <select id="metric">{options}</select>
@@ -1607,6 +1607,8 @@ same on every row below: the shape is what these sweeps held still.
 Joules are comparable only between rows that ran the same request
 count — see each sweep's run_meta.json.</figcaption></figure>
 </details>
+
+{serving_comparison(sweeps)}
 
 <script>
 (function () {{
@@ -2246,7 +2248,7 @@ def main() -> None:
             lede="ResNet-20 on CIFAR-10, run identically on every ALCF system "
                  "and compared on throughput, time-to-accuracy and energy — down "
                  "to the accelerators nobody was using. Serving numbers are on "
-                 "the inference page; the two share no denominator.",
+                 "the inference dashboard; the two share no denominator.",
             strip=workload_strip(runs),
             body=index_body(runs, specs, curves),
             footer=footer,
@@ -2270,8 +2272,8 @@ def main() -> None:
         title="Inference — Serving Across ALCF Machines",
         heading="Inference Across ALCF Machines",
         lede="vLLM serving real models, measured for tokens per second, latency "
-             "and tokens per joule. The findings come first; below them every "
-             "configuration measured so far, filtered in the browser. Nothing is "
+             "and tokens per joule. Every configuration measured so far, filtered "
+             "in the browser, with what they add up to underneath. Nothing is "
              "fetched — the whole dataset is in this page.",
         body=dashboard_body(sweeps),
         footer=footer,
