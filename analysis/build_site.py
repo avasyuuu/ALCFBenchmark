@@ -1455,8 +1455,8 @@ DASHBOARD_LEGEND = [
     ("How much", [
         ("Out tok/s", "output tokens generated per second, all requests together"),
         ("Conc", "concurrent requests in flight; the swept variable"),
-        ("ISL / OSL", "input and output sequence length, in tokens — pinned per row"),
-        ("TP", "tensor parallel: accelerators one model is sharded across"),
+        ("ISL / OSL", "input and output sequence lengths, in tokens — pinned per row"),
+        ("TP", "tensor parallelism: how many accelerators one model is sharded across"),
     ]),
     ("How fast", [
         ("TTFT", "time to first token — how long a request waits before anything comes back"),
@@ -1466,7 +1466,7 @@ DASHBOARD_LEGEND = [
     ]),
     ("At what cost", [
         ("Dyn W", "dynamic power: node draw above the idle floor measured before the server started"),
-        ("Node power", "every accelerator on the node, including ones this job left idle"),
+        ("Node power", "watts drawn by every accelerator on the node, including ones this job left idle"),
         ("Joules", "total node energy over the level; comparable only between rows of equal request count"),
         ("Tok/J", "output tokens per joule of node energy — what an allocation bills for"),
         ("Tok/J dyn", "the same per joule of dynamic energy — what the silicon did"),
