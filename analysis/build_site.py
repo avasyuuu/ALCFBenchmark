@@ -114,7 +114,9 @@ def workload_strip(runs: list) -> str:
 
     slug = workloads.pop()
     name = WORKLOAD_NAMES.get(slug, html.escape(slug))
-    bits = [name, f"global batch {batches.pop():,}"]
+    # "Training" leads the line: the workload name alone says what model and
+    # dataset, not which of the two benchmarks this page reports.
+    bits = [f"Training {name}", f"global batch {batches.pop():,}"]
     if len(targets) == 1:
         bits.append(f"target top-1 {targets.pop():.2f}")
     bits.append("identical on every machine")
@@ -396,10 +398,16 @@ def table(headers: list, rows: list, caption: str = "") -> str:
 # Braces below are doubled: this is an f-string body, and the CSS moved into it
 # verbatim. Substituted values are not re-scanned, so callers need not escape.
 
+# Named by workload, not by page type. "Data & analysis" and "Dashboard"
+# described the *form* of each page and left a reader to infer that one held
+# training and the other inference -- which is the one thing they most need to
+# know, since tokens/joule and samples/joule share no denominator and comparing
+# across them is meaningless. The power page keeps its name because it is the
+# one page that is deliberately both, sectioned per machine.
 PAGES = [
-    ("index.html", "Data & analysis"),
+    ("index.html", "Training"),
     ("power.html", "Power profiles"),
-    ("dashboard.html", "Dashboard"),
+    ("dashboard.html", "Inference"),
 ]
 
 
@@ -730,8 +738,14 @@ a:hover {{ border-bottom-color:var(--accent); }}
 
 
 def index_body(runs: list, specs: dict | None = None,
-               curves: dict | None = None, sweeps: list | None = None) -> str:
-    """The comparison page: specs, runs, energy tables and charts."""
+               curves: dict | None = None) -> str:
+    """The training page: specs, runs, energy tables and charts.
+
+    Training only, deliberately. The serving numbers moved to the inference
+    page when the tabs were named by workload -- a page holding both invites
+    reading a samples/joule figure against a tokens/joule one, and those
+    share no denominator.
+    """
     machine_stats = headline(runs)
     curves = curves or {}
     tta_svg = accuracy_chart(curves)
@@ -924,7 +938,6 @@ def index_body(runs: list, specs: dict | None = None,
 per-rank column cannot see that, which is the reason both tables exist.</div>
 
 {takeaway(machine_stats)}
-{serving_comparison(sweeps or [])}
 
 <h2>Glossary</h2>
 {legend()}
@@ -1082,10 +1095,10 @@ def _tensor_parallel(sweep_dir: Path):
 def serving_comparison(sweeps: list) -> str:
     """The cross-machine serving comparison, for the index page.
 
-    This lived on the power page until the profiles arrived. The index's lede
-    promises "one table" of comparison, and which-machine-wins is a comparison;
-    the power page describes one machine at a time. The per-machine serving
-    material -- traces, saturation charts, sweet spots -- is in each profile.
+    Opens the inference page: the findings before the explorer, so a reader
+    who never touches a filter still leaves with the result. The per-machine
+    serving material -- traces, saturation charts, sweet spots -- is in each
+    machine's power profile, and every curve is in the controls below.
     """
     if not sweeps:
         return ""
@@ -1106,17 +1119,18 @@ def serving_comparison(sweeps: list) -> str:
 {_compare_takeaway(group)}"""
 
     return f"""
-<h2>Serving, not training</h2>
+<h2>What the numbers say</h2>
 <p class="fineprint">A second benchmark on the same nodes and the same energy
-counters: vLLM answering requests instead of a model being trained. Tokens per
-joule and samples per joule share no denominator and never belong in one table,
-which is why this section sits apart from the training tables above. On NVIDIA,
+counters as the <a href="index.html">training</a> page: vLLM answering requests
+instead of a model being trained. Tokens per joule and samples per joule share
+no denominator and never belong in one table, which is why these are two pages
+rather than two sections. On NVIDIA,
 AIPerf measures its own power through pynvml; on Intel it can read nothing, and
 the energy comes from <code>analysis/power_sidecar.py</code> sampling the same
 hwmon counters the training runs use, from beside the run. Each machine's power
 traces and operating points are in its
-<a href="power.html">profile</a>; every curve, filterable, is on the
-<a href="dashboard.html">dashboard</a>.</p>
+<a href="power.html">power profile</a>; every curve, filterable, is
+below.</p>
 {_xcheck_note(sweeps)}
 {model_table(sweeps)}
 {compare}"""
@@ -1417,7 +1431,7 @@ def _compare_takeaway(sweeps: list) -> str:
         'Prompt-shape sweeps are excluded — they hold concurrency fixed, so their '
         'spread is across prompts and not across load. Both measures against '
         'concurrency, for every machine and model, are on the '
-        '<a href="dashboard.html">dashboard</a> as the tokens per joule and '
+        '<a href="dashboard.html">inference page</a> as the tokens per joule and '
         'tokens per joule (dynamic) metrics. The machines did not run the same '
         "vLLM: versions are recorded in each sweep's run_meta.json, and both ran "
         'with <code>--enforce-eager</code>.</p>'
@@ -1563,6 +1577,11 @@ def dashboard_body(sweeps: list) -> str:
     )
 
     return f"""
+{serving_comparison(sweeps)}
+
+<h2>Every configuration, filtered</h2>
+<p class="fineprint">The same sweeps as above, every concurrency level of each,
+with the controls below applying to the charts and the table together.</p>
 <div class="controls">
   <label class="ctl">Metric
     <select id="metric">{options}</select>
@@ -2177,7 +2196,7 @@ are excluded from every total, as everywhere on this site, since they cover
 silicon the per-tile counters already report. Specifications are per node;
 sources are in the <code>_source</code> fields of
 <code>configs/machines.json</code>. The cross-machine comparison lives on the
-<a href="index.html">data and analysis</a> page.</p>
+<a href="index.html">training</a> page.</p>
 {sections}"""
 
 
@@ -2222,14 +2241,14 @@ def main() -> None:
     sweeps = load_aiperf(args.results_dir)
     pages = {
         "index.html": shell(
-            title="Power and Performance Across ALCF Machines",
-            heading="Power and Performance Across ALCF Machines",
-            lede="One portable benchmark, run identically on every ALCF system "
+            title="Training — Power and Performance Across ALCF Machines",
+            heading="Training Across ALCF Machines",
+            lede="ResNet-20 on CIFAR-10, run identically on every ALCF system "
                  "and compared on throughput, time-to-accuracy and energy — down "
-                 "to the accelerators nobody was using. One harness, one result "
-                 "schema, one table.",
+                 "to the accelerators nobody was using. Serving numbers are on "
+                 "the inference page; the two share no denominator.",
             strip=workload_strip(runs),
-            body=index_body(runs, specs, curves, sweeps),
+            body=index_body(runs, specs, curves),
             footer=footer,
             logo_uri=logo,
             here="index.html",
@@ -2248,12 +2267,12 @@ def main() -> None:
         ),
     }
     pages["dashboard.html"] = shell(
-        title="ALCF Benchmark Dashboard",
-        heading="Dashboard",
-        lede="Every inference configuration measured so far, filtered in the "
-             "browser. It opens on the most-swept model; tick another to add it, "
-             "and the dimmed keys in the legend are the ones currently hidden. "
-             "Nothing is fetched — the whole dataset is in this page.",
+        title="Inference — Serving Across ALCF Machines",
+        heading="Inference Across ALCF Machines",
+        lede="vLLM serving real models, measured for tokens per second, latency "
+             "and tokens per joule. The findings come first; below them every "
+             "configuration measured so far, filtered in the browser. Nothing is "
+             "fetched — the whole dataset is in this page.",
         body=dashboard_body(sweeps),
         footer=footer,
         logo_uri=logo,
