@@ -1508,11 +1508,16 @@ def dashboard_body(sweeps: list) -> str:
 <p class="fineprint" id="empty" hidden>Nothing selected — tick a machine and a model.</p>
 
 <details class="fold">
-<summary>Every row <span class="count" id="rowcount"></span></summary>
+<summary>Every concurrency-sweep row <span class="count" id="rowcount"></span></summary>
 <figure><div class="scroll"><table id="rows"><thead><tr>{head}</tr></thead>
 <tbody>{body}</tbody></table></div>
-<figcaption>Every concurrency level of every sweep, filtered by the same
-controls. Joules are comparable only between rows that ran the same request
+<figcaption>Every concurrency level of every <em>concurrency</em> sweep,
+filtered by the same controls. Sweeps that varied the prompt shape instead of
+the load are not here — they hold concurrency fixed, so they have no point on
+these charts; they get their own table on the
+<a href="power.html">power profiles</a> page. That is why ISL and OSL read the
+same on every row below: the shape is what these sweeps held still.
+Joules are comparable only between rows that ran the same request
 count — see each sweep's run_meta.json.</figcaption></figure>
 </details>
 
