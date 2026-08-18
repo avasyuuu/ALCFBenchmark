@@ -47,6 +47,7 @@ scripts/
   submit_sophia.sh          same, Sophia
   submit_aurora_aiperf.sh   LLM inference power sweep (separate benchmark, see below)
   submit_polaris_aiperf.sh  same, Polaris
+  submit_sophia_aiperf.sh   same, Sophia (unverified — Sophia has never run)
   vllm_prepopulate_aurora.sh  fills vLLM's model-info cache on Aurora
 analysis/
   summarize.py         results/*.json -> comparison table
@@ -284,4 +285,10 @@ Polaris (2026-08-13)** — see `results/aiperf/`. Known gaps:
 
 - [ ] the power sidecar's multi-node ssh launch is written but untested on hardware
 - [ ] Llama-3.3-70B on Polaris needs a Ray cluster across two nodes — not built
+- [ ] Sophia has never produced a run of any kind. A job queued 2026-08-11
+      never started with 21 of 24 nodes free and no scheduler comment; the
+      ALCF ticket asking whether `by-node` schedules at all is still unfiled.
+      `SMOKE=1 qsub -l walltime=00:20:00 -v SMOKE scripts/submit_sophia.sh`
+      is the cheapest test — it separates a queue problem from an environment
+      one. The venv and ssh key there were never built either.
 - [ ] Cerebras and Graphcore have no runs and no platform classes yet

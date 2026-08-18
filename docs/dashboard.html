@@ -354,6 +354,9 @@ above.</p>
 <h3>Which machine serves more per joule — Llama-3.1-8B-Instruct</h3>
 <p class="takeaway">At concurrency 32 and TP=1, the one configuration both machines swept: <strong>polaris</strong> delivers 4.3x the tokens per joule of aurora — but per joule of <em>work</em>, <strong>aurora</strong> is 1.32x ahead. The more efficient accelerator loses, because its node spends so much more simply being switched on.</p><p class="takeaway">Given each machine its best configuration (aurora at TP=8, polaris at TP=1), <strong>polaris</strong> leads on node energy by 2.8x, and <strong>aurora</strong> on dynamic energy by 1.32x. Filling a node changes the node-energy gap and not the dynamic one, because the idle draw is divided across more work rather than reduced.</p><p class="fineprint">Tokens per joule of <em>node</em> energy is what an allocation bills for; per joule of <em>dynamic</em> energy is node draw above the idle floor, measured on that node before its server started. The two rank the machines differently, which is the finding above. Prompt-shape sweeps are excluded — they hold concurrency fixed, so their spread is across prompts and not across load. Both measures against concurrency, for every machine and model, are on the <a href="dashboard.html">inference dashboard</a> as the tokens per joule and tokens per joule (dynamic) metrics. The machines did not run the same vLLM: versions are recorded in each sweep's run_meta.json, and both ran with <code>--enforce-eager</code>.</p>
 
+<h2>What the terms mean</h2>
+<div class="legend"><section><h3>How much</h3><dl><dt>Out tok/s</dt><dd>output tokens generated per second, all requests together</dd><dt>Conc</dt><dd>concurrent requests in flight; the swept variable</dd><dt>ISL / OSL</dt><dd>input and output sequence length, in tokens — pinned per row</dd><dt>TP</dt><dd>tensor parallel: accelerators one model is sharded across</dd></dl></section><section><h3>How fast</h3><dl><dt>TTFT</dt><dd>time to first token — how long a request waits before anything comes back</dd><dt>ITL</dt><dd>inter-token latency — the gap between tokens once generation starts</dd><dt>Request latency</dt><dd>TTFT plus the whole generation, end to end</dd><dt>Prefill share</dt><dd>percent of request latency spent reading the prompt rather than writing</dd></dl></section><section><h3>At what cost</h3><dl><dt>Dyn W</dt><dd>dynamic power: node draw above the idle floor measured before the server started</dd><dt>Node power</dt><dd>every accelerator on the node, including ones this job left idle</dd><dt>Joules</dt><dd>total node energy over the level; comparable only between rows of equal request count</dd><dt>Tok/J</dt><dd>output tokens per joule of node energy — what an allocation bills for</dd><dt>Tok/J dyn</dt><dd>the same per joule of dynamic energy — what the silicon did</dd></dl></section></div>
+
 <script>
 (function () {
   var metric = document.getElementById('metric');
@@ -467,7 +470,7 @@ above.</p>
 </script>
 
 <footer>
-Generated 2026-08-18 18:39 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
+Generated 2026-08-18 18:53 UTC from 18 run(s) · machines: aurora, crux, polaris<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.

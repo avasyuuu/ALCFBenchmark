@@ -1439,6 +1439,47 @@ def _compare_takeaway(sweeps: list) -> str:
     )
 
 
+# What the dashboard's columns and metric names mean. Kept short on purpose:
+# it sits under the controls as a reminder, not a tutorial -- the reasoning
+# behind each measure is in the takeaways and on the power profiles. Terms are
+# grouped by what they measure, because the point a reader most often misses is
+# that throughput, latency and efficiency are three different questions and a
+# machine can win one while losing another.
+DASHBOARD_LEGEND = [
+    ("How much", [
+        ("Out tok/s", "output tokens generated per second, all requests together"),
+        ("Conc", "concurrent requests in flight; the swept variable"),
+        ("ISL / OSL", "input and output sequence length, in tokens — pinned per row"),
+        ("TP", "tensor parallel: accelerators one model is sharded across"),
+    ]),
+    ("How fast", [
+        ("TTFT", "time to first token — how long a request waits before anything comes back"),
+        ("ITL", "inter-token latency — the gap between tokens once generation starts"),
+        ("Request latency", "TTFT plus the whole generation, end to end"),
+        ("Prefill share", "percent of request latency spent reading the prompt rather than writing"),
+    ]),
+    ("At what cost", [
+        ("Dyn W", "dynamic power: node draw above the idle floor measured before the server started"),
+        ("Node power", "every accelerator on the node, including ones this job left idle"),
+        ("Joules", "total node energy over the level; comparable only between rows of equal request count"),
+        ("Tok/J", "output tokens per joule of node energy — what an allocation bills for"),
+        ("Tok/J dyn", "the same per joule of dynamic energy — what the silicon did"),
+    ]),
+]
+
+
+def dashboard_legend_terms() -> str:
+    """The metric glossary, reusing the index's legend styling."""
+    blocks = ""
+    for heading, terms in DASHBOARD_LEGEND:
+        items = "".join(
+            f"<dt>{html.escape(term)}</dt><dd>{html.escape(meaning)}</dd>"
+            for term, meaning in terms
+        )
+        blocks += f"<section><h3>{html.escape(heading)}</h3><dl>{items}</dl></section>"
+    return f'<div class="legend">{blocks}</div>'
+
+
 # Metrics the dashboard offers, each pre-rendered as its own complete chart.
 # Switching metric shows a different SVG rather than redrawing one, because the
 # axes differ by orders of magnitude between them -- tokens/joule sits near 0.1
@@ -1609,6 +1650,9 @@ count — see each sweep's run_meta.json.</figcaption></figure>
 </details>
 
 {serving_comparison(sweeps)}
+
+<h2>What the terms mean</h2>
+{dashboard_legend_terms()}
 
 <script>
 (function () {{
