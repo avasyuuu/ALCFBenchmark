@@ -61,9 +61,14 @@ def build_sources(machine: str):
     and --bound-devices names physical devices.
     """
     if machine == "aurora":
+        from benchmark.craypm import cray_pm_energy_sources
         from benchmark.hwmon import intel_energy_sources
 
-        return intel_energy_sources(), "intel i915 hwmon energy1_input"
+        # pm_counters ride along aggregate-marked where the node offers them:
+        # node, CPU and memory energy from the chassis, the series hwmon can
+        # never provide. Totals stay accelerator-only.
+        return (intel_energy_sources() + cray_pm_energy_sources(),
+                "intel i915 hwmon energy1_input")
 
     from benchmark.nvml import nvml_energy_sources
 
@@ -87,6 +92,22 @@ def build_sources(machine: str):
 # approach as platform.py's _alcf_machine: the scheduler stamps the machine into
 # both, and it is the only thing on a compute node that names it.
 _MACHINE_HINTS = ("polaris", "sophia", "aurora", "crux")
+
+
+def build_telemetry(machine: str) -> list:
+    """Gauge sources for this machine: utilization, temperature, clocks.
+
+    Separate from build_sources because failure means something different --
+    a node with no energy counter cannot do this job at all, while a node
+    with no gauges just writes a timeline without a telemetry block.
+    """
+    if machine == "aurora":
+        from benchmark.hwmon import intel_freq_telemetry_sources
+
+        return intel_freq_telemetry_sources()
+    from benchmark.nvml import nvml_telemetry_sources
+
+    return nvml_telemetry_sources(visible=None)
 
 
 def detect_machine() -> str | None:
@@ -178,7 +199,8 @@ def run_agent(args) -> None:
     stop_file, ready_file = Path(args.stop_file), Path(args.ready_file)
 
     started = datetime.now(timezone.utc)
-    sampler = PowerSampler(sources, interval_s=args.interval, bound_devices=bound).start()
+    sampler = PowerSampler(sources, interval_s=args.interval, bound_devices=bound,
+                           telemetry=build_telemetry(machine)).start()
     sampler.mark("agent_start")
     ready_file.write_text(socket.gethostname(), encoding="utf-8")
 
@@ -420,7 +442,8 @@ def main() -> None:
               f"{', '.join(_short(h) for h in hosts)}")
 
     started = datetime.now(timezone.utc)
-    sampler = PowerSampler(sources, interval_s=args.interval, bound_devices=bound).start()
+    sampler = PowerSampler(sources, interval_s=args.interval, bound_devices=bound,
+                           telemetry=build_telemetry(machine)).start()
     sampler.mark("command_start")
     t0 = time.perf_counter()
     # The command owns the terminal: AIPerf prints a progress display and its own

@@ -120,3 +120,78 @@ def nvml_energy_sources(visible: list | None = None) -> list[EnergySource]:
             )
         )
     return sources
+
+
+def nvml_telemetry_sources(visible: list | None = None) -> list:
+    """Utilization, temperature, SM clock, memory and throttle state per GPU.
+
+    The gauges beside the joules: power alone cannot distinguish a busy GPU
+    from a throttling one, and a run that starts at 1,410 MHz and ends at
+    1,100 with the temperature climbing is a finding no energy counter can
+    make. Channels:
+
+        util_pct  GPU busy percent, NVML's own 1-second window
+        temp_c    core temperature
+        sm_mhz    current SM clock
+        mem_pct   device memory in use
+        throttle  nvmlDeviceGetCurrentClocksThrottleReasons bitmask; 0 is
+                  unthrottled, anything else names its cause in the NVML docs
+
+    Device numbering follows nvml_energy_sources exactly, including the
+    `visible` remap, so a telemetry series and an energy series with the same
+    key describe the same silicon.
+    """
+    nvml = load_nvml()
+    if nvml is None:
+        return []
+    try:
+        count = nvml.nvmlDeviceGetCount()
+    except Exception:
+        return []
+    from .power import TelemetrySource
+
+    remap = {}
+    if visible is not None:
+        remap = {phys: i for i, phys in enumerate(visible)}
+
+    sources = []
+    for phys in range(count):
+        try:
+            handle = nvml.nvmlDeviceGetHandleByIndex(phys)
+        except Exception:
+            continue
+
+        def read(h=handle):
+            out = {}
+            try:
+                u = nvml.nvmlDeviceGetUtilizationRates(h)
+                out["util_pct"] = u.gpu
+            except Exception:
+                out["util_pct"] = None
+            try:
+                out["temp_c"] = nvml.nvmlDeviceGetTemperature(
+                    h, nvml.NVML_TEMPERATURE_GPU)
+            except Exception:
+                out["temp_c"] = None
+            try:
+                out["sm_mhz"] = nvml.nvmlDeviceGetClockInfo(h, nvml.NVML_CLOCK_SM)
+            except Exception:
+                out["sm_mhz"] = None
+            try:
+                m = nvml.nvmlDeviceGetMemoryInfo(h)
+                out["mem_pct"] = round(m.used / m.total * 100)
+            except Exception:
+                out["mem_pct"] = None
+            try:
+                out["throttle"] = nvml.nvmlDeviceGetCurrentClocksThrottleReasons(h)
+            except Exception:
+                out["throttle"] = None
+            return out
+
+        sources.append(TelemetrySource(
+            key=f"gpu{phys}",
+            scope=f"nvml gauges, gpu {phys}",
+            read=read,
+            device_index=remap.get(phys, phys if visible is None else None),
+        ))
+    return sources

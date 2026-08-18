@@ -109,3 +109,49 @@ def intel_energy_sources() -> list[EnergySource]:
                 )
             )
     return sources
+
+
+def intel_freq_telemetry_sources() -> list:
+    """Actual GT frequency per tile, from the i915 sysfs nodes.
+
+    The Intel half of what NVML gives NVIDIA for free. sysfs has no busy
+    percent for PVC -- utilization needs xpu-smi, which is a module and a
+    subprocess, not a file -- but actual frequency is the throttling signal,
+    and it is a world-readable file. A tile pinned at its boost clock is
+    fine; one sagging under load while its temperature file climbs is not.
+
+    NOT YET VERIFIED ON AURORA: the candidate paths below are i915's
+    documented layouts (multi-GT first, single-GT fallback), and which one
+    PVC's driver build exposes is a next-allocation check:
+
+        ls /sys/class/drm/card0/gt/gt0/rps_act_freq_mhz \
+           /sys/class/drm/card0/gt_act_freq_mhz
+
+    Self-detecting either way: no readable file, no source, nothing changes.
+    """
+    from .power import TelemetrySource
+
+    sources = []
+    for card in sorted(Path("/sys/class/drm").glob("card[0-9]*")):
+        if not (card / "device").is_dir():
+            continue
+        gts = sorted(card.glob("gt/gt[0-9]*"))
+        candidates = ([(gt / "rps_act_freq_mhz", f"{card.name}.{gt.name}")
+                       for gt in gts]
+                      or [(card / "gt_act_freq_mhz", card.name)])
+        for path, key in candidates:
+            if not path.is_file():
+                continue
+
+            def read(p=path):
+                try:
+                    return {"act_mhz": int(p.read_text().strip())}
+                except (OSError, ValueError):
+                    return {"act_mhz": None}
+
+            if read()["act_mhz"] is None:
+                continue
+            sources.append(TelemetrySource(
+                key=key, scope=f"i915 actual frequency ({path.name})",
+                read=read, device_index=None))
+    return sources

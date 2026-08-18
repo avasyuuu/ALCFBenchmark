@@ -34,6 +34,7 @@ benchmark/
   power.py       per-rank energy sampling, vendor-dispatched
   hwmon.py       Intel i915 sysfs energy counters (Aurora)
   nvml.py        NVIDIA energy counters (Polaris/Sophia)
+  craypm.py      Cray EX node/CPU/memory energy (pm_counters, unverified)
   comm_bench.py  allreduce microbenchmark
   prepare.py     one-time dataset download (login node only)
 configs/

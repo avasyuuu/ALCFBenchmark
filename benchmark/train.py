@@ -441,6 +441,7 @@ def main():
                 bound_devices=bound_device_indices(
                     world_size, node_count, platform.device_count()
                 ),
+                telemetry=platform.node_telemetry_sources(),
             ).start()
             log(
                 f"power: sampling {len(sources)} counters every "

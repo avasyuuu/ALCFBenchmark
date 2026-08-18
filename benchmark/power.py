@@ -51,6 +51,27 @@ class EnergySource:
     aggregate: bool = False
 
 
+@dataclass
+class TelemetrySource:
+    """One device's non-energy instruments: utilization, temperature, clocks.
+
+    read() returns {channel: value} with whatever this device can report --
+    channels differ by vendor and that is fine, since the timeline stores each
+    channel it saw and analysis reads only what is there. Values are small
+    ints (percent, celsius, MHz, a throttle bitmask); None for a channel that
+    failed this tick.
+
+    Kept separate from EnergySource because these are gauges, not counters:
+    energy accumulates and survives a missed sample, a utilization reading
+    missed is simply gone. Nothing integrates them.
+    """
+
+    key: str
+    scope: str
+    read: Callable[[], dict]
+    device_index: int | None = None
+
+
 class PowerSampler:
     """Samples every source on a fixed cadence in a background thread.
 
@@ -66,12 +87,15 @@ class PowerSampler:
         interval_s: float = 0.1,
         t0: float | None = None,
         bound_devices: frozenset = frozenset(),
+        telemetry: list | None = None,
     ):
         self.sources = list(sources)
+        self.telemetry = list(telemetry or [])
         self.interval_s = interval_s
         self.t0 = time.perf_counter() if t0 is None else t0
         self.bound_devices = frozenset(bound_devices)
         self._samples: list[tuple[float, list]] = []
+        self._tsamples: list[list] = []
         self._marks: list[tuple[float, str]] = []
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -102,6 +126,8 @@ class PowerSampler:
             marks=self._marks,
             interval_s=self.interval_s,
             bound_devices=self.bound_devices,
+            telemetry=self.telemetry,
+            tsamples=self._tsamples,
         )
 
     # --- sampling ----------------------------------------------------------
@@ -117,6 +143,8 @@ class PowerSampler:
             self._samples.append(
                 (now - self.t0, [source.read() for source in self.sources])
             )
+            if self.telemetry:
+                self._tsamples.append([t.read() for t in self.telemetry])
             deadline += self.interval_s
             delay = deadline - time.perf_counter()
             if delay <= 0:
@@ -128,12 +156,16 @@ class PowerSampler:
 class PowerTimeline:
     """The recorded series, plus the per-device rollup worth putting in a result."""
 
-    def __init__(self, sources, samples, marks, interval_s, bound_devices):
+    def __init__(self, sources, samples, marks, interval_s, bound_devices,
+                 telemetry=None, tsamples=None):
         self.sources = sources
         self.samples = samples
         self.marks = marks
         self.interval_s = interval_s
         self.bound_devices = bound_devices
+        self.telemetry = list(telemetry or [])
+        self.tsamples = tsamples or []
+
 
     def __bool__(self) -> bool:
         return len(self.samples) > 1
@@ -277,6 +309,26 @@ class PowerTimeline:
                          for _, row in self.samples]
                         for i in range(len(self.sources))
                     ],
+                    # Gauges beside the counters, when any were read: one block
+                    # per telemetry source, each channel a column as long as
+                    # its own tick count (telemetry shares the energy cadence,
+                    # so in practice it aligns with t_s).
+                    **({"telemetry": [
+                        {
+                            "key": t.key,
+                            "scope": t.scope,
+                            "device_index": t.device_index,
+                            "channels": {
+                                ch: [None if row[i].get(ch) is None
+                                     else round(row[i][ch])
+                                     for row in self.tsamples]
+                                for ch in sorted({
+                                    k for row in self.tsamples
+                                    for k in row[i]})
+                            },
+                        }
+                        for i, t in enumerate(self.telemetry)
+                    ]} if self.tsamples and self.telemetry else {}),
                 },
                 separators=(",", ":"),
             ),

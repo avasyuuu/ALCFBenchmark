@@ -135,6 +135,14 @@ class Platform:
         return []
 
     # --- profiling ---------------------------------------------------------
+    def node_telemetry_sources(self) -> list:
+        """Gauges beside the counters -- utilization, temperature, clocks.
+
+        Empty by default: a platform with no readable instruments simply
+        records none, and the timeline file carries no telemetry block.
+        """
+        return []
+
     def profiler_activities(self) -> list:
         """Activities for torch.profiler. Each backend names its device
         activity differently (XPU / CUDA), and asking for one the build does
@@ -258,7 +266,18 @@ class AuroraPlatform(Platform):
         Two enumerations of the same sysfs tree would drift, and the failure
         would look like Aurora using more energy to serve than to train.
         """
-        return intel_energy_sources()
+        from .craypm import cray_pm_energy_sources
+
+        # Node, CPU and memory energy from the chassis, where the machine
+        # provides it. Aggregate-marked: they overlap the accelerator counters
+        # and every total stays accelerator-only -- but the series is the
+        # component breakdown the site has had no way to draw.
+        return intel_energy_sources() + cray_pm_energy_sources()
+
+    def node_telemetry_sources(self) -> list:
+        from .hwmon import intel_freq_telemetry_sources
+
+        return intel_freq_telemetry_sources()
 
     def energy_joules(self) -> float | None:
         path = self._energy_path()
@@ -378,6 +397,13 @@ class CudaPlatform(Platform):
 
     def node_energy_sources(self) -> list[EnergySource]:
         return self._energy_sources()
+
+    def node_telemetry_sources(self) -> list:
+        from .nvml import nvml_telemetry_sources
+
+        # Same visible-device remap as the energy sources, so a telemetry
+        # series and an energy series with one key are one piece of silicon.
+        return nvml_telemetry_sources(self._visible_devices())
 
     def _my_source(self):
         index = self.device.index or 0
