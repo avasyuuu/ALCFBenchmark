@@ -16,10 +16,10 @@
 #   qsub scripts/submit_polaris_aiperf.sh
 #   MODEL=Qwen/Qwen2.5-7B-Instruct qsub -v MODEL scripts/submit_polaris_aiperf.sh
 #
-# NOT YET RUN ON HARDWARE. Written against the AIPerf 0.12 CLI and vLLM's OpenAI
-# server, validated end-to-end only on a consumer GPU under Ollama. The module
-# names, the proxy hostname and the vLLM startup time are the parts most likely
-# to need a fix on first contact.
+# Validated on hardware 2026-08-13 (Llama-3.1-8B at TP=1) and 2026-08-14
+# (gemma-3-27b at TP=4), against the AIPerf 0.12 CLI and vLLM's OpenAI server.
+# A six-level concurrency sweep takes ~20 min at TP=1 and ~30 min at TP=4,
+# both inside the debug queue's one-hour cap.
 #
 # This is a DIFFERENT benchmark from submit_polaris.sh, not a variant of it: that
 # one trains ResNet-20 and reports samples/joule, this one serves an LLM and
