@@ -36,7 +36,7 @@ from pathlib import Path
 from charts import (SERIES_SLOT, accuracy_chart, canonical_runs,
                     swept_over_concurrency,
                     dashboard_chart, dashboard_legend, machine_tag,
-                    power_throughput_chart,
+                    power_throughput_chart, power_timeline_chart, timeline_watts,
                     efficiency_chart, inference_chart, inference_legend,
                     series_legend, tail_chart)
 from summarize import load_runs
@@ -585,6 +585,10 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
    second series needs a different channel. This is the one place a dash is not
    the grid's "provisional" meaning, which is why the grid never dashes. */
 .ln.dash {{ stroke-dasharray:5 3; }}
+.ln.dev {{ stroke-width:1; opacity:.28; }}
+.specs.measured {{ border-left:3px solid var(--accent); padding-left:.9rem;
+  margin-top:.9rem; }}
+h4 {{ margin:1.6rem 0 .5rem; font-size:.95rem; }}
 .sw.dash {{ background:repeating-linear-gradient(90deg,
   var(--c) 0 5px, transparent 5px 8px); }}
 /* 2px ring in the surface colour, so a marker stays legible where a line
@@ -726,7 +730,7 @@ a:hover {{ border-bottom-color:var(--accent); }}
 
 
 def index_body(runs: list, specs: dict | None = None,
-               curves: dict | None = None) -> str:
+               curves: dict | None = None, sweeps: list | None = None) -> str:
     """The comparison page: specs, runs, energy tables and charts."""
     machine_stats = headline(runs)
     curves = curves or {}
@@ -920,6 +924,7 @@ def index_body(runs: list, specs: dict | None = None,
 per-rank column cannot see that, which is the reason both tables exist.</div>
 
 {takeaway(machine_stats)}
+{serving_comparison(sweeps or [])}
 
 <h2>Glossary</h2>
 {legend()}
@@ -1074,49 +1079,17 @@ def _tensor_parallel(sweep_dir: Path):
     return None
 
 
-def inference_section(sweeps: list) -> str:
-    """The inference sweeps, kept apart from the training numbers on purpose.
+def serving_comparison(sweeps: list) -> str:
+    """The cross-machine serving comparison, for the index page.
 
-    Same node, same counters, same sampler as the training profiles above --
-    and a different benchmark. Tokens per joule and samples per joule answer
-    different questions and share no denominator, so they share a page and
-    nothing else.
+    This lived on the power page until the profiles arrived. The index's lede
+    promises "one table" of comparison, and which-machine-wins is a comparison;
+    the power page describes one machine at a time. The per-machine serving
+    material -- traces, saturation charts, sweet spots -- is in each profile.
     """
     if not sweeps:
         return ""
-
-    blocks = ""
-    # Only multi-level runs get a section: the chart and the takeaway both
-    # describe a curve, and a single point has none. Those runs are in the model
-    # table above instead, which is the view they can actually support.
-    for sweep in [s for s in sweeps if len(s["rows"]) >= 3
-                  and swept_over_concurrency(s["rows"])]:
-        rows = sweep["rows"]
-        first, last = rows[0], rows[-1]
-        chart = inference_chart(rows)
-        served = " · ".join(
-            bit for bit in (
-                f"<strong>{html.escape(str(sweep['model']))}</strong>" if sweep["model"] else None,
-                f"ISL {sweep['isl']:,.0f}" if sweep["isl"] else None,
-                f"OSL {sweep['osl']:,.0f}" if sweep["osl"] else None,
-                f"idle floor {sweep['idle_w']:,.0f} W" if sweep["idle_w"] else None,
-            ) if bit
-        )
-        blocks += f"""
-<div class="mhead"><h2>{html.escape(sweep["machine"])} — {html.escape((sweep["model"] or "inference").split("/")[-1])}</h2>
-<span class="key s{SERIES_SLOT.get(sweep["machine"], 8)}"><span class="sw"></span></span></div>
-<p class="workload">{served}</p>
-{chart}
-{inference_legend()}
-{_inference_takeaway(first, last)}"""
-    # One finding per model. Only models at least two machines swept: a single
-    # machine is not a comparison, and the heading would promise one.
-    #
-    # This used to carry a tokens-per-joule-against-concurrency chart too, which
-    # is the same measure on the same axis as the dashboard's tok_per_joule and
-    # tok_per_joule_dynamic metrics. Two drawings of one picture drift apart, so
-    # the chart lives on the dashboard, where it can be filtered, and the page
-    # keeps the sentence -- which is the part the chart existed to support.
+    compare = ""
     by_model: dict = defaultdict(list)
     for s in sweeps:
         # Concurrency sweeps only, matching what the takeaway can read. A shape
@@ -1124,35 +1097,65 @@ def inference_section(sweeps: list) -> str:
         # counts toward the two machines a comparison needs.
         if len(s["rows"]) >= 3 and swept_over_concurrency(s["rows"]):
             by_model[s["model"]].append(s)
-    compare = ""
     for model, group in sorted(by_model.items()):
         if len({s["machine"] for s in group}) < 2:
             continue
         name = html.escape((model or "?").split("/")[-1])
         compare += f"""
-<h2>Which machine serves more per joule — {name}</h2>
+<h3>Which machine serves more per joule — {name}</h3>
 {_compare_takeaway(group)}"""
 
     return f"""
 <h2>Serving, not training</h2>
-<p class="fineprint">The same node, the same counters and the same sampler as the
-profiles above, measuring a different thing: vLLM answering requests instead of a
-model being trained. Tokens per joule and samples per joule share no denominator
-and never belong in one table, which is why this sits beside the training
-profiles rather than among them. AIPerf collects power through DCGM, pynvml and
-amdsmi, so on NVIDIA it measures its own; on Intel it can read nothing, and the
-energy comes instead from <code>analysis/power_sidecar.py</code> sampling the
-same hwmon counters the training runs use, from beside the run. The Src column
-on each table says which.</p>
-<p class="fineprint">These sections carry the charts and what they mean. Every
-concurrency level of every sweep, in numbers and filterable by machine and
-model, is on the <a href="dashboard.html">dashboard</a> — it was printed under
-each section too, and one table maintained in two places is one table that
-disagrees with itself.</p>
+<p class="fineprint">A second benchmark on the same nodes and the same energy
+counters: vLLM answering requests instead of a model being trained. Tokens per
+joule and samples per joule share no denominator and never belong in one table,
+which is why this section sits apart from the training tables above. On NVIDIA,
+AIPerf measures its own power through pynvml; on Intel it can read nothing, and
+the energy comes from <code>analysis/power_sidecar.py</code> sampling the same
+hwmon counters the training runs use, from beside the run. Each machine's power
+traces and operating points are in its
+<a href="power.html">profile</a>; every curve, filterable, is on the
+<a href="dashboard.html">dashboard</a>.</p>
 {_xcheck_note(sweeps)}
 {model_table(sweeps)}
-{compare}
-{blocks}"""
+{compare}"""
+
+
+def machine_serving_blocks(machine: str, sweeps: list) -> str:
+    """One machine's concurrency sweeps: the saturation chart and its sentence.
+
+    The chart normalises throughput and dynamic power to concurrency 1 on a
+    shared axis, because the divergence between them is the finding -- serving
+    more at once is nearly free in watts. One block per sweep, inside the
+    machine's profile.
+    """
+    blocks = ""
+    mine = [s for s in sweeps
+            if s["machine"] == machine and len(s["rows"]) >= 3
+            and swept_over_concurrency(s["rows"])]
+    # Model then TP, so the same model's shardings sit together and the order
+    # cannot change when a newer sweep lands.
+    for sweep in sorted(mine, key=lambda s: ((s["model"] or ""), s.get("tp") or 0)):
+        rows = sweep["rows"]
+        first, last = rows[0], rows[-1]
+        chart = inference_chart(rows)
+        served = " · ".join(
+            bit for bit in (
+                f"<strong>{html.escape(str(sweep['model']))}</strong>" if sweep["model"] else None,
+                f"TP={sweep['tp']}" if sweep.get("tp") else None,
+                f"ISL {sweep['isl']:,.0f}" if sweep["isl"] else None,
+                f"OSL {sweep['osl']:,.0f}" if sweep["osl"] else None,
+                f"idle floor {sweep['idle_w']:,.0f} W" if sweep["idle_w"] else None,
+            ) if bit
+        )
+        blocks += f"""
+<h4>{html.escape((sweep["model"] or "inference").split("/")[-1])}{f" — TP={sweep['tp']}" if sweep.get("tp") else ""}</h4>
+<p class="workload">{served}</p>
+{chart}
+{inference_legend()}
+{_inference_takeaway(first, last)}"""
+    return blocks
 
 
 def _inference_takeaway(first: dict, last: dict) -> str:
@@ -1749,29 +1752,6 @@ def power_state(machine: str, runs: list, timelines: int) -> tuple:
     )
 
 
-def machine_section(machine: str, spec: dict, tag: str, state: str) -> str:
-    """One machine on the power page: its specs, then what is coming.
-
-    This is the only place the specs are rendered. They read as a record per
-    machine rather than a row per machine, which is the shape a reader wants
-    beside one system's power trace -- and it is the shape the index's table
-    could never be, since a table compares and this describes.
-    """
-    fields = "".join(
-        f"<dt>{html.escape(label)}</dt>"
-        f"<dd>{html.escape(str(spec.get(key, '—')))}</dd>"
-        for key, label in SPEC_COLUMNS
-    )
-    slot = SERIES_SLOT.get(machine, 8)
-    return f"""
-<div class="mhead">
-<h2>{html.escape(machine)}</h2>
-<span class="key s{slot}"><span class="sw"></span></span>{tag}
-</div>
-<dl class="specs">{fields}</dl>
-<div class="todo">{state}</div>"""
-
-
 def shape_section(sweeps: list) -> str:
     """Sweeps that varied the prompt shape instead of the load.
 
@@ -1809,8 +1789,7 @@ def shape_section(sweeps: list) -> str:
             "mJ/out tok", "J/req"))
         fitted = _shape_fit(rows)
         blocks += f"""
-<div class="mhead"><h2>{html.escape(sweep["machine"])} — {html.escape((sweep["model"] or "inference").split("/")[-1])}, prompt shape</h2>
-<span class="key s{SERIES_SLOT.get(sweep["machine"], 8)}"><span class="sw"></span></span></div>
+<h3>Prompt shape — {html.escape((sweep["model"] or "inference").split("/")[-1])}</h3>
 <figure><div class="twrap"><table>
 <thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>
 <figcaption>{fitted}</figcaption></figure>"""
@@ -1865,36 +1844,341 @@ def _shape_fit(rows: list) -> str:
             f"intercept is fit slack rather than a fixed per-request cost.")
 
 
-def power_body(specs: dict, runs: list, timelines: dict, sweeps: list) -> str:
-    """The power page: one section per targeted machine, in config order."""
-    sections = ""
-    for machine, spec in specs.items():
-        if machine.startswith("_"):
+def training_timeline(machine: str, results_dir: str, runs: list):
+    """The machine's canonical training power timeline, with its run.
+
+    One trace per machine, chosen by the run's work: the fullest metered run is
+    the one whose trace shows a machine training rather than a smoke test
+    warming up. Returns (timeline, run) or (None, None).
+    """
+    best = None
+    for path in Path(results_dir).glob(f"power/{machine}_*_power.json"):
+        rid = path.name.split("_")[1]
+        run = next((r for r in runs if r.get("run_id") == rid), None)
+        if not run:
             continue
-        tag, state = power_state(machine, runs, timelines.get(machine, 0))
-        sections += machine_section(machine, spec, tag, state)
+        score = run.get("samples_global") or 0
+        if best is None or score > best[0]:
+            best = (score, path, run)
+    if not best:
+        return None, None
+    return json.loads(best[1].read_text(encoding="utf-8")), best[2]
+
+
+def best_sweep(machine: str, sweeps: list):
+    """The machine's best concurrency sweep by top-level tokens/joule.
+
+    The same rule _compare_takeaway uses, so the profile's operating point and
+    the index's comparison can never disagree about which run represents the
+    machine.
+    """
+    cands = [s for s in sweeps
+             if s["machine"] == machine and len(s["rows"]) >= 3
+             and swept_over_concurrency(s["rows"])]
+    best = None
+    for s in cands:
+        top = sorted(s["rows"], key=lambda r: r["concurrency"])[-1]
+        if not top.get("tok_per_joule"):
+            continue
+        if best is None or top["tok_per_joule"] > best[0]:
+            best = (top["tok_per_joule"], s, top)
+    return (best[1], best[2]) if best else (None, None)
+
+
+def inference_timeline(machine: str, results_dir: str, sweeps: list):
+    """The sidecar power trace of the best sweep's top concurrency level."""
+    sweep, top = best_sweep(machine, sweeps)
+    if not sweep:
+        return None, None, None
+    conc = top["concurrency"]
+    root = Path(results_dir) / "aiperf" / sweep["name"]
+    for pat in (f"c{conc}/*sidecar_power_*_power.json",
+                f"c{conc}_*/*sidecar_power_*_power.json"):
+        hits = sorted(root.glob(pat))
+        if hits:
+            return json.loads(hits[0].read_text(encoding="utf-8")), sweep, top
+    return None, sweep, top
+
+
+def machine_versions(machine: str, results_dir: str) -> str:
+    """Software versions from the sweeps' own provenance, joined for the card."""
+    vllm, torch = set(), set()
+    for meta in Path(results_dir).glob(f"aiperf/{machine}-*/run_meta.json"):
+        m = json.loads(meta.read_text(encoding="utf-8"))
+        if m.get("vllm"):
+            vllm.add(m["vllm"])
+        if m.get("torch"):
+            torch.add(m["torch"])
+    parts = []
+    if torch:
+        parts.append("torch " + " / ".join(sorted(torch)))
+    if vllm:
+        parts.append("vLLM " + " / ".join(sorted(vllm)))
+    return ", ".join(parts)
+
+
+def measured_card(machine: str, runs: list, sweeps: list,
+                  results_dir: str, facts: dict) -> str:
+    """The measured half of the summary card: what the machine actually did.
+
+    Every value is the best the machine has shown, each labelled with the
+    configuration that produced it -- a bare number invites comparing a
+    12-rank Aurora figure against a 4-rank Polaris one and calling it a
+    machine difference.
+    """
+    items = []
+    mine = [r for r in runs if r.get("machine") == machine and r.get("samples_per_s")]
+    if mine:
+        b = max(mine, key=lambda r: r["samples_per_s"])
+        plural = "s" if b["nodes"] != 1 else ""
+        items.append(("Training throughput",
+                      f"{b['samples_per_s']:,.0f} samples/s "
+                      f"({b['ranks']} ranks, {b['nodes']} node{plural})"))
+        effs = [(node_efficiency(r), r) for r in mine]
+        effs = [(e, r) for e, r in effs if e]
+        if effs:
+            e, r = max(effs, key=lambda t: t[0])
+            items.append(("Training efficiency",
+                          f"{e:,.1f} samples/J node-wide ({r['ranks']} ranks)"))
+            facts["train_eff"] = e
+        ttas = [r["tta_s"] for r in mine if r.get("tta_s")]
+        if ttas:
+            items.append(("Time to 0.90 top-1", f"{min(ttas):,.1f} s"))
+        facts["train_best"] = b
+    conc = [s for s in sweeps if s["machine"] == machine and len(s["rows"]) >= 3
+            and swept_over_concurrency(s["rows"])]
+    if conc:
+        peak = max(((r, s) for s in conc for r in s["rows"] if r.get("out_tok_per_s")),
+                   key=lambda t: t[0]["out_tok_per_s"])
+        r, s = peak
+        model = html.escape((s["model"] or "?").split("/")[-1])
+        tp_txt = f" at TP={s['tp']}" if s.get("tp") else ""
+        items.append(("Peak serving throughput",
+                      f"{r['out_tok_per_s']:,.0f} tok/s "
+                      f"({model}{tp_txt}, c={r['concurrency']})"))
+        facts["peak_tok"] = (r, s)
+        bs, bt = best_sweep(machine, sweeps)
+        if bs:
+            items.append(("Best serving efficiency",
+                          f"{bt['tok_per_joule']:.2f} tok/J of node energy "
+                          f"({bt['tok_per_joule_dynamic']:.2f} dynamic)"))
+            facts["best_sweep"] = (bs, bt)
+        idles = sorted(s["idle_w"] for s in conc if s.get("idle_w"))
+        if idles:
+            facts["idle_w"] = idles[len(idles) // 2]
+            items.append(("Accelerator idle floor", f"{facts['idle_w']:,.0f} W per node"))
+    versions = machine_versions(machine, results_dir)
+    if versions:
+        items.append(("Software", versions))
+    if not items:
+        return ""
+    fields = "".join(f"<dt>{html.escape(k)}</dt><dd>{v}</dd>" for k, v in items)
+    return f'<dl class="specs measured">{fields}</dl>'
+
+
+def scaling_table(machine: str, runs: list) -> str:
+    """Training throughput per configuration, as a scaling statement.
+
+    A table rather than a chart: two or three configurations do not make a
+    curve, and the honest columns are speedup against the smallest
+    configuration and what fraction of ideal that is.
+    """
+    mine = [r for r in runs if r.get("machine") == machine and r.get("samples_per_s")]
+    best: dict = {}
+    for r in mine:
+        key = (r["nodes"], r["ranks"])
+        if key not in best or r["samples_per_s"] > best[key]["samples_per_s"]:
+            best[key] = r
+    if len(best) < 2:
+        return ""
+    base_key = min(best)
+    base = best[base_key]
+    rows = []
+    for (nodes, ranks), r in sorted(best.items()):
+        speed = r["samples_per_s"] / base["samples_per_s"]
+        ideal = ranks / base_key[1]
+        rows.append([num(nodes), num(ranks), num(r["samples_per_s"]),
+                     f"{speed:.2f}x", f"{speed / ideal * 100:,.0f}%"])
+    return "<h4>Training scaling</h4>" + table(
+        ["Nodes", "Ranks", "Samples/s", "Speedup", "of ideal"], rows,
+        "Best run per configuration. Speedup is against the smallest "
+        "configuration; the last column divides by the rank ratio, so 100% is "
+        "linear scaling and anything under it is the cost of coordination.")
+
+
+def sweet_spot(machine: str, sweeps: list) -> str:
+    """The best measured operating point, honestly labelled as measured.
+
+    Every sweep here stops with tokens/joule still rising, so the knee of the
+    curve has not been found -- and a box claiming a best operating point
+    would be reporting the edge of the measurement as a property of the
+    machine. It says so instead.
+    """
+    sweep, top = best_sweep(machine, sweeps)
+    if not sweep:
+        return ""
+    rows = sorted(sweep["rows"], key=lambda r: r["concurrency"])
+    rising = (len(rows) >= 2 and rows[-1].get("tok_per_joule")
+              and rows[-2].get("tok_per_joule")
+              and rows[-1]["tok_per_joule"] > rows[-2]["tok_per_joule"])
+    model = html.escape((sweep["model"] or "?").split("/")[-1])
+    tp_txt = f" at TP={sweep['tp']}" if sweep.get("tp") else ""
+    bits = [f"{top['out_tok_per_s']:,.0f} tok/s"]
+    if top.get("ttft_ms"):
+        bits.append(f"TTFT {top['ttft_ms']:,.0f} ms")
+    if top.get("dynamic_w"):
+        bits.append(f"{top['dynamic_w']:,.0f} W dynamic")
+    bits.append(f"{top['tok_per_joule']:.2f} tok/J of node energy")
+    caveat = (" Tokens per joule was still rising at the top of the sweep, so "
+              "this is the edge of the measurement, not a saturation point — "
+              "the knee, if there is one, is past this concurrency."
+              if rising else "")
+    joined = ", ".join(bits)
+    return (f'<p class="takeaway"><strong>Best measured operating point</strong> — '
+            f'{model}{tp_txt}, concurrency {top["concurrency"]}: {joined}.{caveat}</p>')
+
+
+def profile_summary(machine: str, facts: dict) -> str:
+    """The machine in plain English, assembled from what was measured.
+
+    Derived, like every takeaway on the site: a hand-written summary of
+    numbers that rebuild on every run is a summary that goes stale the day
+    after it is written.
+    """
+    bits = []
+    b = facts.get("train_best")
+    if b:
+        s = (f"training ResNet-20, {machine} reached {b['samples_per_s']:,.0f} "
+             f"samples/s on {b['ranks']} ranks")
+        if facts.get("train_eff"):
+            s += f" at {facts['train_eff']:,.1f} samples per node-joule"
+        bits.append(s)
+    bs = facts.get("best_sweep")
+    if bs:
+        sweep, top = bs
+        model = (sweep["model"] or "?").split("/")[-1]
+        s = (f"serving {model} it delivered {top['out_tok_per_s']:,.0f} tokens/s "
+             f"at concurrency {top['concurrency']}, {top['tok_per_joule']:.2f} "
+             f"tokens per joule of node energy")
+        if top.get("tok_per_joule_dynamic"):
+            s += f" ({top['tok_per_joule_dynamic']:.2f} above the idle floor)"
+        bits.append(s)
+    if facts.get("idle_w") and facts.get("infer_avg_w"):
+        share = facts["idle_w"] / facts["infer_avg_w"] * 100
+        if share > 50:
+            bits.append(f"its accelerators drew {facts['idle_w']:,.0f} W before "
+                        f"any work arrived — {share:,.0f}% of what they drew "
+                        f"while serving — which is why filling the node matters "
+                        f"more than choosing it")
+    if not bits:
+        return ""
+    text = ". ".join(s[0].upper() + s[1:] for s in bits) + "."
+    return f'<p class="takeaway">{text}</p>'
+
+
+def machine_profile(machine: str, spec: dict, runs: list, sweeps: list,
+                    results_dir: str, timelines: int) -> str:
+    """One machine, top to bottom: card, traces, behaviour, operating point.
+
+    Structured the way a reader new to the machine needs it -- what it is,
+    what it drew while working, how serving behaves under load, where to run
+    it, and one paragraph to leave with. Machines with no measurements keep
+    the old spec-plus-status card rather than an empty scaffold.
+    """
+    tag, state = power_state(machine, runs, timelines)
+    slot = SERIES_SLOT.get(machine, 8)
+    facts: dict = {}
+    head = f"""
+<div class="mhead">
+<h2>{html.escape(machine)}</h2>
+<span class="key s{slot}"><span class="sw"></span></span>{tag}
+</div>"""
+    fields = "".join(
+        f"<dt>{html.escape(label)}</dt>"
+        f"<dd>{html.escape(str(spec.get(key, '—')))}</dd>"
+        for key, label in SPEC_COLUMNS
+    )
+    card = f'<dl class="specs">{fields}</dl>'
+    measured = measured_card(machine, runs, sweeps, results_dir, facts)
+
+    traces = ""
+    tl, tl_run = training_timeline(machine, results_dir, runs)
+    if tl:
+        stats = timeline_watts(tl)
+        chart = power_timeline_chart(tl, slot,
+                                     f"{machine} accelerator power during training")
+        if chart:
+            reached = (f" 0.90 top-1 was reached at {tl_run['tta_s']:,.1f} s (marked)."
+                       if tl_run.get("tta_s") else "")
+            plural = "s" if tl_run["nodes"] != 1 else ""
+            traces += (f"<h4>What training draws</h4>{chart}"
+                       f'<p class="fineprint">Run {html.escape(tl_run["run_id"])}: '
+                       f'{tl_run["ranks"]} ranks on {tl_run["nodes"]} node{plural}, '
+                       f'{tl_run.get("epochs") or "?"} epochs — the bold line is all '
+                       f'{len(stats["devices"])} accelerators together, averaging '
+                       f'{stats["avg_w"]:,.0f} W with a peak of {stats["peak_w"]:,.0f} W; '
+                       f'the thin lines are each device alone.{reached}</p>')
+    itl, isweep, itop = inference_timeline(machine, results_dir, sweeps)
+    if itl:
+        stats = timeline_watts(itl)
+        facts["infer_avg_w"] = stats["avg_w"]
+        chart = power_timeline_chart(itl, slot,
+                                     f"{machine} accelerator power while serving")
+        if chart:
+            model = html.escape((isweep["model"] or "?").split("/")[-1])
+            tp_txt = f" at TP={isweep['tp']}" if isweep.get("tp") else ""
+            idle = (f" The idle floor measured on this node before the server "
+                    f"started was {isweep['idle_w']:,.0f} W."
+                    if isweep.get("idle_w") else "")
+            ndev = len(stats["devices"])
+            tp = isweep.get("tp")
+            bound = (f" vLLM bound {tp} of the {ndev} devices; the flat thin "
+                     f"lines are the ones it left idle."
+                     if tp and tp < ndev else "")
+            traces += (f"<h4>What serving draws</h4>{chart}"
+                       f'<p class="fineprint">{model}{tp_txt}, concurrency '
+                       f'{itop["concurrency"]} — the top of this machine&#39;s best '
+                       f'sweep: all {len(stats["devices"])} accelerators average '
+                       f'{stats["avg_w"]:,.0f} W against a peak of '
+                       f'{stats["peak_w"]:,.0f} W.{bound}{idle}</p>')
+
+    serving = machine_serving_blocks(machine, sweeps)
+    if serving:
+        serving = "<h3>Serving under load</h3>" + serving
+    shapes = shape_section([s for s in sweeps if s["machine"] == machine])
+    scaling = scaling_table(machine, runs)
+    spot = sweet_spot(machine, sweeps)
+    summary = profile_summary(machine, facts)
+
+    if not (measured or traces or serving or scaling):
+        return head + card + f'<div class="todo">{state}</div>'
+    status = "" if traces else f'<div class="todo">{state}</div>'
+    return (head + card + measured + status + traces + serving + shapes
+            + scaling + spot + summary)
+
+
+def power_body(specs: dict, runs: list, results_dir: str,
+               timelines: dict, sweeps: list) -> str:
+    """The power page: one profile per machine, in config order."""
+    sections = "".join(
+        machine_profile(machine, spec, runs, sweeps, results_dir,
+                        timelines.get(machine, 0))
+        for machine, spec in specs.items() if not machine.startswith("_")
+    )
     return f"""
-<div class="note">Placeholders. The specs and the timeline counts are read from
-the repo on every build; the profiles themselves are not drawn yet. Nothing on
-this page is a measurement except the counts.</div>
-<p class="fineprint">Specifications are per node — both the unit this benchmark
-scales in and the unit an allocation is billed in. Where each figure came from
-is recorded in the <code>_source</code> fields of
-<code>configs/machines.json</code>; the measurements are on the
+<p class="fineprint">One profile per machine: its hardware, the best it has
+measured, what its accelerators actually drew while training and serving, and
+where to run it. Power traces are watts from consecutive energy-counter deltas,
+sampled every 0.1 s by <code>benchmark/power.py</code> during training and
+<code>analysis/power_sidecar.py</code> during serving — one thin line per
+device, devices no rank bound to included, because their flat lines are where
+most of a single-rank node&#39;s energy goes. Aurora&#39;s whole-card counters
+are excluded from every total, as everywhere on this site, since they cover
+silicon the per-tile counters already report. Specifications are per node;
+sources are in the <code>_source</code> fields of
+<code>configs/machines.json</code>. The cross-machine comparison lives on the
 <a href="index.html">data and analysis</a> page.</p>
-{sections}
-
-{inference_section(sweeps)}
-{shape_section(sweeps)}
-
-<h2>What a training profile will show</h2>
-<p class="fineprint">One line per accelerator on the node, sampled by
-<code>benchmark/power.py</code> at <code>--power-interval</code> seconds, plotted
-as watts from consecutive energy-counter deltas. Devices no rank bound to get a
-line too — on a single-rank Aurora node those flat lines are over 90% of the
-node's energy, which is the fact the index page can only state as a percentage.
-Aurora's whole-card counters are excluded, as they are from every total, because
-they cover silicon the per-tile counters already report.</p>"""
+{sections}"""
 
 
 def footer_text(runs: list, generated: str) -> str:
@@ -1936,7 +2220,6 @@ def main() -> None:
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     footer = footer_text(runs, generated)
     sweeps = load_aiperf(args.results_dir)
-
     pages = {
         "index.html": shell(
             title="Power and Performance Across ALCF Machines",
@@ -1946,7 +2229,7 @@ def main() -> None:
                  "to the accelerators nobody was using. One harness, one result "
                  "schema, one table.",
             strip=workload_strip(runs),
-            body=index_body(runs, specs, curves),
+            body=index_body(runs, specs, curves, sweeps),
             footer=footer,
             logo_uri=logo,
             here="index.html",
@@ -1954,9 +2237,11 @@ def main() -> None:
         "power.html": shell(
             title="Power Profiles — ALCF Machines",
             heading="Power Profiles",
-            lede="What each machine actually draws while it trains, per node and "
-                 "per accelerator. One section per system the benchmark targets.",
-            body=power_body(specs, runs, timeline_counts(args.results_dir), sweeps),
+            lede="One profile per machine: what it is, what its accelerators "
+                 "drew while training and serving, how it behaves under load, "
+                 "and the best operating point measured so far.",
+            body=power_body(specs, runs, args.results_dir,
+                            timeline_counts(args.results_dir), sweeps),
             footer=footer,
             logo_uri=logo,
             here="power.html",

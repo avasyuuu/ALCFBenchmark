@@ -866,3 +866,113 @@ def power_throughput_chart(sweeps: list, power_key: str, label: str) -> str:
     parts.append(_y_title("output tokens/s", T, ph))
     parts.append("</svg>")
     return "".join(parts)
+
+
+def timeline_watts(timeline: dict, bins: int = 240) -> dict:
+    """Cumulative joule counters -> binned watts, per device and total.
+
+    Watts are consecutive counter deltas over consecutive timestamps -- the
+    same arithmetic power.py's summary does, kept out of the chart so the
+    stats under it and the lines in it cannot disagree.
+
+    Aggregate sources (Aurora's whole-card counters) are excluded from the
+    total for the same reason they are excluded everywhere: they cover silicon
+    the per-tile counters already report, and summing both counts it twice.
+    """
+    t = timeline["t_s"]
+    n = len(t)
+    if n < 3:
+        return {}
+    keep = [i for i, s in enumerate(timeline["sources"]) if not s.get("aggregate")]
+    idxs = sorted({round(i * (n - 1) / bins) for i in range(bins + 1)})
+    mid, per_dev = [], []
+    for a, b in zip(idxs, idxs[1:]):
+        if t[b] <= t[a]:
+            continue
+        mid.append((t[a] + t[b]) / 2)
+    for si in keep:
+        j = timeline["joules"][si]
+        w, k = [], 0
+        for a, b in zip(idxs, idxs[1:]):
+            if t[b] <= t[a]:
+                continue
+            w.append((j[b] - j[a]) / (t[b] - t[a]))
+        per_dev.append(w)
+    total = [sum(col) for col in zip(*per_dev)]
+    return {
+        "t": mid, "devices": per_dev, "total": total,
+        "keys": [timeline["sources"][i]["key"] for i in keep],
+        "avg_w": sum(total) / len(total),
+        "peak_w": max(total),
+        "span_s": t[-1] - t[0],
+    }
+
+
+def power_timeline_chart(timeline: dict, slot: int, aria: str) -> str:
+    """Watts against wall-clock: one thin line per device, one bold total.
+
+    The thin lines are the reason this chart exists. A single busy Aurora tile
+    over eleven flat ones, or all twelve rising together, is the difference
+    between an inference node and a training node -- and it is exactly the
+    thing every average in every table on this site has to flatten. The bold
+    total is what the node's accelerators drew; its average and peak are in
+    the caption, where they can be compared against the tables.
+
+    Marks: only 'reached' (time-to-accuracy) earns a line. Training timelines
+    carry two marks per epoch and a hundred epochs of them is a fence, not an
+    annotation.
+    """
+    d = timeline_watts(timeline)
+    if not d:
+        return ""
+    W, H = 720, 300
+    L, R, T, B = Y_TITLE_L, 16, 12, 44
+    pw, ph = W - L - R, H - T - B
+    t0, t1 = d["t"][0], d["t"][-1]
+    raw = max(1.0, d["peak_w"] * 1.06)
+    # The ceiling is chosen so the quarter-gridlines land on round numbers --
+    # a 1,700 W axis reads 425 at its first tick, which no one wants to hold.
+    quarter = raw / 4
+    mag = 10 ** math.floor(math.log10(quarter))
+    for m in (1, 2, 2.5, 4, 5, 10):
+        if m * mag >= quarter:
+            quarter = m * mag
+            break
+    y_hi = 4 * quarter
+
+    def px(x: float) -> float:
+        return L + (x - t0) / (t1 - t0) * pw
+
+    def py(v: float) -> float:
+        return T + (1 - v / y_hi) * ph
+
+    parts = [f'<svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="{_esc(aria)}">']
+    for i in range(5):
+        v = y_hi * i / 4
+        y = py(v)
+        parts.append(f'<line class="grid" x1="{L}" y1="{y:.1f}" x2="{L+pw}" y2="{y:.1f}"/>')
+        parts.append(f'<text class="tick" x="{L-8}" y="{y+3.5:.1f}" text-anchor="end">{v:,.0f}</text>')
+    for i in range(6):
+        x = L + pw * i / 5
+        sec = t0 + (t1 - t0) * i / 5
+        parts.append(f'<text class="tick" x="{x:.1f}" y="{T+ph+18}" text-anchor="middle">{_fmt_s(sec)}</text>')
+
+    for w in d["devices"]:
+        pts = " ".join(f"{px(x):.1f},{py(v):.1f}" for x, v in zip(d["t"], w))
+        parts.append(f'<polyline class="ln dev s{slot}" points="{pts}"/>')
+    pts = " ".join(f"{px(x):.1f},{py(v):.1f}" for x, v in zip(d["t"], d["total"]))
+    parts.append(
+        f'<polyline class="ln s{slot}" points="{pts}">'
+        f'<title>all {len(d["devices"])} devices: avg {d["avg_w"]:,.0f} W, '
+        f'peak {d["peak_w"]:,.0f} W</title></polyline>')
+
+    for m in timeline.get("marks", []):
+        if "reached" in m["label"]:
+            x = px(m["t_s"])
+            parts.append(f'<line class="target" x1="{x:.1f}" y1="{T}" x2="{x:.1f}" y2="{T+ph}"/>')
+            parts.append(f'<text class="tick" x="{x+4:.1f}" y="{T+12}">{_esc(m["label"])}</text>')
+
+    parts.append(f'<text class="axis-title" x="{L+pw/2:.0f}" y="{H-6}" text-anchor="middle">wall-clock</text>')
+    parts.append(_y_title("accelerator watts", T, ph))
+    parts.append("</svg>")
+    return "".join(parts)
