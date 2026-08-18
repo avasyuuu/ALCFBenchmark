@@ -51,7 +51,7 @@ class StepTimer:
     communication and the two cannot be cleanly separated from inside the
     training loop. Rather than invent a split, we fold both into `compute` and
     measure interconnect cost separately with the allreduce microbenchmark
-    (see scripts/comm_bench.py). Treat `comm_estimate` as indicative only.
+    (see benchmark/comm_bench.py). Treat `comm_estimate` as indicative only.
     """
 
     data: list = field(default_factory=list)

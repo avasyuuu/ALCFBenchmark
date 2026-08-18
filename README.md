@@ -31,18 +31,31 @@ benchmark/
   data.py        CIFAR-10 loaders + synthetic mode
   metrics.py     timers and the results JSON schema
   train.py       benchmark entrypoint
+  power.py       per-rank energy sampling, vendor-dispatched
+  hwmon.py       Intel i915 sysfs energy counters (Aurora)
+  nvml.py        NVIDIA energy counters (Polaris/Sophia)
   comm_bench.py  allreduce microbenchmark
   prepare.py     one-time dataset download (login node only)
 configs/
   peak_flops.json   vendor peak FLOP/s for MFU — YOU MUST FILL THIS IN
+  machines.json     node composition and spec sources, per machine
 scripts/
-  submit_aurora.sh  PBS batch script
-  submit_polaris_aiperf.sh  LLM inference power sweep (separate benchmark, see below)
+  submit_aurora.sh          PBS batch script (training)
+  submit_polaris.sh         same, Polaris
+  submit_crux.sh            same, Crux (CPU baseline)
+  submit_sophia.sh          same, Sophia
+  submit_aurora_aiperf.sh   LLM inference power sweep (separate benchmark, see below)
+  submit_polaris_aiperf.sh  same, Polaris
+  vllm_prepopulate_aurora.sh  fills vLLM's model-info cache on Aurora
 analysis/
-  summarize.py      results/*.json -> comparison table
+  summarize.py         results/*.json -> comparison table
   summarize_aiperf.py  AIPerf artifact dirs -> power/token/efficiency tables
-  nvml_idle.py      idle GPU power floor, to subtract from a measured run
-results/            one JSON per run
+  power_sidecar.py     samples node power beside a run it does not control
+  nvml_idle.py         idle GPU power floor, to subtract from a measured run
+  build_site.py        results -> the published docs/ site
+  charts.py            inline SVG chart primitives used by build_site
+results/            one JSON per training run; aiperf/ holds inference sweeps
+docs/               the generated site, served by GitHub Pages off main
 ```
 
 ## First run on Aurora
@@ -239,12 +252,11 @@ they get their own runner sharing only the model and data definitions.
 
 ## Status
 
-Aurora path is written but **not yet validated on hardware.** Verify on first run:
-
-- [ ] rank/local-rank env vars (`PMI_RANK`, `PALS_LOCAL_RANKID`) resolve correctly
-- [ ] `ccl` backend initializes across nodes with `MASTER_ADDR` from `$PBS_NODEFILE`
-- [ ] all 12 tiles are actually busy — cross-check with `xpu-smi`
-- [ ] `ipex.optimize` plays well with DDP in this frameworks version
+Aurora was **validated on hardware on 2026-08-04** and is now the most-exercised
+path: 12 training runs in `results/aurora_*.json` and seven inference sweeps
+under `results/aiperf/aurora-*`. Everything this list used to ask about is
+settled — rank/local-rank env vars resolve, `ccl` initializes, all 12 tiles are
+busy, and `ipex.optimize` coexists with DDP in the shipped frameworks module.
 
 Polaris energy (`CudaPlatform`) was **validated on hardware on 2026-08-10** by
 the three runs in `results/polaris_*.json`, which settle every item this list
@@ -257,15 +269,18 @@ used to ask about:
       joules are non-null and consistent between runs
 - [x] all four A100s appear in the node sampler — `power.devices_total` is 4
 
+Crux is the CPU baseline, **validated on hardware on 2026-08-11** — three runs
+in `results/crux_*.json`, gloo backend, and the only machine so far that strong-
+scales across nodes.
+
 Sophia has never run, so its `SophiaPlatform` is still unexercised. It shares
 `CudaPlatform` with Polaris, so the energy path above is the same code; what is
 untested there is the 8-GPU node, the `torchrun` launcher branch and the
-`by-node` queue.
+`by-node` queue. Jobs submitted on 2026-08-11 never started.
 
-The AIPerf inference sweep (`submit_polaris_aiperf.sh`) is validated only on a
-consumer GPU under Ollama. Verify on first run:
+The AIPerf inference sweep is **validated on both Aurora (2026-08-12) and
+Polaris (2026-08-13)** — see `results/aiperf/`. Known gaps:
 
-- [ ] the conda module and proxy hostname are still current
-- [ ] vLLM becomes healthy inside the 15-minute startup budget
-- [ ] `summarize_aiperf.py` prints **no** warnings — with `ignore_eos` the
-      achieved OSL should now match the requested one exactly
+- [ ] the power sidecar's multi-node ssh launch is written but untested on hardware
+- [ ] Llama-3.3-70B on Polaris needs a Ray cluster across two nodes — not built
+- [ ] Cerebras and Graphcore have no runs and no platform classes yet
