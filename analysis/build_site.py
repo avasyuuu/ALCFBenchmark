@@ -37,8 +37,7 @@ from charts import (SERIES_SLOT, accuracy_chart, canonical_runs,
                     swept_over_concurrency,
                     dashboard_chart, dashboard_legend, machine_tag,
                     power_throughput_chart,
-                    efficiency_chart, efficiency_compare_chart,
-                    efficiency_compare_legend, inference_chart, inference_legend,
+                    efficiency_chart, inference_chart, inference_legend,
                     series_legend, tail_chart)
 from summarize import load_runs
 
@@ -1110,9 +1109,14 @@ def inference_section(sweeps: list) -> str:
 {chart}
 {inference_legend()}
 {_inference_takeaway(first, last)}"""
-    # One chart per model, because colour encodes the machine and has nothing
-    # left for a model. Only models at least two machines swept: a single line
-    # is not a comparison, and the heading would promise one.
+    # One finding per model. Only models at least two machines swept: a single
+    # machine is not a comparison, and the heading would promise one.
+    #
+    # This used to carry a tokens-per-joule-against-concurrency chart too, which
+    # is the same measure on the same axis as the dashboard's tok_per_joule and
+    # tok_per_joule_dynamic metrics. Two drawings of one picture drift apart, so
+    # the chart lives on the dashboard, where it can be filtered, and the page
+    # keeps the sentence -- which is the part the chart existed to support.
     by_model: dict = defaultdict(list)
     for s in sweeps:
         if len(s["rows"]) >= 3:
@@ -1124,8 +1128,6 @@ def inference_section(sweeps: list) -> str:
         name = html.escape((model or "?").split("/")[-1])
         compare += f"""
 <h2>Which machine serves more per joule — {name}</h2>
-{efficiency_compare_chart(group)}
-{efficiency_compare_legend(group)}
 {_compare_takeaway(group)}"""
 
     return f"""
@@ -1344,14 +1346,15 @@ def _compare_takeaway(sweeps: list) -> str:
         )
     return (
         f'<p class="takeaway">{body}</p>'
-        '<p class="fineprint">Both axes are logarithmic, so the vertical gap between '
-        'two lines is their ratio — parallel lines mean a constant advantage across '
-        'the whole range rather than a growing one. Solid is tokens per joule of '
-        'node energy, what an allocation bills for. Dashed is per joule of dynamic '
-        'energy, node draw above the idle floor measured on that node before its '
-        'server started. The machines did not run the same vLLM: versions are '
-        'recorded in each sweep\'s run_meta.json, and both ran with '
-        '<code>--enforce-eager</code>.</p>'
+        '<p class="fineprint">Tokens per joule of <em>node</em> energy is what an '
+        'allocation bills for; per joule of <em>dynamic</em> energy is node draw '
+        'above the idle floor, measured on that node before its server started. '
+        'The two rank the machines differently, which is the finding above. '
+        'Both measures against concurrency, for every machine and model, are on '
+        'the <a href="dashboard.html">dashboard</a> as the tokens per joule and '
+        'tokens per joule (dynamic) metrics. The machines did not run the same '
+        "vLLM: versions are recorded in each sweep's run_meta.json, and both ran "
+        'with <code>--enforce-eager</code>.</p>'
     )
 
 
