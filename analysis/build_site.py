@@ -1119,7 +1119,10 @@ def inference_section(sweeps: list) -> str:
     # keeps the sentence -- which is the part the chart existed to support.
     by_model: dict = defaultdict(list)
     for s in sweeps:
-        if len(s["rows"]) >= 3:
+        # Concurrency sweeps only, matching what the takeaway can read. A shape
+        # sweep has no load curve, so it neither earns a heading of its own nor
+        # counts toward the two machines a comparison needs.
+        if len(s["rows"]) >= 3 and swept_over_concurrency(s["rows"]):
             by_model[s["model"]].append(s)
     compare = ""
     for model, group in sorted(by_model.items()):
@@ -1305,58 +1308,117 @@ def _xcheck_note(sweeps: list) -> str:
 
 
 def _compare_takeaway(sweeps: list) -> str:
-    """Which machine wins, on each denominator, at the top of the sweep.
+    """Which machine wins per joule, on two framings and two denominators.
 
-    Derived because the two answers disagree, and the disagreement is the
-    result. Written by hand it would need rewriting every time a sweep is added,
-    and a stale sentence naming the wrong winner is worse than no sentence.
+    Concurrency sweeps only. A shape sweep holds concurrency fixed and varies
+    the prompt, so its rows are five prompts rather than a load curve and its
+    extremes describe a prompt, not a machine -- which is how the worst shape of
+    one Aurora sweep briefly became Aurora's number here, reporting 10.3x where
+    the like-for-like comparison says 4.3x.
+
+    Two framings, because they disagree and the disagreement is the useful part.
+    Matched TP holds sharding constant and is the controlled result. Best per
+    machine is what each machine actually reaches when allowed its own best
+    configuration, which is the question an allocation actually asks.
+
+    Never compares a machine against itself: ranked across every configuration,
+    the best and worst entries were both Aurora often enough that the sentence
+    read as a machine comparison while being a TP comparison.
     """
-    tops = []
+    tops: dict = {}
     for sweep in sweeps:
+        if not swept_over_concurrency(sweep["rows"]):
+            continue
         top = sorted(sweep["rows"], key=lambda r: r["concurrency"])[-1]
-        if top.get("tok_per_joule") and top.get("tok_per_joule_dynamic"):
-            tops.append((sweep["machine"], top))
-    if len(tops) < 2:
+        if not (top.get("tok_per_joule") and top.get("tok_per_joule_dynamic")):
+            continue
+        # Repeat sweeps of one configuration: keep the best, so a known-bad
+        # early run cannot become the machine's number.
+        key = (sweep["machine"], sweep.get("tp"))
+        if key not in tops or top["tok_per_joule"] > tops[key]["tok_per_joule"]:
+            tops[key] = top
+    if len({m for m, _ in tops}) < 2:
         return ""
 
-    levels = {t["concurrency"] for _, t in tops}
-    at = (f"At concurrency {tops[0][1]['concurrency']}"
-          if len(levels) == 1 else "At the top of each sweep")
-    by_total = sorted(tops, key=lambda kv: -kv[1]["tok_per_joule"])
-    by_dyn = sorted(tops, key=lambda kv: -kv[1]["tok_per_joule_dynamic"])
-    tw, tl = by_total[0], by_total[-1]
-    dw, dl = by_dyn[0], by_dyn[-1]
-    total_ratio = tw[1]["tok_per_joule"] / tl[1]["tok_per_joule"]
-    dyn_ratio = dw[1]["tok_per_joule_dynamic"] / dl[1]["tok_per_joule_dynamic"]
+    def rank(members: dict, metric: str):
+        """Winner, loser and their ratio on one metric. members: machine -> row."""
+        order = sorted(members.items(), key=lambda kv: -kv[1][metric])
+        (wm, wr), (lm, lr) = order[0], order[-1]
+        return wm, lm, wr[metric] / lr[metric]
 
-    if tw[0] == dw[0]:
-        body = (
-            f"{at}, <strong>{html.escape(tw[0])}</strong> leads on both measures — "
-            f"{total_ratio:.1f}× the tokens per joule of {html.escape(tl[0])}, and "
-            f"{dyn_ratio:.2f}× on dynamic energy. No tradeoff to make."
-        )
-    else:
-        body = (
-            f"The two measures disagree, and that is the result. {at}, "
-            f"<strong>{html.escape(tw[0])}</strong> delivers {total_ratio:.1f}× the "
-            f"tokens per joule of {html.escape(tl[0])} — but per joule of "
-            f"<em>work</em>, <strong>{html.escape(dw[0])}</strong> is "
-            f"{dyn_ratio:.2f}× ahead. The more efficient accelerator loses, because "
-            f"its node spends so much more simply being switched on."
-        )
+    def sentence(members: dict, lead: str) -> str:
+        tw, tl, tr = rank(members, "tok_per_joule")
+        dw, dl, dr = rank(members, "tok_per_joule_dynamic")
+        if tw == dw:
+            return (f"{lead} <strong>{html.escape(tw)}</strong> leads on both measures "
+                    f"— {tr:.1f}x the tokens per joule of {html.escape(tl)}, and "
+                    f"{dr:.2f}x on dynamic energy. No tradeoff to make.")
+        return (f"{lead} <strong>{html.escape(tw)}</strong> delivers {tr:.1f}x the "
+                f"tokens per joule of {html.escape(tl)} — but per joule of "
+                f"<em>work</em>, <strong>{html.escape(dw)}</strong> is {dr:.2f}x "
+                f"ahead. The more efficient accelerator loses, because its node "
+                f"spends so much more simply being switched on.")
+
+    paras = ""
+
+    # Framing 1: the controlled comparison, at a TP both machines actually ran.
+    by_tp: dict = defaultdict(dict)
+    for (machine, tp), row in tops.items():
+        by_tp[tp][machine] = row
+    shared = {tp: d for tp, d in by_tp.items() if len(d) >= 2}
+    if shared:
+        tp = sorted(shared, key=lambda t: (-len(shared[t]), t if t else 0))[0]
+        members = shared[tp]
+        levels = {r["concurrency"] for r in members.values()}
+        at = (f"At concurrency {next(iter(levels))}"
+              if len(levels) == 1 else "At the top of each sweep")
+        paras += f'<p class="takeaway">{sentence(members, f"{at} and TP={tp}, the one configuration both machines swept:")}</p>'
+
+    # Framing 2: each machine at its own best, which need not be the same TP.
+    best_total: dict = {}
+    best_dyn: dict = {}
+    for (machine, tp), row in tops.items():
+        if (machine not in best_total
+                or row["tok_per_joule"] > best_total[machine][1]["tok_per_joule"]):
+            best_total[machine] = (tp, row)
+        if (machine not in best_dyn
+                or row["tok_per_joule_dynamic"] > best_dyn[machine][1]["tok_per_joule_dynamic"]):
+            best_dyn[machine] = (tp, row)
+    # Only worth saying when some machine had a choice of configuration. Where
+    # every machine ran exactly one TP, "its best" is the configuration the
+    # paragraph above already compared, and the two would restate each other.
+    tps_per_machine: dict = defaultdict(set)
+    for machine, tp in tops:
+        tps_per_machine[machine].add(tp)
+    if max((len(v) for v in tps_per_machine.values()), default=0) > 1:
+        picks = ", ".join(
+            f"{html.escape(m)} at TP={tp}" for m, (tp, _) in sorted(best_total.items()))
+        members = {m: r for m, (_, r) in best_total.items()}
+        dyn_members = {m: r for m, (_, r) in best_dyn.items()}
+        tw, tl, tr = rank(members, "tok_per_joule")
+        dw, dl, dr = rank(dyn_members, "tok_per_joule_dynamic")
+        paras += (
+            f'<p class="takeaway">Given each machine its best configuration '
+            f'({picks}), <strong>{html.escape(tw)}</strong> leads on node energy '
+            f'by {tr:.1f}x, and <strong>{html.escape(dw)}</strong> on dynamic '
+            f'energy by {dr:.2f}x. Filling a node changes the node-energy gap and '
+            f'not the dynamic one, because the idle draw is divided across more '
+            f'work rather than reduced.</p>')
+
     return (
-        f'<p class="takeaway">{body}</p>'
-        '<p class="fineprint">Tokens per joule of <em>node</em> energy is what an '
+        paras
+        + '<p class="fineprint">Tokens per joule of <em>node</em> energy is what an '
         'allocation bills for; per joule of <em>dynamic</em> energy is node draw '
         'above the idle floor, measured on that node before its server started. '
         'The two rank the machines differently, which is the finding above. '
-        'Both measures against concurrency, for every machine and model, are on '
-        'the <a href="dashboard.html">dashboard</a> as the tokens per joule and '
+        'Prompt-shape sweeps are excluded — they hold concurrency fixed, so their '
+        'spread is across prompts and not across load. Both measures against '
+        'concurrency, for every machine and model, are on the '
+        '<a href="dashboard.html">dashboard</a> as the tokens per joule and '
         'tokens per joule (dynamic) metrics. The machines did not run the same '
         "vLLM: versions are recorded in each sweep's run_meta.json, and both ran "
         'with <code>--enforce-eager</code>.</p>'
     )
-
 
 
 # Metrics the dashboard offers, each pre-rendered as its own complete chart.
