@@ -70,6 +70,19 @@ def build_sources(machine: str):
         return (intel_energy_sources() + cray_pm_energy_sources(),
                 "intel i915 hwmon energy1_input")
 
+    if machine == "crux":
+        from benchmark.craypm import cray_pm_energy_sources
+
+        # The node counter is the measurement on a CPU machine, not context.
+        sources = cray_pm_energy_sources(node_is_aggregate=False)
+        if sources:
+            return sources, "cray pm_counters node energy"
+        raise SystemExit(
+            "crux: no /sys/cray/pm_counters on this node, and there is no "
+            "other energy counter to fall back to. Check with:  "
+            "ls /sys/cray/pm_counters/ && cat /sys/cray/pm_counters/energy"
+        )
+
     from benchmark.nvml import nvml_energy_sources
 
     sources = nvml_energy_sources(visible=None)

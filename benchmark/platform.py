@@ -474,13 +474,31 @@ class CruxPlatform(Platform):
     cpu could have come from a laptop, and every CPU machine would group
     together under it.
 
-    Nothing here reads energy. The base class returns None and Crux exposes no
-    accelerator counter to read, so its rows carry timing only and are absent
-    from both energy tables rather than sitting in them full of zeros -- which
-    would read as "measured nothing" rather than "nothing to measure".
+    No accelerator counter, so energy_joules() stays None and the per-rank
+    energy table skips Crux -- there is no device to attribute joules to.
+
+    Node energy is a different question, and Crux is a Cray EX (Slingshot
+    fabric), so the chassis may expose /sys/cray/pm_counters the way Aurora's
+    blades should. Where it does, that is the ONLY energy path this machine
+    has, and it is a better one than an accelerator counter for a CPU node:
+    it covers the CPUs and memory doing the actual work rather than a
+    subsystem. Where it does not, the collector finds nothing and the rows
+    carry timing only, exactly as before.
     """
 
     name = "crux"
+
+    def node_energy_sources(self) -> list[EnergySource]:
+        from .craypm import cray_pm_energy_sources
+
+        # node_is_aggregate=False, unlike Aurora. There is no accelerator
+        # counter here for the node figure to double-count against, so it is
+        # the measurement rather than context -- left aggregate, every source
+        # would be excluded and a sampled run would report zero joules.
+        return cray_pm_energy_sources(node_is_aggregate=False)
+
+    def energy_scope(self) -> str:
+        return "cray pm_counters node energy (CPU + memory + node overhead)"
 
 
 _CUDA_MACHINES = {"polaris": PolarisPlatform, "sophia": SophiaPlatform}

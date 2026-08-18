@@ -45,8 +45,20 @@ def _reader(path: Path):
     return read
 
 
-def cray_pm_energy_sources() -> list:
-    """One aggregate EnergySource per readable pm_counters energy file."""
+def cray_pm_energy_sources(node_is_aggregate: bool = True) -> list:
+    """One EnergySource per readable pm_counters energy file.
+
+    node_is_aggregate is the whole design decision. On a machine with
+    accelerator counters the node figure overlaps them, so it must stay out of
+    every total or the accelerator energy is counted twice -- that is Aurora,
+    and the default. On a machine with NO accelerator counter there is nothing
+    to overlap and the node figure IS the measurement; leaving it aggregate
+    would exclude every source from the total and produce a run that sampled
+    diligently and reported zero joules. That is Crux.
+
+    The component counters (cpu, memory, accel*) are always aggregate: they are
+    parts of the node figure, informative as series and wrong to add to it.
+    """
     from .power import EnergySource
 
     if not PM_DIR.is_dir():
@@ -65,6 +77,6 @@ def cray_pm_energy_sources() -> list:
             scope=f"cray pm_counters {name} (node-level, {label})",
             read=read,
             device_index=None,
-            aggregate=True,
+            aggregate=node_is_aggregate if label == "node" else True,
         ))
     return sources
