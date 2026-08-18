@@ -1244,8 +1244,13 @@ def model_table(sweeps: list) -> str:
         ])
     if len(rows) < 2:
         return ""
+    # Folded like the index's tables: ten columns of dense numbers are a
+    # reference, not something a reader works through on the way past. The
+    # takeaway underneath stays open, because it is the finding the table
+    # supports and burying it would leave the section saying nothing.
     return f"""
-<h2>What the model costs</h2>
+<details class="fold">
+<summary>What the model costs <span class="count">({len(rows)} configuration{"" if len(rows) == 1 else "s"} at concurrency {conc})</span></summary>
 {table(
     ["Model", "Machine", "TP", "Idle dev", "Out tok/s", "ITL ms", "Dyn W",
      "W/dev", "Tok/J", "Tok/J dyn"],
@@ -1256,6 +1261,7 @@ def model_table(sweeps: list) -> str:
     "separates a bigger model from a wider one — the two move together in every "
     "other column here.",
 )}
+</details>
 {_model_takeaway(sweeps, conc)}"""
 
 
