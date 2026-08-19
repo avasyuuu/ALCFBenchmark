@@ -179,7 +179,27 @@ fi
 
 export VLLM_HOST_IP=$(getent hosts "$(hostname).hsn.cm.aurora.alcf.anl.gov" \
     | awk '{ print $1 }' | tr ' ' '\n' | sort | head -n 1)
-export no_proxy="localhost,127.0.0.1"
+# A proxy, which this script did not need until gpt-oss. Every other model
+# here is staged under HF_HOME and HF_HUB_OFFLINE=1 stops anything reaching
+# for the network at all, so an Aurora compute node having no route off-site
+# never mattered.
+#
+# gpt-oss-120b breaks that assumption: it uses OpenAI's harmony response
+# format, and openai_harmony fetches its own vocab file at runtime through a
+# path HF_HUB_OFFLINE knows nothing about. Without a proxy that fails as
+#   openai_harmony.HarmonyError: error downloading or loading vocab file
+# several minutes into startup, after the weights and the mxfp4 kernels have
+# already loaded fine.
+#
+# Same hostname submit_polaris_aiperf.sh uses. Verify it against ALCF's docs
+# if it stops working -- it has changed before. Set PROXY=0 to opt out.
+if [[ "${PROXY:-1}" == "1" ]]; then
+    export HTTP_PROXY="${HTTP_PROXY:-http://proxy.alcf.anl.gov:3128}"
+    export HTTPS_PROXY="${HTTPS_PROXY:-http://proxy.alcf.anl.gov:3128}"
+    export http_proxy="${HTTP_PROXY}"
+    export https_proxy="${HTTPS_PROXY}"
+fi
+export no_proxy="localhost,127.0.0.1,.alcf.anl.gov"
 
 # vLLM's model-info cache. Must match the root scripts/vllm_prepopulate_aurora.sh
 # filled, because the cache is keyed to it. Checked rather than assumed: without
