@@ -1,0 +1,31 @@
+{
+  "kind": "aiperf_run_meta",
+  "machine": "aurora",
+  "hostname": "x4113c3s7b0n0",
+  "pbs_jobid": "8766844.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov",
+  "git_commit": "8cbeacf",
+  "vllm": "0.15.0+xpu",
+  "torch": "2.10.0a0+git449b176",
+  "aiperf": "0.12.0",
+  "model": "openai/gpt-oss-120b",
+  "tensor_parallel": 4,
+  "isl": 1024,
+  "osl": 256,
+  "shapes": [
+    {
+      "isl": 1024,
+      "osl": 256
+    }
+  ],
+  "requests_per_level": 64,
+  "concurrencies": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "enforce_eager": true,
+  "dtype": "auto"
+}
