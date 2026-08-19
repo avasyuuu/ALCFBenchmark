@@ -27,6 +27,7 @@ import argparse
 import base64
 import html
 import json
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -411,6 +412,61 @@ PAGES = [
 ]
 
 
+# Named software and instruments, marked in prose so a reader scanning a
+# paragraph can see which tools a finding depended on. Deliberately NOT the
+# hardware: a spec card is nothing but hardware names, and marking every one
+# of them marks nothing. Models and datasets are out too -- they are the
+# workload, not the instrument, and the workload strip already states them.
+#
+# Longest first, because the alternation is leftmost-first: "Nsight Compute"
+# has to win over "Nsight", and "torchrun" over "torch".
+TOOL_TERMS = (
+    "Nsight Systems", "Nsight Compute", "Level Zero", "Hugging Face",
+    "torchvision", "HuggingFace", "torchrun", "Perfetto", "xpu-smi",
+    "oneCCL", "pynvml", "PyTorch", "mpiexec", "Nsight", "AIPerf",
+    "sysman", "hwmon", "sysfs", "conda", "Lustre", "NCCL", "DCGM",
+    "vLLM", "NVML", "CUDA", "IPEX", "ipex", "RAPL", "gloo", "torch",
+    "PALS", "i915", "ZMQ", "PBS", "MPI", "DDP", "Ray",
+)
+
+# Elements whose text is not prose. <code> already has its own treatment and
+# marking inside it would nest two styles on one word; <title> inside an SVG
+# is a tooltip; <script> is code a stray span would break.
+_TOOL_SKIP = {"code", "pre", "script", "style", "title", "textarea"}
+
+_TOOL_RE = re.compile(
+    r"(?<![\w-])(" + "|".join(re.escape(t) for t in TOOL_TERMS) + r")(?![\w-])"
+)
+
+
+def mark_tools(markup: str) -> str:
+    """Wrap tool names in already-rendered markup, text nodes only.
+
+    Operates on the finished HTML rather than at each call site because the
+    names are scattered across dozens of f-strings, and a rule applied in one
+    place cannot drift from a rule applied in another. Tags are copied through
+    untouched, so nothing inside an attribute -- an href, a data-tip, a chart's
+    aria-label -- is ever rewritten.
+    """
+    out, pos, depth = [], 0, 0
+    for m in re.finditer(r"<(/?)([a-zA-Z][\w-]*)([^>]*?)(/?)>", markup):
+        chunk = markup[pos:m.start()]
+        out.append(chunk if depth else _TOOL_RE.sub(
+            r'<span class="tool">\1</span>', chunk))
+        out.append(m.group(0))
+        name = m.group(2).lower()
+        if name in _TOOL_SKIP:
+            if m.group(1):
+                depth = max(0, depth - 1)
+            elif not m.group(4):
+                depth += 1
+        pos = m.end()
+    tail = markup[pos:]
+    out.append(tail if depth else _TOOL_RE.sub(
+        r'<span class="tool">\1</span>', tail))
+    return "".join(out)
+
+
 def nav(current: str) -> str:
     """Links to every page, with the current one marked and not a link.
 
@@ -525,6 +581,7 @@ figcaption {{ font-size:.78rem; color:var(--dim); margin-top:.6rem;
 .fineprint {{ font-size:.78rem; color:var(--dim); margin:0; max-width:70ch; }}
 footer {{ margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line);
   color:var(--dim); font-size:.78rem; }}
+.tool {{ font-weight:600; border-bottom:1px dotted var(--accent); }}
 code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
   border-radius:3px; }}
 /* Reference material, so it sits quieter than the tables it explains. The
@@ -728,7 +785,7 @@ a:hover {{ border-bottom-color:var(--accent); }}
 {identity(logo_uri)}
 </header>
 {nav(here)}
-{body}
+{mark_tools(body)}
 
 <footer>
 {footer}
