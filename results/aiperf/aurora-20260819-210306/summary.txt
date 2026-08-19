@@ -1,0 +1,36 @@
+idle floor: 1091.00 W   |   6 run(s)
+
+Load and power
+conc  dur_s req/s outTok/s allTok/s TTFT_ms ITL_ms  avg_W dyn_W energy_J idleDev idle% xcheck%            src
+-------------------------------------------------------------------------------------------------------------
+   1 626.90  0.10     25.5    130.0   233.9  38.45 1131.6  40.6 709404.3       4  31.7     n/a sidecar aurora
+   2 346.90  0.18     46.0    234.9   389.5  42.07 1145.2  54.2 397256.4       4  31.3     n/a sidecar aurora
+   4 185.40  0.35     86.0    439.6   531.0  44.50 1169.4  78.4 216803.2       4  30.7     n/a sidecar aurora
+   8  98.50  0.65    161.5    826.3   660.7  46.96 1206.0 115.0 118790.1       4  29.7     n/a sidecar aurora
+  16  53.60  1.19    297.4   1520.0   939.1  50.02 1257.2 166.2  67384.5       4  28.5     n/a sidecar aurora
+  32  30.10  2.13    530.4   2708.7  1416.8  54.03 1330.7 239.7  40054.0       4  27.0     n/a sidecar aurora
+
+Tokens produced
+conc reqs in_tok out_tok all_tok OSLavg OSLp50 OSLmin OSLmax OSLstd tgt
+-----------------------------------------------------------------------
+   1   64  65536   15975   81511  249.6    247    247    254    3.0 256
+   2   64  65536   15949   81485  249.2    247    246    253    2.8 256
+   4   64  65536   15947   81483  249.2    247    247    253    2.9 256
+   8   64  65536   15923   81459  248.8    247    247    253    2.7 256
+  16   64  65536   15940   81476  249.1    247    247    253    2.8 256
+  32   64  65536   15959   81495  249.4    247    246    253    2.9 256
+
+Token energy efficiency
+conc tok/J tok/J_dyn mJ/outTok mJ/allTok    J/req
+-------------------------------------------------
+   1  0.02      0.63   44407.2    8703.2 11084.44
+   2  0.04      0.85   24907.9    4875.2  6207.13
+   4  0.07      1.10   13595.2    2660.7  3387.55
+   8  0.13      1.41    7460.3    1458.3  1856.10
+  16  0.24      1.79    4227.4     827.0  1052.88
+  32  0.40      2.21    2509.8     491.5   625.84
+
+WARNINGS
+  * 6 row(s): AIPerf's total_output_tokens disagreed with requests x OSL and was replaced by it (AIPerf reported as little as 0.13x the derived count). Seen on models answering in the harmony format, where reasoning and content tokens are counted separately. tok/J here is derived, not AIPerf's own -- and is NOT comparable to a row where the two agreed unless that row used the same definition.
+
+wrote results/aiperf/aurora-20260819-210306/summary.json
