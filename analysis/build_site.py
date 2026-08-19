@@ -205,6 +205,98 @@ def headline(runs: list) -> list:
     return sorted(by_machine.values(), key=lambda s: -(s["sps"] or 0))
 
 
+def _accel_model(spec: dict) -> str:
+    """The accelerator model with its per-node count stripped off.
+
+    "4x NVIDIA A100, NVLink" and "8x NVIDIA A100, NVLink" are the same part in
+    different quantities, which is the whole point of the comparison below.
+    """
+    text = (spec or {}).get("accelerator") or ""
+    # Case preserved: this string is displayed as well as grouped on, and
+    # "nvidia a100" in a sentence reads as a typo rather than a part number.
+    return re.sub(r"^\s*\d+\s*[x\u00d7]\s*", "", text).strip()
+
+
+def _accel_count(spec: dict):
+    """How many of them a node carries, read off the same string."""
+    m = re.match(r"\s*(\d+)\s*[x\u00d7]", (spec or {}).get("accelerator") or "")
+    return int(m.group(1)) if m else None
+
+
+def same_accelerator_takeaway(runs: list, specs: dict | None) -> str:
+    """Machines that differ only in how many of one accelerator they carry.
+
+    The only controlled comparison this benchmark has on the training side.
+    Aurora against Polaris confounds vendor, architecture, node width and
+    software all at once; Polaris against Sophia holds the part number fixed
+    and changes the count, so the difference is attributable.
+
+    Derived, and silent unless two measured machines actually share a part --
+    a hand-written version would have to be revisited the day a machine is
+    added, which is how a page starts asserting things the data stopped
+    saying.
+    """
+    if not specs:
+        return ""
+    groups: dict = defaultdict(list)
+    for machine, spec in specs.items():
+        if machine.startswith("_"):
+            continue
+        model = _accel_model(spec)
+        if not model or "none" in model.lower():
+            continue
+        best_tp = max((r for r in runs if r.get("machine") == machine
+                       and r.get("samples_per_s")),
+                      key=lambda r: r["samples_per_s"], default=None)
+        if not best_tp:
+            continue
+        effs = [(node_efficiency(r), r) for r in runs if r.get("machine") == machine]
+        effs = [(e, r) for e, r in effs if e]
+        groups[model.lower()].append({
+            "label": model,
+            "machine": machine,
+            "devices": _accel_count(spec),
+            "tp": best_tp,
+            "eff": max(effs, key=lambda t: t[0]) if effs else None,
+        })
+
+    for model, members in sorted(groups.items(), key=lambda kv: kv[0].lower()):
+        members = [m for m in members if m["eff"] and m["devices"]]
+        if len(members) < 2:
+            continue
+        members.sort(key=lambda m: m["devices"])
+        small, big = members[0], members[-1]
+        if small["devices"] == big["devices"]:
+            continue
+        ratio_dev = big["devices"] / small["devices"]
+        ratio_tp = big["tp"]["samples_per_s"] / small["tp"]["samples_per_s"]
+        eff_small, eff_big = small["eff"][0], big["eff"][0]
+        # Per-rank batch is what the extra devices actually get to work on: the
+        # global batch is fixed for strong scaling, so more ranks means less
+        # each, and that is the mechanism behind the numbers above.
+        per_small = small["tp"].get("global_batch", 0) // max(1, small["tp"]["ranks"])
+        per_big = big["tp"].get("global_batch", 0) // max(1, big["tp"]["ranks"])
+        name = html.escape(big["label"].split(",")[0])
+        return (
+            f'<h2>Same accelerator, different count</h2>'
+            f'<p class="takeaway"><strong>{html.escape(big["machine"])}</strong> and '
+            f'<strong>{html.escape(small["machine"])}</strong> run the same part — '
+            f'{name} — with {big["devices"]} and {small["devices"]} per node. '
+            f'{ratio_dev:.0f}x the accelerators bought {ratio_tp:.2f}x the throughput '
+            f'and cost efficiency: {eff_big:,.1f} against {eff_small:,.1f} samples per '
+            f'node-joule. More silicon, less work per joule.</p>'
+            f'<p class="fineprint">The global batch is fixed at '
+            f'{small["tp"].get("global_batch", 0):,} so time-to-accuracy stays '
+            f'comparable, which means the wider node gives each rank less to do — '
+            f'{per_big} samples per rank against {per_small}. On a workload already '
+            f'running at under 1.5% of peak, halving the per-rank batch starves the '
+            f'devices further, so the extra accelerators mostly add idle draw. This '
+            f'is the one pair here that holds the accelerator constant; every other '
+            f'comparison on this page changes the vendor too.</p>'
+        )
+    return ""
+
+
 def takeaway(cards: list) -> str:
     """The throughput-vs-energy sentence, derived rather than written.
 
@@ -995,6 +1087,7 @@ def index_body(runs: list, specs: dict | None = None,
 per-rank column cannot see that, which is the reason both tables exist.</div>
 
 {takeaway(machine_stats)}
+{same_accelerator_takeaway(runs, specs)}
 
 <h2>Glossary</h2>
 {legend()}
