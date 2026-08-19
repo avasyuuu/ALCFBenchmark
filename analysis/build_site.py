@@ -674,6 +674,8 @@ figcaption {{ font-size:.78rem; color:var(--dim); margin-top:.6rem;
 footer {{ margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line);
   color:var(--dim); font-size:.78rem; }}
 .tool {{ font-weight:600; border-bottom:1px dotted var(--accent); }}
+.hit {{ color:var(--accent); font-weight:700; cursor:help; }}
+.miss {{ color:var(--dim); opacity:.45; }}
 code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
   border-radius:3px; }}
 /* Reference material, so it sits quieter than the tables it explains. The
@@ -1634,6 +1636,67 @@ DASHBOARD_LEGEND = [
 ]
 
 
+def coverage_matrix(sweeps: list) -> str:
+    """Which model-and-TP combinations exist on which machine.
+
+    The three filters above multiply out to more combinations than have been
+    measured, and the only way to find a gap was to click through them until
+    a chart came back empty. This states the grid instead: a row per model and
+    sharding width, a column per machine, and a mark where a sweep exists.
+
+    Concurrency sweeps and shape sweeps are marked differently because they
+    answer different questions -- a shape sweep holds concurrency fixed, so it
+    appears on none of the charts above and its absence there is not a gap.
+
+    Derived from the same sweeps the charts draw, so it cannot claim coverage
+    the page does not have.
+    """
+    if not sweeps:
+        return ""
+    machines = sorted({s["machine"] for s in sweeps})
+    grid: dict = {}
+    for s in sweeps:
+        model = (s["model"] or "?").split("/")[-1]
+        key = (model, s.get("tp") or 0)
+        n = len(s["rows"])
+        shaped = not swept_over_concurrency(s["rows"])
+        # Both kinds are kept, not the larger. A shape sweep and a concurrency
+        # sweep can share a model and a TP -- Aurora's 8B has one of each --
+        # and collapsing them would hide the shape sweep behind the fuller
+        # one, leaving the legend describing a mark that never renders.
+        cell = grid.setdefault((key, s["machine"]), {})
+        kind = "shape" if shaped else "conc"
+        cell[kind] = max(cell.get(kind, 0), n)
+
+    rows = []
+    for model, tp in sorted({k for k, _ in grid}):
+        cells = [html.escape(model), num(tp) if tp else "—"]
+        for machine in machines:
+            hit = grid.get(((model, tp), machine))
+            if not hit:
+                cells.append('<span class="miss">·</span>')
+                continue
+            marks, tips = "", []
+            if hit.get("conc"):
+                marks += "✓"
+                tips.append(f'{hit["conc"]} concurrency levels')
+            if hit.get("shape"):
+                marks += "◆"
+                tips.append(f'{hit["shape"]} prompt shapes')
+            cells.append(
+                f'<span class="hit" title="{", ".join(tips)}">{marks}</span>')
+        rows.append(cells)
+
+    headers = ["Model", "TP"] + [m for m in machines]
+    return "<h2>What has been measured</h2>" + table(
+        headers, rows,
+        "✓ is a sweep over concurrency — the shape every chart above draws. "
+        "◆ is a sweep over prompt shape, which holds concurrency fixed and so "
+        "appears on the power profiles rather than here. A dot is a "
+        "combination nobody has run: not a failure, just a gap. Hover a mark "
+        "for how many levels it holds.")
+
+
 def dashboard_legend_terms() -> str:
     """The metric glossary, reusing the index's legend styling."""
     blocks = ""
@@ -1816,6 +1879,8 @@ count — see each sweep's run_meta.json.</figcaption></figure>
 </details>
 
 {serving_comparison(sweeps)}
+
+{coverage_matrix(sweeps)}
 
 <h2>What the terms mean</h2>
 {dashboard_legend_terms()}
