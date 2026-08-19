@@ -122,6 +122,10 @@ footer { margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line)
   font-size:.82rem; letter-spacing:.02em; }
 .hit { cursor:help; }
 .cov > span.miss { color:var(--dim); opacity:.32; font-weight:500; }
+/* Not a gap but a wall: struck through, so a reader stops looking for the
+   run that would fill it. */
+.cov > span.cant { color:var(--dim); opacity:.5; font-weight:500;
+  text-decoration:line-through; text-decoration-thickness:1.5px; cursor:help; }
 code { font-size:.85em; background:var(--tag); padding:.1rem .3rem;
   border-radius:3px; }
 /* Reference material, so it sits quieter than the tables it explains. The
@@ -401,7 +405,7 @@ compare cleanly — but this is a handful of runs per machine on a workload at
 
 
 <footer>
-Generated 2026-08-19 21:42 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
+Generated 2026-08-19 21:46 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.

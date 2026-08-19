@@ -703,6 +703,10 @@ footer {{ margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line
   font-size:.82rem; letter-spacing:.02em; }}
 .hit {{ cursor:help; }}
 .cov > span.miss {{ color:var(--dim); opacity:.32; font-weight:500; }}
+/* Not a gap but a wall: struck through, so a reader stops looking for the
+   run that would fill it. */
+.cov > span.cant {{ color:var(--dim); opacity:.5; font-weight:500;
+  text-decoration:line-through; text-decoration-thickness:1.5px; cursor:help; }}
 code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
   border-radius:3px; }}
 /* Reference material, so it sits quieter than the tables it explains. The
@@ -1663,7 +1667,74 @@ DASHBOARD_LEGEND = [
 ]
 
 
-def coverage_matrix(sweeps: list) -> str:
+# Weight footprint per model, in GB, for deciding whether a configuration can
+# fit at all. Parameters times bytes per parameter: bf16 is 2 bytes, and
+# gpt-oss-120b ships its MoE weights in mxfp4 at roughly half a byte, which its
+# own config.json declares as quant_method.
+#
+# Deliberately approximate. It separates "nobody ran this" from "this cannot
+# run", not a memory budget, so it is compared against weights alone -- a
+# configuration whose weights merely fit but leave no room for a KV cache is
+# left looking possible rather than being called impossible on an estimate.
+MODEL_WEIGHT_GB = {
+    "Llama-3.1-8B-Instruct": 16,
+    "Llama-3.3-70B-Instruct": 141,
+    "gemma-3-27b-it": 55,
+    "gpt-oss-120b": 61,
+}
+
+
+def _accel_units(spec: dict) -> tuple:
+    """(devices tensor parallel can address, GB of memory on each).
+
+    Tiles where a machine has them. Aurora's six Ponte Vecchio cards present
+    as twelve tiles, and a tile is what a rank binds and what --tensor-parallel
+    counts, so reading the card count would halve the width and double the
+    memory in one step.
+    """
+    accel = (spec or {}).get("accelerator") or ""
+    tiles = re.search(r"(\d+)\s*tiles", accel)
+    lead = re.match(r"\s*(\d+)", accel)
+    if tiles:
+        n = int(tiles.group(1))
+    elif lead:
+        n = int(lead.group(1))
+    else:
+        return None, None
+    total = re.match(r"\s*([\d.]+)", (spec or {}).get("accelerator_memory") or "")
+    return n, (float(total.group(1)) / n if total and n else None)
+
+
+def _fits(model: str, tp: int, spec: dict) -> bool:
+    """Whether one model at one sharding width can sit on one node.
+
+    Two independent walls. The width cannot exceed the devices a node has --
+    Polaris has four GPUs, so TP=8 is not a tuning question there. And the
+    weights, divided across those devices, have to land inside what vLLM will
+    allocate on each.
+
+    Unknown model or unparseable spec answers True: an unmarked cell reads as
+    "nobody ran this", which is the safer thing to say when we do not know.
+    """
+    units, gb = _accel_units(spec)
+    if not units or tp > units:
+        return False
+    weight = MODEL_WEIGHT_GB.get(model)
+    if weight is None or not gb:
+        return True
+    # 0.9 is what vLLM will allocate; the further 0.8 is headroom for a KV
+    # cache. Weights that merely fit do not make a server: gemma-3-27b is 55 GB
+    # against an Aurora tile's 57.6 usable, which leaves under 3 GB for cache
+    # and cannot hold one sequence of the sweep's own length. Calling that
+    # possible would send someone to spend an allocation discovering it.
+    #
+    # Checked against every configuration that has actually run here: all of
+    # them clear this bar, so the rule marks nothing impossible that the
+    # results contradict.
+    return weight / tp <= gb * 0.9 * 0.8
+
+
+def coverage_matrix(sweeps: list, specs: dict | None = None) -> str:
     """Which model, sharding width and machine combinations exist.
 
     Three dimensions in a two-dimensional table: model down, tensor parallel
@@ -1717,6 +1788,15 @@ def coverage_matrix(sweeps: list) -> str:
                     marks += (f'<span class="m s{slot} hit" '
                               f'title="{html.escape(machine)}: {", ".join(hit)}">'
                               f'{labels[machine]}</span>')
+                elif not _fits(model, tp, (specs or {}).get(machine)):
+                    units, gb = _accel_units((specs or {}).get(machine))
+                    why = (f"{machine} has {units} devices, fewer than TP={tp}"
+                           if units and tp > units else
+                           f"{MODEL_WEIGHT_GB.get(model, 0)} GB over {tp} device(s) "
+                           f"exceeds the {gb * 0.9:,.0f} GB each will hold"
+                           if gb else "cannot fit on one node")
+                    marks += (f'<span class="cant" title="{html.escape(why)}">'
+                              f'{labels[machine]}</span>')
                 else:
                     marks += f'<span class="miss">{labels[machine]}</span>'
             cells += f'<td><span class="cov">{marks}</span></td>'
@@ -1731,8 +1811,12 @@ def coverage_matrix(sweeps: list) -> str:
     legend = " · ".join(f"{labels[m]} = {machine_tag(m)}" for m in machines)
     caption = (
         f"{legend}. A lit initial is a sweep on that machine at that sharding "
-        "width; a dimmed one is a combination nobody has run — not a failure, "
-        "just a gap. Hover one for how many levels it holds. The swatches are "
+        "width; a dimmed one is a gap nobody has run yet; a struck-through one "
+        "cannot run on a single node of that machine at all — either the node "
+        "has fewer devices than the width asks for, or the weights will not "
+        "divide into them. Hover any mark for the reason or the level count. "
+        "Multi-node tensor parallelism over Ray would lift the device-count "
+        "wall, and is not built here. The swatches are "
         "the chart's own encodings: dash is the model, marker is the tensor "
         "parallel width, colour is the machine. Prompt-shape sweeps count "
         "here too, though they hold concurrency fixed and so appear on the "
@@ -1786,7 +1870,7 @@ DASHBOARD_XY = [
 ]
 
 
-def dashboard_body(sweeps: list) -> str:
+def dashboard_body(sweeps: list, specs: dict | None = None) -> str:
     """Every inference configuration, filterable in the browser.
 
     The filtering is presentation only: every series and every row is in the
@@ -1949,7 +2033,7 @@ count — see each sweep's run_meta.json.</figcaption></figure>
 
 {serving_comparison(sweeps)}
 
-{coverage_matrix(sweeps)}
+{coverage_matrix(sweeps, specs)}
 
 <h2>What the terms mean</h2>
 {dashboard_legend_terms()}
@@ -2619,7 +2703,7 @@ def main() -> None:
              "and tokens per joule. Every configuration measured so far, filtered "
              "in the browser, with what they add up to underneath. Nothing is "
              "fetched — the whole dataset is in this page.",
-        body=dashboard_body(sweeps),
+        body=dashboard_body(sweeps, specs),
         footer=footer,
         logo_uri=logo,
         here="dashboard.html",
