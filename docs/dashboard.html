@@ -111,6 +111,12 @@ footer { margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line)
 .chip .mk, .covtable .mk { --c:var(--fg); width:17px; height:17px;
   vertical-align:-4px; margin-right:.1rem; }
 .chip .dot, .covtable .dot { stroke-width:1.3; }
+/* Swatches are solid whatever their slot. The hollow fill exists so a marker
+   landing on another shows what it covers, which is a chart problem and not a
+   legend one -- and beside a real checkbox a hollow square reads as an
+   unticked one. Shape alone separates them at this size. */
+.chip .dot.k1, .chip .dot.k3,
+.covtable .dot.k1, .covtable .dot.k3 { fill:var(--c); stroke:var(--bg); }
 .cov { display:inline-flex; gap:.45rem; font-variant-numeric:tabular-nums; }
 .cov > span { width:1.15em; text-align:center; font-weight:700;
   font-size:.82rem; letter-spacing:.02em; }
@@ -497,7 +503,7 @@ above.</p>
 </script>
 
 <footer>
-Generated 2026-08-19 21:39 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
+Generated 2026-08-19 21:42 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.
