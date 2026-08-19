@@ -683,8 +683,15 @@ footer {{ margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line
 .covtable th.mname, .covtable td.mname {{ text-align:left; }}
 .covtable td {{ text-align:center; }}
 .covtable td.mname .sw {{ width:18px; margin-right:.5rem; vertical-align:1px; }}
-.chip .sw {{ width:16px; }}
-.chip .mk {{ margin-right:0; }}
+.chip .sw {{ width:18px; }}
+/* Marker swatches outside a chart. --c is the machine's colour, set by the
+   .sN classes, and a tensor-parallel width has no machine -- so without a
+   value here the filled shapes fall back to SVG's initial black and the
+   hollow ones, which stroke with --c, vanish outright. That is what removed
+   TP=4: its slot is the hollow square. Body colour reads on both themes. */
+.chip .mk, .covtable .mk {{ --c:var(--fg); width:17px; height:17px;
+  vertical-align:-4px; margin-right:.1rem; }}
+.chip .dot, .covtable .dot {{ stroke-width:1.3; }}
 .cov {{ display:inline-flex; gap:.45rem; font-variant-numeric:tabular-nums; }}
 .cov > span {{ width:1.15em; text-align:center; font-weight:700;
   font-size:.82rem; letter-spacing:.02em; }}
@@ -1824,8 +1831,10 @@ def dashboard_body(sweeps: list) -> str:
             # model, shape is the sharding width -- are stated where they are
             # used instead of only under the chart.
             if kind == "machine":
-                cls = f"chip s{SERIES_SLOT.get(v, 8)}"
-                mark = '<span class="sw"></span>'
+                # No swatch: machine_tag already renders the name in the
+                # machine's colour, and a bar beside it says the same thing
+                # twice.
+                cls, mark = "chip", ""
             elif kind == "model":
                 cls = "chip"
                 bg = model_dash_bg(short_to_full.get(v, v), full_models)

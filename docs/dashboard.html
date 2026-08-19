@@ -102,8 +102,15 @@ footer { margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line)
 .covtable th.mname, .covtable td.mname { text-align:left; }
 .covtable td { text-align:center; }
 .covtable td.mname .sw { width:18px; margin-right:.5rem; vertical-align:1px; }
-.chip .sw { width:16px; }
-.chip .mk { margin-right:0; }
+.chip .sw { width:18px; }
+/* Marker swatches outside a chart. --c is the machine's colour, set by the
+   .sN classes, and a tensor-parallel width has no machine -- so without a
+   value here the filled shapes fall back to SVG's initial black and the
+   hollow ones, which stroke with --c, vanish outright. That is what removed
+   TP=4: its slot is the hollow square. Body colour reads on both themes. */
+.chip .mk, .covtable .mk { --c:var(--fg); width:17px; height:17px;
+  vertical-align:-4px; margin-right:.1rem; }
+.chip .dot, .covtable .dot { stroke-width:1.3; }
 .cov { display:inline-flex; gap:.45rem; font-variant-numeric:tabular-nums; }
 .cov > span { width:1.15em; text-align:center; font-weight:700;
   font-size:.82rem; letter-spacing:.02em; }
@@ -324,7 +331,7 @@ to is under them.</p>
   <label class="ctl">Metric
     <select id="metric"><optgroup label="against concurrency"><option value="tok_per_joule" selected>tokens per joule</option><option value="tok_per_joule_dynamic">tokens per joule (dynamic)</option><option value="out_tok_per_s">output tokens per second</option><option value="itl_ms">inter-token latency (ms)</option><option value="ttft_ms">time to first token (ms)</option><option value="request_latency_ms">request latency (ms)</option><option value="prefill_share_pct">prefill share of request latency (%)</option><option value="dynamic_w">dynamic power (W)</option></optgroup><optgroup label="throughput against power"><option value="xy_dynamic_w">dynamic power (W)</option><option value="xy_avg_gpu_w">node power (W)</option></optgroup></select>
   </label>
-  <div class="ctl"><span>Machines</span><div class="chips"><label class="chip s1"><input type="checkbox" data-filter="machine" value="aurora" checked><span class="sw"></span> <span class="m s1">aurora</span></label><label class="chip s2"><input type="checkbox" data-filter="machine" value="polaris" checked><span class="sw"></span> <span class="m s2">polaris</span></label><label class="chip s4"><input type="checkbox" data-filter="machine" value="sophia" checked><span class="sw"></span> <span class="m s4">sophia</span></label></div></div>
+  <div class="ctl"><span>Machines</span><div class="chips"><label class="chip"><input type="checkbox" data-filter="machine" value="aurora" checked> <span class="m s1">aurora</span></label><label class="chip"><input type="checkbox" data-filter="machine" value="polaris" checked> <span class="m s2">polaris</span></label><label class="chip"><input type="checkbox" data-filter="machine" value="sophia" checked> <span class="m s4">sophia</span></label></div></div>
   <div class="ctl"><span>Models</span><div class="chips"><label class="chip"><input type="checkbox" data-filter="model" value="Llama-3.1-8B-Instruct" checked><span class="sw" style="background:repeating-linear-gradient(90deg,var(--fg) 0 6px,transparent 6px 9px)"></span> Llama-3.1-8B-Instruct</label><label class="chip"><input type="checkbox" data-filter="model" value="Llama-3.3-70B-Instruct"><span class="sw" style="background:repeating-linear-gradient(90deg,var(--fg) 0 6px,transparent 6px 9px)"></span> Llama-3.3-70B-Instruct</label><label class="chip"><input type="checkbox" data-filter="model" value="gemma-3-27b-it"><span class="sw" style="background:var(--fg)"></span> gemma-3-27b-it</label><label class="chip"><input type="checkbox" data-filter="model" value="gpt-oss-120b"><span class="sw" style="background:repeating-linear-gradient(90deg,var(--fg) 0 6px,transparent 6px 9px)"></span> gpt-oss-120b</label></div></div>
   <div class="ctl"><span>Tensor parallel</span><div class="chips"><label class="chip"><input type="checkbox" data-filter="tp" value="1" checked><svg class="mk" viewBox="0 0 12 12" aria-hidden="true"><circle class="dot k0" cx="6.0" cy="6.0" r="3.4"></circle></svg> TP=1</label><label class="chip"><input type="checkbox" data-filter="tp" value="4" checked><svg class="mk" viewBox="0 0 12 12" aria-hidden="true"><rect class="dot k1" x="2.6" y="2.6" width="6.8" height="6.8"></rect></svg> TP=4</label><label class="chip"><input type="checkbox" data-filter="tp" value="8" checked><svg class="mk" viewBox="0 0 12 12" aria-hidden="true"><path class="dot k2" d="M6.0,1.6 L10.4,9.2 L1.6,9.2 Z"></path></svg> TP=8</label></div></div>
 </div>
@@ -490,7 +497,7 @@ above.</p>
 </script>
 
 <footer>
-Generated 2026-08-19 21:33 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
+Generated 2026-08-19 21:39 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.

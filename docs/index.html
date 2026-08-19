@@ -102,8 +102,15 @@ footer { margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line)
 .covtable th.mname, .covtable td.mname { text-align:left; }
 .covtable td { text-align:center; }
 .covtable td.mname .sw { width:18px; margin-right:.5rem; vertical-align:1px; }
-.chip .sw { width:16px; }
-.chip .mk { margin-right:0; }
+.chip .sw { width:18px; }
+/* Marker swatches outside a chart. --c is the machine's colour, set by the
+   .sN classes, and a tensor-parallel width has no machine -- so without a
+   value here the filled shapes fall back to SVG's initial black and the
+   hollow ones, which stroke with --c, vanish outright. That is what removed
+   TP=4: its slot is the hollow square. Body colour reads on both themes. */
+.chip .mk, .covtable .mk { --c:var(--fg); width:17px; height:17px;
+  vertical-align:-4px; margin-right:.1rem; }
+.chip .dot, .covtable .dot { stroke-width:1.3; }
 .cov { display:inline-flex; gap:.45rem; font-variant-numeric:tabular-nums; }
 .cov > span { width:1.15em; text-align:center; font-weight:700;
   font-size:.82rem; letter-spacing:.02em; }
@@ -388,7 +395,7 @@ compare cleanly — but this is a handful of runs per machine on a workload at
 
 
 <footer>
-Generated 2026-08-19 21:33 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
+Generated 2026-08-19 21:39 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.
