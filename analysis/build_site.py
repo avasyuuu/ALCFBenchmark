@@ -1481,6 +1481,9 @@ def _xcheck_note(sweeps: list) -> str:
     )
 
 
+_NUMBER_WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}
+
+
 def _compare_takeaway(sweeps: list) -> str:
     """Which machine wins per joule, on two framings and two denominators.
 
@@ -1546,7 +1549,14 @@ def _compare_takeaway(sweeps: list) -> str:
         levels = {r["concurrency"] for r in members.values()}
         at = (f"At concurrency {next(iter(levels))}"
               if len(levels) == 1 else "At the top of each sweep")
-        paras += f'<p class="takeaway">{sentence(members, f"{at} and TP={tp}, the one configuration both machines swept:")}</p>'
+        # "both" was right while two machines had swept it and wrong the day a
+        # third did. Counted rather than asserted, for the same reason every
+        # number on this page is derived: prose that names a quantity has to
+        # re-derive it or it becomes false without anyone editing it.
+        n = len(members)
+        who = "both machines" if n == 2 else f"all {_NUMBER_WORDS.get(n, str(n))} machines"
+        lead = f"{at} and TP={tp}, the one configuration {who} swept:"
+        paras += f'<p class="takeaway">{sentence(members, lead)}</p>'
 
     # Framing 2: each machine at its own best, which need not be the same TP.
     best_total: dict = {}
