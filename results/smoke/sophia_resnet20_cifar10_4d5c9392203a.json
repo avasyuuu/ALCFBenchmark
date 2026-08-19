@@ -1,0 +1,277 @@
+{
+  "machine": "sophia",
+  "workload": "resnet20_cifar10",
+  "config": {
+    "model": "resnet20",
+    "scaling": "strong",
+    "nodes": 1,
+    "world_size": 8,
+    "ranks_per_node": 8,
+    "global_batch_size": 1536,
+    "local_batch_size": 192,
+    "precision": "bf16",
+    "epochs": 1,
+    "base_lr": 0.1,
+    "warmup_epochs": 5,
+    "seed": 1234,
+    "synthetic_data": false,
+    "target_accuracy": 0.9,
+    "dataloader_workers": 4,
+    "ipex_optimize": true
+  },
+  "environment": {
+    "platform": "sophia",
+    "hostname": "sophia-gpu-07",
+    "device_name": "NVIDIA A100-SXM4-40GB",
+    "torch_version": "2.12.0",
+    "pbs_jobid": "173556.sophia-pbs-01.lab.alcf.anl.gov",
+    "pbs_queue": "by-node",
+    "pbs_nodes": [
+      "sophia-gpu-07.lab.alcf.anl.gov"
+    ],
+    "pbs_node_count": 1,
+    "git_commit": "ad7dcb6"
+  },
+  "run_id": "4d5c9392203a",
+  "schema_version": 3,
+  "timestamp_utc": "2026-08-13T20:54:33.793899+00:00",
+  "timing": {
+    "startup_s": 3.3596546221524477,
+    "data_setup_s": 5.590252276044339,
+    "total_train_s": 3.3155062021687627,
+    "warmup_steps_excluded": 20
+  },
+  "work": {
+    "steps": 30,
+    "epochs_completed": 1,
+    "epochs_requested": 1,
+    "samples_global": 46080,
+    "samples_per_rank": 5760,
+    "stopped_early": false
+  },
+  "throughput": {
+    "step_time": {
+      "count": 15,
+      "mean_s": 0.01861307257786393,
+      "median_s": 0.018446521367877722,
+      "min_s": 0.015948037151247263,
+      "max_s": 0.022864875849336386,
+      "p90_s": 0.02109489683061838,
+      "p99_s": 0.022864875849336386,
+      "stdev_s": 0.0019029883435347109
+    },
+    "data_wait": {
+      "count": 15,
+      "mean_s": 0.001108273615439733,
+      "median_s": 0.0011044442653656006,
+      "min_s": 0.0009244242683053017,
+      "max_s": 0.0014224732294678688,
+      "p90_s": 0.0013165543787181377,
+      "p99_s": 0.0014224732294678688,
+      "stdev_s": 0.00014414444071979773
+    },
+    "compute": {
+      "count": 15,
+      "mean_s": 0.017504798962424198,
+      "median_s": 0.017249993979930878,
+      "min_s": 0.014995831064879894,
+      "max_s": 0.0217765630222857,
+      "p90_s": 0.020059634000062943,
+      "p99_s": 0.0217765630222857,
+      "stdev_s": 0.001888623941841353
+    },
+    "samples_per_s": 83267.73213050072,
+    "warmup_steps_excluded": 15
+  },
+  "accuracy": {
+    "target": 0.9,
+    "time_to_target_s": null,
+    "epoch_to_target": null,
+    "reached_target": false,
+    "final_top1": 0.17919999361038208,
+    "best_top1": 0.17919999361038208
+  },
+  "memory": {
+    "peak_bytes_per_device": 184681472
+  },
+  "flops": {
+    "fwd_flops_per_sample": 81626368,
+    "train_flops_per_sample": 244879104,
+    "achieved_flops_per_s": 20390527636229.027,
+    "peak_flops_per_s_per_device": 312000000000000.0,
+    "peak_flops_per_s": 2496000000000000.0,
+    "mfu": 0.008169281905540476
+  },
+  "energy": {
+    "joules": 247.53999996185303,
+    "avg_watts": 74.66129901971843,
+    "samples_processed": 5760,
+    "samples_per_joule": 23.268966635241338,
+    "joules_to_target_accuracy": null,
+    "scope": "whole gpu 0 incl. HBM (nvml energy counter)",
+    "devices_counted": 1,
+    "wall_s": 3.3155062021687627
+  },
+  "power": {
+    "nodes_monitored": 1,
+    "devices_total": 8,
+    "devices_idle": 0,
+    "joules_total": 1827.8259999752045,
+    "joules_bound": 1827.8259999752045,
+    "joules_idle": null,
+    "idle_fraction": 0.0,
+    "sample_interval_s": 0.1,
+    "timeline_files": [
+      "sophia_4d5c9392203a_sophia-gpu-07_power.json"
+    ],
+    "per_node": [
+      {
+        "devices": [
+          {
+            "key": "gpu0",
+            "scope": "whole gpu 0 incl. HBM (nvml energy counter)",
+            "device_index": 0,
+            "bound": true,
+            "aggregate": false,
+            "joules": 247.53999996185303,
+            "mean_watts": 75.91201034956104,
+            "floor_watts": 61.48000683274196,
+            "median_watts": 61.78166260870516,
+            "max_watts": 129.94120220013062,
+            "samples": 32,
+            "counter_reset": null
+          },
+          {
+            "key": "gpu1",
+            "scope": "whole gpu 1 incl. HBM (nvml energy counter)",
+            "device_index": 1,
+            "bound": true,
+            "aggregate": false,
+            "joules": 235.42699998617172,
+            "mean_watts": 72.19736956560753,
+            "floor_watts": 46.3979860871511,
+            "median_watts": 60.617780646723546,
+            "max_watts": 221.5387036078156,
+            "samples": 32,
+            "counter_reset": null
+          },
+          {
+            "key": "gpu2",
+            "scope": "whole gpu 2 incl. HBM (nvml energy counter)",
+            "device_index": 2,
+            "bound": true,
+            "aggregate": false,
+            "joules": 218.47600001096725,
+            "mean_watts": 66.99908045778079,
+            "floor_watts": 43.379865008766636,
+            "median_watts": 56.54030645267575,
+            "max_watts": 202.88665485821227,
+            "samples": 32,
+            "counter_reset": null
+          },
+          {
+            "key": "gpu3",
+            "scope": "whole gpu 3 incl. HBM (nvml energy counter)",
+            "device_index": 3,
+            "bound": true,
+            "aggregate": false,
+            "joules": 230.76499998569489,
+            "mean_watts": 70.76769439254302,
+            "floor_watts": 44.0630717597554,
+            "median_watts": 58.225335587844825,
+            "max_watts": 184.87811113414037,
+            "samples": 32,
+            "counter_reset": null
+          },
+          {
+            "key": "gpu4",
+            "scope": "whole gpu 4 incl. HBM (nvml energy counter)",
+            "device_index": 4,
+            "bound": true,
+            "aggregate": false,
+            "joules": 219.52300000190735,
+            "mean_watts": 67.3201593709281,
+            "floor_watts": 43.88288548682915,
+            "median_watts": 57.327002307891775,
+            "max_watts": 200.24540143519602,
+            "samples": 32,
+            "counter_reset": null
+          },
+          {
+            "key": "gpu5",
+            "scope": "whole gpu 5 incl. HBM (nvml energy counter)",
+            "device_index": 5,
+            "bound": true,
+            "aggregate": false,
+            "joules": 206.40800005197525,
+            "mean_watts": 63.29823963235186,
+            "floor_watts": 0.0,
+            "median_watts": 55.72705414499571,
+            "max_watts": 192.0911330567671,
+            "samples": 32,
+            "counter_reset": null
+          },
+          {
+            "key": "gpu6",
+            "scope": "whole gpu 6 incl. HBM (nvml energy counter)",
+            "device_index": 6,
+            "bound": true,
+            "aggregate": false,
+            "joules": 232.50300002098083,
+            "mean_watts": 71.30067927048798,
+            "floor_watts": 45.34689956966423,
+            "median_watts": 59.372349896347025,
+            "max_watts": 177.01197918050804,
+            "samples": 32,
+            "counter_reset": null
+          },
+          {
+            "key": "gpu7",
+            "scope": "whole gpu 7 incl. HBM (nvml energy counter)",
+            "device_index": 7,
+            "bound": true,
+            "aggregate": false,
+            "joules": 237.18399995565414,
+            "mean_watts": 72.73618107036668,
+            "floor_watts": 0.0,
+            "median_watts": 60.62759167384425,
+            "max_watts": 218.79180027686917,
+            "samples": 32,
+            "counter_reset": null
+          }
+        ],
+        "device_count": 8,
+        "devices_bound": 8,
+        "devices_idle": 0,
+        "joules_total": 1827.8259999752045,
+        "joules_bound": 1827.8259999752045,
+        "joules_idle": 0,
+        "idle_fraction": 0.0,
+        "sample_interval_s": 0.1,
+        "sample_count": 33,
+        "span_s": 3.2608805750496686
+      }
+    ]
+  },
+  "cost": {
+    "node_count": 1,
+    "wall_s": 3.3155062021687627,
+    "node_seconds": 3.3155062021687627,
+    "node_hours": 0.0009209739450468785
+  },
+  "curve": [
+    {
+      "epoch": 1,
+      "step": 30,
+      "elapsed_s": 3.3152320440858603,
+      "lr": 0.24000000000000005,
+      "train_loss": 2.0353628396987915,
+      "val_top1": 0.17919999361038208
+    }
+  ],
+  "status": "complete",
+  "notes": [
+    "sophia 1-node bf16 strong-scaling 100ep",
+    "smoke: 30 steps, not a benchmark result"
+  ]
+}
