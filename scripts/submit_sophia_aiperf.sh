@@ -195,6 +195,18 @@ if (( MAX_MODEL_LEN < 8192 )); then MAX_MODEL_LEN=8192; fi
 # then be measuring different things. Set ENFORCE_EAGER=0 for vLLM's real
 # number on a DGX A100 -- a legitimate run, just not one to put beside the
 # Aurora or Polaris sweeps.
+# Weight/activation dtype handed to vLLM. bfloat16 by default, which is what
+# every dense model here has been measured in and what keeps the machines
+# comparable.
+#
+# Set DTYPE=auto for a model that ships its own quantization. gpt-oss-120b is
+# mxfp4 for the MoE weights (its config names the quant_method and exempts
+# attention, router and embeddings); forcing bfloat16 there asks vLLM to
+# ignore that and hold ~234 GB of dequantized experts instead of ~61 GB, which
+# turns a run that fits four tiles into one that barely fits eight. "auto"
+# honours whatever the checkpoint declares.
+DTYPE="${DTYPE:-bfloat16}"
+
 EAGER=()
 if [[ "${ENFORCE_EAGER:-1}" == "1" ]]; then EAGER=(--enforce-eager); fi
 
@@ -261,7 +273,7 @@ export TMPDIR=/tmp
 # ${PBS_JOBID} fatal outside one -- for a line that only labels the log.
 echo "=== job ${PBS_JOBID:-interactive} ==="
 echo "model=${MODEL}  TP=${TP}  isl=${ISL} osl=${OSL} max_len=${MAX_MODEL_LEN}"
-echo "requests=${REQUESTS}  eager=${ENFORCE_EAGER:-1}"
+echo "requests=${REQUESTS}  eager=${ENFORCE_EAGER:-1}  dtype=${DTYPE}"
 echo "concurrencies=${CONCURRENCIES}"
 echo "out=${OUTROOT}"
 python -c "import torch; print('torch', torch.__version__, '|', torch.cuda.device_count(), 'GPUs')"
@@ -290,7 +302,7 @@ def ver(dist):
             return __import__(dist).__version__
         except Exception:
             return None
-machine, model, tp, shapes, reqs, conc, eager, job = sys.argv[1:9]
+machine, model, tp, shapes, reqs, conc, eager, job, dtype = sys.argv[1:10]
 pairs = [tuple(int(v) for v in s.split(":")) for s in shapes.split()]
 try:
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
@@ -310,9 +322,9 @@ print(json.dumps({
     "osl": pairs[0][1] if len(pairs) == 1 else None,
     "shapes": [{"isl": i, "osl": o} for i, o in pairs],
     "requests_per_level": int(reqs), "concurrencies": [int(c) for c in conc.split()],
-    "enforce_eager": eager == "1",
+    "enforce_eager": eager == "1", "dtype": dtype,
 }, indent=2))
-' "sophia" "${MODEL}" "${TP}" "${SHAPE_LIST}" "${REQUESTS}"   "${CONCURRENCIES}" "${ENFORCE_EAGER:-1}" "${PBS_JOBID:-}"   > "${OUTROOT}/run_meta.json"
+' "sophia" "${MODEL}" "${TP}" "${SHAPE_LIST}" "${REQUESTS}"   "${CONCURRENCIES}" "${ENFORCE_EAGER:-1}" "${PBS_JOBID:-}" "${DTYPE}"   > "${OUTROOT}/run_meta.json"
 echo "provenance -> ${OUTROOT}/run_meta.json"
 
 # --- idle floor ---------------------------------------------------------------
@@ -336,7 +348,7 @@ echo "starting vLLM on GPU(s) $(seq -s, 0 $(( TP - 1 ))) of ${NGPU}..."
 CUDA_VISIBLE_DEVICES="$(seq -s, 0 $(( TP - 1 )))" vllm serve "${MODEL}" \
     --port "${PORT}" \
     --tensor-parallel-size "${TP}" \
-    --dtype bfloat16 \
+    --dtype "${DTYPE}" \
     --max-model-len "${MAX_MODEL_LEN}" \
     --trust-remote-code \
     "${EAGER[@]}" \
