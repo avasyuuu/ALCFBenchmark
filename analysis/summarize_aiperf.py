@@ -84,6 +84,35 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
     out_tok = val(d.get("total_output_tokens"))
     in_tok = val(d.get("total_isl"))
 
+    # AIPerf's own token total, cross-checked against the two figures that can
+    # be derived from the same export -- requests x mean OSL, which must agree
+    # with it by definition when every request is pinned to one length.
+    #
+    # On gpt-oss-120b it does not. That model answers in OpenAI's harmony
+    # format, which carries reasoning tokens and content tokens on separate
+    # channels, and total_output_tokens counts a subset: 3,317 where 64
+    # requests at a mean OSL of 248.4 require 15,898. The shortfall varies per
+    # level (4.8x to 7.4x across one sweep), so it is not a scale factor that
+    # could be corrected away -- and every efficiency figure divides by it, so
+    # tok/J came out 5-7x low and inconsistently.
+    #
+    # The derived figure wins where they disagree, because two independent
+    # quantities in the same file agree with it and only one disagrees:
+    # output_token_throughput x benchmark_duration reproduces requests x OSL to
+    # within a percent on every row. The disagreement is reported rather than
+    # silently patched, the same way an AIPerf/sidecar energy gap is.
+    reqs_here = val(d.get("request_count"))
+    osl_avg = val(osl)
+    derived_out_tok = reqs_here * osl_avg if (reqs_here and osl_avg) else None
+    out_tok_gap = None
+    if out_tok and derived_out_tok:
+        gap = abs(out_tok - derived_out_tok) / derived_out_tok
+        if gap > 0.05:
+            out_tok_gap = out_tok / derived_out_tok
+            out_tok = derived_out_tok
+    elif derived_out_tok and not out_tok:
+        out_tok = derived_out_tok
+
     # Energy comes from AIPerf where AIPerf can measure it, and from the sidecar
     # where it cannot. Never from both: the two cover different silicon -- AIPerf
     # reports the GPUs NVML enumerates, the sidecar reports every accelerator
@@ -159,6 +188,7 @@ def load(directory: Path, idle_w: float | None) -> dict | None:
         "itl_ms": val(d.get("inter_token_latency")),
         "input_tokens": in_tok,
         "output_tokens": out_tok,
+        "out_tok_gap": out_tok_gap,
         "total_tokens": (in_tok + out_tok) if None not in (in_tok, out_tok) else None,
         "osl_avg": val(osl, "avg"),
         "osl_p50": val(osl, "p50"),
@@ -435,6 +465,22 @@ def main() -> None:
 
 def _warn(rows: list[dict]) -> None:
     notes = []
+
+    # A model whose own token counter disagrees with its own OSL. Reported
+    # loudly: every tokens-per-joule number on the row divides by this, so a
+    # silent correction would look like a measurement rather than a repair.
+    mismatched = [r for r in rows if r.get("out_tok_gap")]
+    if mismatched:
+        worst = min(r["out_tok_gap"] for r in mismatched)
+        notes.append(
+            f"{len(mismatched)} row(s): AIPerf's total_output_tokens disagreed with "
+            f"requests x OSL and was replaced by it (AIPerf reported as little as "
+            f"{worst:.2f}x the derived count). Seen on models answering in the "
+            "harmony format, where reasoning and content tokens are counted "
+            "separately. tok/J here is derived, not AIPerf's own -- and is NOT "
+            "comparable to a row where the two agreed unless that row used the "
+            "same definition."
+        )
 
     # Mixing scopes is worse than missing one. AIPerf's figure covers the GPUs
     # NVML enumerates; the sidecar's covers every accelerator counter on the
