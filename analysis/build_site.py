@@ -38,6 +38,7 @@ from charts import (SERIES_SLOT, accuracy_chart, canonical_runs,
                     swept_over_concurrency,
                     dashboard_chart, dashboard_legend, machine_tag,
                     power_throughput_chart, power_timeline_chart, timeline_watts,
+                    tp_swatch, model_dash_bg,
                     efficiency_chart, inference_chart, inference_legend,
                     series_legend, tail_chart)
 from summarize import load_runs
@@ -674,6 +675,16 @@ figcaption {{ font-size:.78rem; color:var(--dim); margin-top:.6rem;
 footer {{ margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line);
   color:var(--dim); font-size:.78rem; }}
 .tool {{ font-weight:600; border-bottom:1px dotted var(--accent); }}
+/* The coverage matrix. Its headers name an axis the charts encode as a
+   marker shape, so they carry the marker and are set larger than a normal
+   column label -- they are read as headings, not as units. */
+.covtable th.tph {{ font-size:.92rem; text-transform:none; letter-spacing:0;
+  color:var(--fg); text-align:center; }}
+.covtable th.mname, .covtable td.mname {{ text-align:left; }}
+.covtable td {{ text-align:center; }}
+.covtable td.mname .sw {{ width:18px; margin-right:.5rem; vertical-align:1px; }}
+.chip .sw {{ width:16px; }}
+.chip .mk {{ margin-right:0; }}
 .cov {{ display:inline-flex; gap:.45rem; font-variant-numeric:tabular-nums; }}
 .cov > span {{ width:1.15em; text-align:center; font-weight:700;
   font-size:.82rem; letter-spacing:.02em; }}
@@ -1659,6 +1670,9 @@ def coverage_matrix(sweeps: list) -> str:
         return ""
     machines = sorted({s["machine"] for s in sweeps})
     tps = sorted({s.get("tp") or 0 for s in sweeps})
+    # Slot lookup uses the same list the charts do, including a None entry if
+    # any sweep lacks a TP, so a marker here is the marker there.
+    tp_all = sorted({s.get("tp") for s in sweeps}, key=lambda v: (v is None, v))
     have: dict = {}
     for s in sweeps:
         model = (s["model"] or "?").split("/")[-1]
@@ -1673,32 +1687,48 @@ def coverage_matrix(sweeps: list) -> str:
     labels = {m: (m[0].upper() if len(set(firsts)) == len(firsts)
                   else m[:2].capitalize()) for m in machines}
 
-    rows = []
+    full_models = sorted({s["model"] for s in sweeps})
+    short_to_full = {(s["model"] or "?").split("/")[-1]: s["model"] for s in sweeps}
+
+    body = ""
     for model in sorted({m for m, _, _ in have}):
-        cells = [html.escape(model)]
+        bg = model_dash_bg(short_to_full.get(model, model), full_models)
+        cells = (f'<td class="mname"><span class="sw" style="background:{bg}"></span>'
+                 f'{html.escape(model)}</td>')
         for tp in tps:
-            marks = []
+            marks = ""
             for machine in machines:
                 hit = have.get((model, tp, machine))
                 slot = SERIES_SLOT.get(machine, 8)
                 if hit:
-                    marks.append(f'<span class="m s{slot} hit" '
-                                 f'title="{html.escape(machine)}: {", ".join(hit)}">'
-                                 f'{labels[machine]}</span>')
+                    marks += (f'<span class="m s{slot} hit" '
+                              f'title="{html.escape(machine)}: {", ".join(hit)}">'
+                              f'{labels[machine]}</span>')
                 else:
-                    marks.append(f'<span class="miss">{labels[machine]}</span>')
-            cells.append('<span class="cov">' + "".join(marks) + "</span>")
-        rows.append(cells)
+                    marks += f'<span class="miss">{labels[machine]}</span>'
+            cells += f'<td><span class="cov">{marks}</span></td>'
+        body += f"<tr>{cells}</tr>"
 
+    # Rendered directly rather than through table(): the headers carry the
+    # markers the charts plot, and table() escapes its headers -- rightly, since
+    # every other caller passes plain words.
+    head = '<th class="mname">Model</th>' + "".join(
+        f'<th class="tph">{tp_swatch(t, tp_all)}TP={t}</th>' if t
+        else '<th class="tph">TP —</th>' for t in tps)
     legend = " · ".join(f"{labels[m]} = {machine_tag(m)}" for m in machines)
-    headers = ["Model"] + [f"TP={t}" if t else "TP —" for t in tps]
-    return "<h2>What has been measured</h2>" + table(
-        headers, rows,
+    caption = (
         f"{legend}. A lit initial is a sweep on that machine at that sharding "
         "width; a dimmed one is a combination nobody has run — not a failure, "
-        "just a gap. Hover one for how many levels it holds. Prompt-shape "
-        "sweeps count here too, though they appear on the power profiles "
-        "rather than in the charts above, since they hold concurrency fixed.")
+        "just a gap. Hover one for how many levels it holds. The swatches are "
+        "the chart's own encodings: dash is the model, marker is the tensor "
+        "parallel width, colour is the machine. Prompt-shape sweeps count "
+        "here too, though they hold concurrency fixed and so appear on the "
+        "power profiles rather than in the charts above.")
+    return (
+        '<h2>What has been measured</h2>'
+        f'<figure><div class="scroll"><table class="covtable">'
+        f"<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>"
+        f"<figcaption>{caption}</figcaption></figure>")
 
 
 def dashboard_legend_terms() -> str:
@@ -1760,6 +1790,11 @@ def dashboard_body(sweeps: list) -> str:
     # Sorted numerically, not as the strings they become in the DOM: TP 10 has
     # to sit after TP 8 rather than between 1 and 4.
     tps = [str(t) for t in sorted({s.get("tp") for s in sweeps if s.get("tp")})]
+    # Ordered as the charts order them, not as the labels sort. See
+    # model_dash_bg: the two disagree, and the swatch has to follow the line.
+    full_models = sorted({s["model"] for s in sweeps})
+    short_to_full = {(s["model"] or "?").split("/")[-1]: s["model"] for s in sweeps}
+    tp_values = sorted({s.get("tp") for s in sweeps}, key=lambda v: (v is None, v))
 
     # Opening with everything ticked put seven configurations on one axis, which
     # is a browsing state rather than a picture -- and it grows with every sweep
@@ -1782,12 +1817,27 @@ def dashboard_body(sweeps: list) -> str:
         if kind == "tp":
             label = lambda v: f"TP={html.escape(v)}"   # noqa: E731
         on = defaults.get(kind)
-        return "".join(
-            f'<label class="chip"><input type="checkbox" data-filter="{kind}" '
-            f'value="{html.escape(v)}"{"" if on and v not in on else " checked"}>'
-            f' {label(v)}</label>'
-            for v in values
-        )
+        out = ""
+        for v in values:
+            # The chip shows the encoding it filters on, so the three legends
+            # a reader has to hold -- colour is the machine, dash is the
+            # model, shape is the sharding width -- are stated where they are
+            # used instead of only under the chart.
+            if kind == "machine":
+                cls = f"chip s{SERIES_SLOT.get(v, 8)}"
+                mark = '<span class="sw"></span>'
+            elif kind == "model":
+                cls = "chip"
+                bg = model_dash_bg(short_to_full.get(v, v), full_models)
+                mark = f'<span class="sw" style="background:{bg}"></span>'
+            else:
+                cls = "chip"
+                mark = tp_swatch(int(v), tp_values)
+            checked = "" if on and v not in on else " checked"
+            out += (f'<label class="{cls}"><input type="checkbox" '
+                    f'data-filter="{kind}" value="{html.escape(v)}"{checked}>'
+                    f'{mark} {label(v)}</label>')
+        return out
 
     options = (
         '<optgroup label="against concurrency">'

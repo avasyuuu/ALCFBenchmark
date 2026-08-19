@@ -94,6 +94,16 @@ figcaption { font-size:.78rem; color:var(--dim); margin-top:.6rem;
 footer { margin-top:3.5rem; padding-top:1.2rem; border-top:1px solid var(--line);
   color:var(--dim); font-size:.78rem; }
 .tool { font-weight:600; border-bottom:1px dotted var(--accent); }
+/* The coverage matrix. Its headers name an axis the charts encode as a
+   marker shape, so they carry the marker and are set larger than a normal
+   column label -- they are read as headings, not as units. */
+.covtable th.tph { font-size:.92rem; text-transform:none; letter-spacing:0;
+  color:var(--fg); text-align:center; }
+.covtable th.mname, .covtable td.mname { text-align:left; }
+.covtable td { text-align:center; }
+.covtable td.mname .sw { width:18px; margin-right:.5rem; vertical-align:1px; }
+.chip .sw { width:16px; }
+.chip .mk { margin-right:0; }
 .cov { display:inline-flex; gap:.45rem; font-variant-numeric:tabular-nums; }
 .cov > span { width:1.15em; text-align:center; font-weight:700;
   font-size:.82rem; letter-spacing:.02em; }
@@ -378,7 +388,7 @@ compare cleanly — but this is a handful of runs per machine on a workload at
 
 
 <footer>
-Generated 2026-08-19 21:26 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
+Generated 2026-08-19 21:33 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
 Rebuild both pages with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.

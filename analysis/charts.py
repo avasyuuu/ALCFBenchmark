@@ -665,6 +665,26 @@ def dashboard_chart(sweeps: list, metric: str, label: str, log_y: bool = True) -
     return "".join(parts)
 
 
+def tp_swatch(tp, tps: list) -> str:
+    """The marker one tensor-parallel width is drawn with, at legend size."""
+    return _marker_swatch(_tp_slot(tp, tps))
+
+
+def model_dash_bg(model, models: list) -> str:
+    """The CSS background one model's line is drawn with.
+
+    Indexed on the FULL model string, in the order the charts use it. Sorting
+    the display names instead reorders them -- "google/gemma-3-27b-it" leads
+    the full list while "gemma-3-27b-it" comes third among the short ones --
+    so a swatch built from the label would show a solid line for a model the
+    chart draws dashed. Colour is left to the caller: hue is the machine
+    everywhere here, and a model swatch has no machine.
+    """
+    dash = MODEL_DASHES[models.index(model) % len(MODEL_DASHES)]
+    return ("repeating-linear-gradient(90deg,var(--fg) 0 6px,transparent 6px 9px)"
+            if dash else "var(--fg)")
+
+
 def dashboard_legend(sweeps: list) -> str:
     """One key per configuration, tagged so the script can dim what is hidden."""
     models = sorted({s["model"] for s in sweeps})
