@@ -35,7 +35,7 @@ from pathlib import Path
 # `legend` here is the column glossary further down; the chart key is
 # imported under its own name so the two never shadow each other.
 from charts import (SERIES_SLOT, accuracy_chart, canonical_runs,
-                    swept_over_concurrency,
+                    capability_radar, swept_over_concurrency,
                     dashboard_chart, dashboard_legend, machine_tag,
                     power_throughput_chart, power_timeline_chart, timeline_watts,
                     tp_swatch, model_dash_bg,
@@ -759,6 +759,16 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
    viewport would scale both axes and keep the ratio, but at 1.5x it is a chart
    taller than the window, so it stops at its natural width and centres. */
 .chart.xy {{ max-width:760px; margin-inline:auto; }}
+/* Capability radar. Narrow and centred: it is a summary of four numbers, and
+   stretched to a wide viewport the polygon reads as a claim about magnitude
+   when every axis is a ratio to the best machine. Fill is faint because the
+   area of a radar means nothing -- it depends on the order of the axes -- so
+   the outline is the figure and the wash is only there to tell it from the
+   ghosts. */
+.chart.radar {{ max-width:460px; margin-inline:auto; }}
+.rdr {{ fill:var(--c); fill-opacity:.12; stroke:var(--c); stroke-width:2;
+  stroke-linejoin:round; }}
+.rdr.ghost {{ fill:none; stroke-width:1; opacity:.32; }}
 /* Legend marker: the same shape the chart draws, at the size a key needs.
    Sits on the text baseline so a row of keys does not go ragged. */
 .mk {{ width:12px; height:12px; vertical-align:-2px; margin-right:4px;
@@ -2591,6 +2601,11 @@ def machine_profile(machine: str, spec: dict, runs: list, sweeps: list,
                        f'{stats["avg_w"]:,.0f} W against a peak of '
                        f'{stats["peak_w"]:,.0f} W.{bound}{idle}</p>')
 
+    # Summary before detail: the radar is four numbers at one operating point,
+    # and the sweeps underneath it are what those numbers came from. Empty
+    # string for a machine with nothing to compare against, which is the whole
+    # of what has to be removed here if it stops earning its place.
+    radar = capability_radar(sweeps, machine)
     serving = machine_serving_blocks(machine, sweeps)
     if serving:
         serving = "<h3>Serving under load</h3>" + serving
@@ -2602,7 +2617,7 @@ def machine_profile(machine: str, spec: dict, runs: list, sweeps: list,
     if not (measured or traces or serving or scaling):
         return head + card + f'<div class="todo">{state}</div>'
     status = "" if traces else f'<div class="todo">{state}</div>'
-    return (head + card + measured + status + traces + serving + shapes
+    return (head + card + measured + status + traces + radar + serving + shapes
             + scaling + spot + summary)
 
 

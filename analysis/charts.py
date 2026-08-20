@@ -996,3 +996,190 @@ def power_timeline_chart(timeline: dict, slot: int, aria: str) -> str:
     parts.append(_y_title("accelerator watts", T, ph))
     parts.append("</svg>")
     return "".join(parts)
+
+
+# --- Capability radar --------------------------------------------------------
+# Added 2026-08-20 as an at-a-glance summary, and kept to one block on purpose:
+# this function, _radar_field below it, the .rdr rules in build_site's
+# stylesheet, and a single call in machine_profile. It summarises measurements
+# rather than making one, so it should stay cheap to delete if it turns out not
+# to earn its place beside the charts that do.
+
+# key, label, unit, higher_is_better. The order is the compass -- throughput
+# north, latency east, dynamic power south, idle floor west -- and must not
+# change. A radar's outline depends on which axis sits next to which, so the
+# same numbers drawn in a different order make a different shape, and two such
+# charts cannot be compared.
+RADAR_AXES = (
+    ("out_tok_per_s",      "throughput",    "tok/s", True),
+    ("request_latency_ms", "latency",       "ms",    False),
+    ("dynamic_w",          "dynamic power", "W",     False),
+    ("idle_w",             "idle floor",    "W",     False),
+)
+
+_RADAR_ANGLES = (-90, 0, 90, 180)
+
+
+def _radar_field(sweeps: list, concurrency: int):
+    """(model, {machine: point}) at one shared model and one concurrency.
+
+    Every axis moves with load, so a point is only meaningful with the model and
+    the load held still. The model is the one the most machines served at this
+    concurrency rather than each machine's own favourite -- a comparison across
+    machines serving different models is not a comparison.
+
+    Within a machine the configuration with the best tokens per joule is drawn,
+    and the caption names its TP. The question a summary graphic answers is "at
+    its best, how does this machine trade these four off", not "what does some
+    arbitrary sharding do".
+
+    A machine missing any of the four is dropped rather than drawn with a vertex
+    at the origin, which would read as a measurement of zero.
+    """
+    by_model: dict = {}
+    for sweep in sweeps:
+        model = sweep.get("model")
+        if not model or sweep.get("idle_w") is None:
+            continue
+        row = next((r for r in sweep["rows"]
+                    if r.get("concurrency") == concurrency), None)
+        if row is None:
+            continue
+        point = {**row, "idle_w": sweep["idle_w"], "tp": sweep.get("tp")}
+        if any(not point.get(key) for key, *_ in RADAR_AXES):
+            continue
+        by_model.setdefault(model, {}).setdefault(sweep["machine"], []).append(point)
+    if not by_model:
+        return None, {}
+    # Most machines wins; ties break on the name so the page does not change
+    # shape when two models are equally represented.
+    model = max(by_model, key=lambda m: (len(by_model[m]), m))
+    field = {machine: max(points, key=lambda p: p.get("tok_per_joule") or 0)
+             for machine, points in by_model[model].items()}
+    return model, field
+
+
+def capability_radar(sweeps: list, machine: str, concurrency: int = 32) -> str:
+    """One machine's four-axis shape, with the other machines behind it.
+
+    Normalised to the best machine on each axis and drawn so outward is always
+    better, which means latency, dynamic power and the idle floor are inverted:
+    best/value, not value/max. A vertex on the outer ring says "best of the
+    machines here" and never "good" -- the chart has no absolute scale and is
+    not meant to have one.
+
+    The four axes are independent measurements on purpose. Tokens per joule was
+    the obvious fourth and is deliberately absent: it is throughput divided by
+    power, both already axes, so a polygon carrying it would encode one fact
+    twice and reward a machine for arithmetic. The idle floor cannot be derived
+    from the other three -- it is sampled separately, on a quiet node, before
+    the server starts -- so it earns the slot instead.
+
+    This collapses a sweep to a point, which is why it sits above the
+    concurrency charts rather than replacing them: the shape of a curve is the
+    finding on this page, and a radar cannot draw a curve.
+    """
+    model, field = _radar_field(sweeps, concurrency)
+    # Two machines is the minimum that makes a normalised chart mean anything;
+    # one machine alone would simply draw a square on the outer ring.
+    if machine not in field or len(field) < 2:
+        return ""
+
+    best = {}
+    for key, _label, _unit, higher in RADAR_AXES:
+        values = [p[key] for p in field.values()]
+        best[key] = max(values) if higher else min(values)
+
+    def frac(point, key, higher) -> float:
+        value = point[key]
+        return min(1.0, value / best[key] if higher else best[key] / value)
+
+    W, H = 460, 392
+    cx, cy, R = W / 2, 192.0, 108.0
+
+    def vertex(f: float, angle: float):
+        rad = math.radians(angle)
+        return cx + R * f * math.cos(rad), cy + R * f * math.sin(rad)
+
+    def polygon(point) -> str:
+        return " ".join(
+            f"{x:.1f},{y:.1f}" for x, y in (
+                vertex(frac(point, key, higher), angle)
+                for (key, _l, _u, higher), angle in zip(RADAR_AXES, _RADAR_ANGLES)
+            )
+        )
+
+    parts = [
+        f'<svg class="chart radar" viewBox="0 0 {W} {H}" role="img" '
+        f'aria-label="{_esc(machine)} compared with the other machines on '
+        f'throughput, latency, dynamic power and idle floor, each normalised to '
+        f'the best machine and drawn so further out is better">'
+    ]
+    for ring in (0.25, 0.5, 0.75, 1.0):
+        pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in
+                       (vertex(ring, a) for a in _RADAR_ANGLES))
+        parts.append(f'<polygon class="grid" fill="none" points="{pts}"/>')
+    for angle in _RADAR_ANGLES:
+        x, y = vertex(1.0, angle)
+        parts.append(f'<line class="axis" x1="{cx:.1f}" y1="{cy:.1f}" '
+                     f'x2="{x:.1f}" y2="{y:.1f}"/>')
+
+    # Others first and unfilled, so the machine whose section this is stays on
+    # top and stays the only solid shape.
+    for other, point in sorted(field.items()):
+        if other == machine:
+            continue
+        other_tp = f" — TP={point['tp']}" if point.get("tp") else ""
+        parts.append(f'<polygon class="rdr ghost s{_slot(other)}" '
+                     f'points="{polygon(point)}"><title>{_esc(other)}'
+                     f'{other_tp}</title></polygon>')
+    mine = field[machine]
+    parts.append(f'<polygon class="rdr s{_slot(machine)}" points="{polygon(mine)}">'
+                 f'<title>{_esc(machine)}</title></polygon>')
+
+    label_pos = {
+        -90: (cx, cy - R - 30, "middle"),
+        0: (cx + R + 14, cy - 6, "start"),
+        90: (cx, cy + R + 34, "middle"),
+        180: (cx - R - 14, cy - 6, "end"),
+    }
+    for (key, label, unit, higher), angle in zip(RADAR_AXES, _RADAR_ANGLES):
+        x, y, anchor = label_pos[angle]
+        value = mine[key]
+        parts.append(
+            f'<text class="tick" x="{x:.0f}" y="{y:.0f}" text-anchor="{anchor}">'
+            f'{_esc(label)}<tspan class="axis-title" x="{x:.0f}" dy="14">'
+            f'{value:,.0f} {_esc(unit)}</tspan></text>'
+        )
+        share = frac(mine, key, higher)
+        vx, vy = vertex(share, angle)
+        parts.append(
+            f'<circle class="dot s{_slot(machine)}" cx="{vx:.1f}" cy="{vy:.1f}" '
+            f'r="4"><title>{_esc(label)}: {value:,.1f} {_esc(unit)} &#8212; '
+            f'{share * 100:.0f}% of the best measured here</title></circle>'
+        )
+    parts.append("</svg>")
+
+    # Every machine's TP, not just this one's. They are chosen independently --
+    # each machine is drawn at its own best tokens per joule -- so a reader who
+    # saw only the host machine's sharding would take the polygons for four
+    # runs of the same configuration, which they are not. On an 8B that gap is
+    # the whole point: eight Aurora tiles against one A100.
+    shardings = ", ".join(
+        f'{_esc(m)} TP={field[m]["tp"]}' if field[m].get("tp") else _esc(m)
+        for m in sorted(field)
+    )
+    caption = (
+        f'<p class="fineprint">{_esc(model.split("/")[-1])}, concurrency '
+        f'{concurrency} &#8212; one point per machine, because all four axes move '
+        f'with load. Each machine is drawn at its own best tokens per joule, so '
+        f'the shardings differ: {shardings}. Each axis is scaled to the best '
+        f'machine measured here and inverted where lower is better, so further '
+        f'out is better on every spoke and the outer ring means &#8220;best of '
+        f'these&#8221; rather than good. Thin outlines are the other machines. '
+        f'Tokens per joule is deliberately not an axis: it is throughput over '
+        f'power, both already drawn, and a shape carrying it would say the same '
+        f'thing twice. The concurrency charts below are what the sweeps actually '
+        f'measured &#8212; this collapses each of them to a single point.</p>'
+    )
+    return "<h3>At a glance</h3>" + "".join(parts) + caption
