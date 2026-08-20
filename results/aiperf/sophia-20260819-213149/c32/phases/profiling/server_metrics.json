@@ -1,0 +1,1670 @@
+{
+  "data": {
+    "benchmark_id": "f0b5a87b3f3a",
+    "end_ns": 1787177143014163379,
+    "endpoint_summaries": {
+      "localhost:8000": {
+        "endpoint_url": "http://localhost:8000/metrics",
+        "info": {
+          "avg_fetch_latency_ms": 5.325552797297297,
+          "avg_update_interval_ms": 329.52223209722223,
+          "duration_seconds": 23.725600711,
+          "first_fetch_ns": 1787177119294410159,
+          "first_update_ns": 1787177119294410159,
+          "last_fetch_ns": 1787177143041246927,
+          "last_update_ns": 1787177143020010870,
+          "median_update_interval_ms": 333.371422,
+          "total_fetches": 74,
+          "unique_updates": 73
+        },
+        "metrics": {
+          "http_request_duration_highr_seconds": {
+            "description": "Latency with many buckets but no API specific labels. Made for more accurate percentile calculations.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "0.01": 0,
+                  "0.025": 0,
+                  "0.05": 0,
+                  "0.075": 0,
+                  "0.1": 0,
+                  "0.25": 0,
+                  "0.5": 0,
+                  "0.75": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 128,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "3.0": 0,
+                  "3.5": 0,
+                  "30.0": 128,
+                  "4.0": 0,
+                  "4.5": 0,
+                  "5.0": 0,
+                  "60.0": 128,
+                  "7.5": 128
+                },
+                "stats": {
+                  "avg": 5.889703376280522,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 5.319501238230523,
+                  "p1_estimate": 5.191205757169273,
+                  "p25_estimate": 5.533327039999273,
+                  "p50_estimate": 5.889703376280522,
+                  "p5_estimate": 5.248225970974273,
+                  "p75_estimate": 6.246079712561771,
+                  "p90_estimate": 6.459905514330521,
+                  "p95_estimate": 6.531180781586771,
+                  "p99_estimate": 6.588200995391771,
+                  "sum": 753.8820321639068,
+                  "sum_rate": 31.725951301578643
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "http_request_duration_seconds": {
+            "description": "Latency with only few buckets by handler. Made to be only used if aggregation by handler is important.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "0.1": 0,
+                  "0.5": 0,
+                  "1.0": 0
+                },
+                "labels": {
+                  "handler": "/v1/chat/completions",
+                  "method": "POST"
+                },
+                "stats": {
+                  "avg": 5.889703376280522,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 1.9779406752561046,
+                  "p1_estimate": 1.0977940675256104,
+                  "p25_estimate": 3.444851688140261,
+                  "p50_estimate": 5.889703376280522,
+                  "p5_estimate": 1.4889703376280523,
+                  "p75_estimate": 8.334555064420783,
+                  "p90_estimate": 9.801466077304939,
+                  "p95_estimate": 10.29043641493299,
+                  "p99_estimate": 10.681612685035434,
+                  "sum": 753.8820321639068,
+                  "sum_rate": 31.725951301578643
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "http_requests": {
+            "description": "Total number of requests by method, status and handler.",
+            "series": [
+              {
+                "labels": {
+                  "handler": "/v1/chat/completions",
+                  "method": "POST",
+                  "status": "2xx"
+                },
+                "stats": {
+                  "rate": 5.386680665336712,
+                  "total": 128.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "process_cpu_seconds": {
+            "description": "Total user and system CPU time spent in seconds.",
+            "series": [
+              {
+                "stats": {
+                  "rate": 0.10605027559881695,
+                  "total": 2.5200000000000102
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "process_max_fds": {
+            "description": "Maximum number of open file descriptors.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 16384.0,
+                  "max": 16384.0,
+                  "min": 16384.0,
+                  "p1": 16384.0,
+                  "p10": 16384.0,
+                  "p25": 16384.0,
+                  "p5": 16384.0,
+                  "p50": 16384.0,
+                  "p75": 16384.0,
+                  "p90": 16384.0,
+                  "p95": 16384.0,
+                  "p99": 16384.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_open_fds": {
+            "description": "Number of open file descriptors.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 98.72972972972973,
+                  "max": 99.0,
+                  "min": 79.0,
+                  "p1": 93.6,
+                  "p10": 99.0,
+                  "p25": 99.0,
+                  "p5": 99.0,
+                  "p50": 99.0,
+                  "p75": 99.0,
+                  "p90": 99.0,
+                  "p95": 99.0,
+                  "p99": 99.0,
+                  "std": 2.3249527748763863
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_resident_memory_bytes": {
+            "description": "Resident memory size in bytes.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 1599672320.0,
+                  "max": 1599672320.0,
+                  "min": 1599672320.0,
+                  "p1": 1599672320.0,
+                  "p10": 1599672320.0,
+                  "p25": 1599672320.0,
+                  "p5": 1599672320.0,
+                  "p50": 1599672320.0,
+                  "p75": 1599672320.0,
+                  "p90": 1599672320.0,
+                  "p95": 1599672320.0,
+                  "p99": 1599672320.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_start_time_seconds": {
+            "description": "Start time of the process since unix epoch in seconds.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 1787175152.0099998,
+                  "max": 1787175152.01,
+                  "min": 1787175152.01,
+                  "p1": 1787175152.01,
+                  "p10": 1787175152.01,
+                  "p25": 1787175152.01,
+                  "p5": 1787175152.01,
+                  "p50": 1787175152.01,
+                  "p75": 1787175152.01,
+                  "p90": 1787175152.01,
+                  "p95": 1787175152.01,
+                  "p99": 1787175152.01,
+                  "std": 2.4004602856848937e-7
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_virtual_memory_bytes": {
+            "description": "Virtual memory size in bytes.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 58804025510.054054,
+                  "max": 58804162560.0,
+                  "min": 58803113984.0,
+                  "p1": 58803113984.0,
+                  "p10": 58803113984.0,
+                  "p25": 58804146176.0,
+                  "p5": 58803113984.0,
+                  "p50": 58804146176.0,
+                  "p75": 58804162560.0,
+                  "p90": 58804162560.0,
+                  "p95": 58804162560.0,
+                  "p99": 58804162560.0,
+                  "std": 341576.29136373807
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "python_gc_collections": {
+            "description": "Number of times this generation was collected",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 0.1262503280938292,
+                  "total": 3.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 0.04208344269794306,
+                  "total": 1.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_gc_objects_collected": {
+            "description": "Objects collected during gc",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_gc_objects_uncollectable": {
+            "description": "Uncollectable objects found during GC",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_info": {
+            "description": "Python platform information",
+            "series": [
+              {
+                "labels": {
+                  "implementation": "CPython",
+                  "major": "3",
+                  "minor": "13",
+                  "patchlevel": "13",
+                  "version": "3.13.13"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:cache_config_info": {
+            "description": "Information of the LLMEngine CacheConfig",
+            "series": [
+              {
+                "labels": {
+                  "_block_size_resolved": "True",
+                  "block_size": "16",
+                  "cache_dtype": "auto",
+                  "calculate_kv_scales": "False",
+                  "enable_prefix_caching": "True",
+                  "engine": "0",
+                  "gpu_memory_utilization": "0.92",
+                  "hash_block_size": "None",
+                  "is_attention_free": "False",
+                  "kv_cache_dtype_skip_layers": "[]",
+                  "kv_cache_memory_bytes": "None",
+                  "kv_offloading_backend": "native",
+                  "kv_offloading_size": "None",
+                  "kv_sharing_fast_prefill": "False",
+                  "mamba_block_size": "None",
+                  "mamba_cache_dtype": "auto",
+                  "mamba_cache_mode": "none",
+                  "mamba_page_size_padded": "None",
+                  "mamba_ssm_cache_dtype": "auto",
+                  "num_cpu_blocks": "None",
+                  "num_gpu_blocks": "64597",
+                  "num_gpu_blocks_override": "None",
+                  "prefix_caching_hash_algo": "sha256",
+                  "sliding_window": "None",
+                  "user_specified_block_size": "False",
+                  "user_specified_mamba_block_size": "False"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:e2e_request_latency_seconds": {
+            "description": "Histogram of e2e request latency in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "0.3": 0,
+                  "0.5": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 128,
+                  "120.0": 128,
+                  "15.0": 128,
+                  "1920.0": 128,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "20.0": 128,
+                  "240.0": 128,
+                  "30.0": 128,
+                  "40.0": 128,
+                  "480.0": 128,
+                  "5.0": 0,
+                  "50.0": 128,
+                  "60.0": 128,
+                  "7680.0": 128,
+                  "960.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 5.886451305821538,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 5.317297995918367,
+                  "p1_estimate": 5.189238501190154,
+                  "p25_estimate": 5.530730487132056,
+                  "p50_estimate": 5.886451305821538,
+                  "p5_estimate": 5.246153832180471,
+                  "p75_estimate": 6.24217212451102,
+                  "p90_estimate": 6.455604615724709,
+                  "p95_estimate": 6.526748779462605,
+                  "p99_estimate": 6.583664110452922,
+                  "sum": 753.4657671451569,
+                  "sum_rate": 31.70843343651492
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:engine_sleep_state": {
+            "description": "Engine sleep state; awake = 0 means engine is sleeping; awake = 1 means engine is awake; weights_offloaded = 1 means sleep level 1; discard_all = 1 means sleep level 2.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659",
+                  "sleep_state": "awake"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659",
+                  "sleep_state": "weights_offloaded"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659",
+                  "sleep_state": "discard_all"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:estimated_flops_per_gpu": {
+            "description": "Estimated number of floating point operations per GPU (for Model Flops Utilization calculations).",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:estimated_read_bytes_per_gpu": {
+            "description": "Estimated number of bytes read from memory per GPU (for Model Flops Utilization calculations).",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:estimated_write_bytes_per_gpu": {
+            "description": "Estimated number of bytes written to memory per GPU (for Model Flops Utilization calculations).",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:external_prefix_cache_hits": {
+            "description": "External prefix cache hits from KV connector cross-instance cache sharing, in terms of number of cached tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:external_prefix_cache_queries": {
+            "description": "External prefix cache queries from KV connector cross-instance cache sharing, in terms of number of queried tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:generation_tokens": {
+            "description": "Number of generation tokens processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 1378.9902503261983,
+                  "total": 32768.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:inter_token_latency_seconds": {
+            "description": "Histogram of inter-token latency in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 32640,
+                  "0.01": 128,
+                  "0.025": 30878,
+                  "0.05": 31342,
+                  "0.075": 32640,
+                  "0.1": 32640,
+                  "0.15": 32640,
+                  "0.2": 32640,
+                  "0.3": 32640,
+                  "0.4": 32640,
+                  "0.5": 32640,
+                  "0.75": 32640,
+                  "1.0": 32640,
+                  "10.0": 32640,
+                  "2.5": 32640,
+                  "20.0": 32640,
+                  "40.0": 32640,
+                  "5.0": 32640,
+                  "7.5": 32640,
+                  "80.0": 32640
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.02210635911697846,
+                  "count": 32640,
+                  "count_rate": 1373.6035696608617,
+                  "p10_estimate": 0.01772596750097309,
+                  "p1_estimate": 0.016977396557021483,
+                  "p25_estimate": 0.018973585740892432,
+                  "p50_estimate": 0.02105294947409133,
+                  "p5_estimate": 0.01731009475433331,
+                  "p75_estimate": 0.023105402270877443,
+                  "p90_estimate": 0.023158910754699225,
+                  "p95_estimate": 0.027777245975813037,
+                  "p99_estimate": 0.05440023092733341,
+                  "sum": 721.5515615781769,
+                  "sum_rate": 30.365373795286544
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:iteration_tokens_total": {
+            "description": "Histogram of number of tokens per engine_step.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 1048,
+                  "1.0": 0,
+                  "1024.0": 974,
+                  "128.0": 974,
+                  "16.0": 8,
+                  "16384.0": 1048,
+                  "2048.0": 994,
+                  "256.0": 974,
+                  "32.0": 974,
+                  "4096.0": 1048,
+                  "512.0": 974,
+                  "64.0": 974,
+                  "8.0": 4,
+                  "8192.0": 1048
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 160.62213740458014,
+                  "count": 1048,
+                  "count_rate": 44.10344794744433,
+                  "p10_estimate": 31.24394283166412,
+                  "p1_estimate": 31.14219499144164,
+                  "p25_estimate": 31.413522565368247,
+                  "p50_estimate": 31.662083898369318,
+                  "p5_estimate": 31.18741625376274,
+                  "p75_estimate": 31.67446739650056,
+                  "p90_estimate": 31.681897495379303,
+                  "p95_estimate": 2122.590495172957,
+                  "p99_estimate": 2122.590495172957,
+                  "sum": 168332.0,
+                  "sum_rate": 7083.990076230152
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:kv_cache_usage_perc": {
+            "description": "KV-cache usage. 1 means 100 percent usage.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.03367207073318907,
+                  "max": 0.0401572852808223,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.02995696327946005,
+                  "p25": 0.03348504551365408,
+                  "p5": 0.01314245464115426,
+                  "p50": 0.035691064462195776,
+                  "p75": 0.03788934299337418,
+                  "p90": 0.039174252275682685,
+                  "p95": 0.03964254752616263,
+                  "p99": 0.03998777014056595,
+                  "std": 0.00857051329911826
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:mm_cache_hits": {
+            "description": "Multi-modal cache hits, in terms of number of cached items.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:mm_cache_queries": {
+            "description": "Multi-modal cache queries, in terms of number of queried items.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:num_preemptions": {
+            "description": "Cumulative number of preemption from the engine.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:num_requests_running": {
+            "description": "Number of requests in model execution batches.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 29.635135135135137,
+                  "max": 32.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 28.0,
+                  "p25": 32.0,
+                  "p5": 13.100000000000005,
+                  "p50": 32.0,
+                  "p75": 32.0,
+                  "p90": 32.0,
+                  "p95": 32.0,
+                  "p99": 32.0,
+                  "std": 7.2216840982117905
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:num_requests_waiting": {
+            "description": "Number of requests waiting to be processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.28378378378378377,
+                  "max": 14.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 7.429999999999964,
+                  "std": 1.732211115848879
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:num_requests_waiting_by_reason": {
+            "description": "Number of waiting requests by reason. Reason labels: 'capacity' = waiting for scheduling capacity; 'deferred' = deferred by transient constraints (LoRA budget, KV transfer, blocked status). Sum of all reasons equals vllm:num_requests_waiting.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659",
+                  "reason": "capacity"
+                },
+                "stats": {
+                  "avg": 0.28378378378378377,
+                  "max": 14.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 7.429999999999964,
+                  "std": 1.732211115848879
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659",
+                  "reason": "deferred"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:prefix_cache_hits": {
+            "description": "Prefix cache hits, in terms of number of cached tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 90.22690114438993,
+                  "total": 2144.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:prefix_cache_queries": {
+            "description": "Prefix cache queries, in terms of number of queried tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 5704.999825903954,
+                  "total": 135564.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:prompt_tokens": {
+            "description": "Number of prefill tokens processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 5704.999825903954,
+                  "total": 135564.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:prompt_tokens_by_source": {
+            "description": "Number of prompt tokens by source.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659",
+                  "source": "local_compute"
+                },
+                "stats": {
+                  "rate": 5614.7729247595635,
+                  "total": 133420.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659",
+                  "source": "local_cache_hit"
+                },
+                "stats": {
+                  "rate": 90.22690114438993,
+                  "total": 2144.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659",
+                  "source": "external_kv_transfer"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:prompt_tokens_cached": {
+            "description": "Number of cached prompt tokens (local + external).",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 90.22690114438993,
+                  "total": 2144.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:request_decode_time_seconds": {
+            "description": "Histogram of time spent in DECODE phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "0.3": 0,
+                  "0.5": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 128,
+                  "120.0": 128,
+                  "15.0": 128,
+                  "1920.0": 128,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "20.0": 128,
+                  "240.0": 128,
+                  "30.0": 128,
+                  "40.0": 128,
+                  "480.0": 128,
+                  "5.0": 0,
+                  "50.0": 128,
+                  "60.0": 128,
+                  "7680.0": 128,
+                  "960.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 5.637121574829507,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 5.4583935612819445,
+                  "p1_estimate": 5.418179758233743,
+                  "p25_estimate": 5.52541656636228,
+                  "p50_estimate": 5.637121574829507,
+                  "p5_estimate": 5.436052559588498,
+                  "p75_estimate": 5.748826583296735,
+                  "p90_estimate": 5.81584958837707,
+                  "p95_estimate": 5.838190590070516,
+                  "p99_estimate": 5.8560633914252715,
+                  "sum": 721.5515615781769,
+                  "sum_rate": 30.365373795286544
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_generation_tokens": {
+            "description": "Number of generation tokens processed.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 128,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 128,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 128,
+                  "5000.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 256.0,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 200.0,
+                  "p1_estimate": 200.0,
+                  "p25_estimate": 200.0,
+                  "p50_estimate": 241.2734375,
+                  "p5_estimate": 200.0,
+                  "p75_estimate": 315.6875,
+                  "p90_estimate": 360.3359375,
+                  "p95_estimate": 375.21875,
+                  "p99_estimate": 387.125,
+                  "sum": 32768.0,
+                  "sum_rate": 1378.9902503261983
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_inference_time_seconds": {
+            "description": "Histogram of time spent in RUNNING phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "0.3": 0,
+                  "0.5": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "1.5": 0,
+                  "10.0": 128,
+                  "120.0": 128,
+                  "15.0": 128,
+                  "1920.0": 128,
+                  "2.0": 0,
+                  "2.5": 0,
+                  "20.0": 128,
+                  "240.0": 128,
+                  "30.0": 128,
+                  "40.0": 128,
+                  "480.0": 128,
+                  "5.0": 0,
+                  "50.0": 128,
+                  "60.0": 128,
+                  "7680.0": 128,
+                  "960.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 5.760338322495954,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 5.602900830032204,
+                  "p1_estimate": 5.5674773942278595,
+                  "p25_estimate": 5.66193988970611,
+                  "p50_estimate": 5.760338322495954,
+                  "p5_estimate": 5.583221143474234,
+                  "p75_estimate": 5.858736755285799,
+                  "p90_estimate": 5.917775814959705,
+                  "p95_estimate": 5.937455501517674,
+                  "p99_estimate": 5.953199250764049,
+                  "sum": 737.3233052794822,
+                  "sum_rate": 31.02910306758707
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_max_num_generation_tokens": {
+            "description": "Histogram of maximum number of requested generation tokens.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 128,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 128,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 128,
+                  "5000.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 256.0,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 200.0,
+                  "p1_estimate": 200.0,
+                  "p25_estimate": 200.0,
+                  "p50_estimate": 241.2734375,
+                  "p5_estimate": 200.0,
+                  "p75_estimate": 315.6875,
+                  "p90_estimate": 360.3359375,
+                  "p95_estimate": 375.21875,
+                  "p99_estimate": 387.125,
+                  "sum": 32768.0,
+                  "sum_rate": 1378.9902503261983
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_params_max_tokens": {
+            "description": "Histogram of the max_tokens request parameter.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 128,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 128,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 128,
+                  "5000.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 256.0,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 200.0,
+                  "p1_estimate": 200.0,
+                  "p25_estimate": 200.0,
+                  "p50_estimate": 241.2734375,
+                  "p5_estimate": 200.0,
+                  "p75_estimate": 315.6875,
+                  "p90_estimate": 360.3359375,
+                  "p95_estimate": 375.21875,
+                  "p99_estimate": 387.125,
+                  "sum": 32768.0,
+                  "sum_rate": 1378.9902503261983
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_params_n": {
+            "description": "Histogram of the n request parameter.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "1.0": 128,
+                  "10.0": 128,
+                  "2.0": 128,
+                  "20.0": 128,
+                  "5.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 0.503125,
+                  "p1_estimate": 0.41382812500000005,
+                  "p25_estimate": 0.651953125,
+                  "p50_estimate": 0.9,
+                  "p5_estimate": 0.45351562500000003,
+                  "p75_estimate": 1.0,
+                  "p90_estimate": 1.0,
+                  "p95_estimate": 1.0,
+                  "p99_estimate": 1.0,
+                  "sum": 128.0,
+                  "sum_rate": 5.386680665336712
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_prefill_kv_computed_tokens": {
+            "description": "Histogram of new KV tokens computed during prefill (excluding cached tokens).",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 0,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 128,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 0,
+                  "5000.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 1042.34375,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 1042.3629006743515,
+                  "p1_estimate": 1042.3629006743515,
+                  "p25_estimate": 1042.3629006743515,
+                  "p50_estimate": 1042.3629006743515,
+                  "p5_estimate": 1042.3629006743515,
+                  "p75_estimate": 1042.3629006743515,
+                  "p90_estimate": 1042.3629006743515,
+                  "p95_estimate": 1042.3629006743515,
+                  "p99_estimate": 1042.3629006743515,
+                  "sum": 133420.0,
+                  "sum_rate": 5614.7729247595635
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_prefill_time_seconds": {
+            "description": "Histogram of time spent in PREFILL phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "0.3": 128,
+                  "0.5": 128,
+                  "0.8": 128,
+                  "1.0": 128,
+                  "1.5": 128,
+                  "10.0": 128,
+                  "120.0": 128,
+                  "15.0": 128,
+                  "1920.0": 128,
+                  "2.0": 128,
+                  "2.5": 128,
+                  "20.0": 128,
+                  "240.0": 128,
+                  "30.0": 128,
+                  "40.0": 128,
+                  "480.0": 128,
+                  "5.0": 128,
+                  "50.0": 128,
+                  "60.0": 128,
+                  "7680.0": 128,
+                  "960.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.12321674766644719,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 0.05245915773435257,
+                  "p1_estimate": 0.036538699999631274,
+                  "p25_estimate": 0.07899325395888805,
+                  "p50_estimate": 0.12321674766644719,
+                  "p5_estimate": 0.043614458992840735,
+                  "p75_estimate": 0.16744024137400632,
+                  "p90_estimate": 0.1939743375985418,
+                  "p95_estimate": 0.20281903634005363,
+                  "p99_estimate": 0.2098947953332631,
+                  "sum": 15.77174370130524,
+                  "sum_rate": 0.6637292723005236
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_prompt_tokens": {
+            "description": "Number of prefill tokens processed.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1000.0": 0,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2000.0": 128,
+                  "5.0": 0,
+                  "50.0": 0,
+                  "500.0": 0,
+                  "5000.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 1059.09375,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 1059.0939912967601,
+                  "p1_estimate": 1059.0939912967601,
+                  "p25_estimate": 1059.0939912967601,
+                  "p50_estimate": 1059.0939912967601,
+                  "p5_estimate": 1059.0939912967601,
+                  "p75_estimate": 1059.0939912967601,
+                  "p90_estimate": 1059.0939912967601,
+                  "p95_estimate": 1059.0939912967601,
+                  "p99_estimate": 1059.0939912967601,
+                  "sum": 135564.0,
+                  "sum_rate": 5704.999825903954
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_queue_time_seconds": {
+            "description": "Histogram of time spent in WAITING phase for request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "0.3": 112,
+                  "0.5": 120,
+                  "0.8": 128,
+                  "1.0": 128,
+                  "1.5": 128,
+                  "10.0": 128,
+                  "120.0": 128,
+                  "15.0": 128,
+                  "1920.0": 128,
+                  "2.0": 128,
+                  "2.5": 128,
+                  "20.0": 128,
+                  "240.0": 128,
+                  "30.0": 128,
+                  "40.0": 128,
+                  "480.0": 128,
+                  "5.0": 128,
+                  "50.0": 128,
+                  "60.0": 128,
+                  "7680.0": 128,
+                  "960.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.07517484459094703,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 0.0,
+                  "p1_estimate": 0.0,
+                  "p25_estimate": 0.0003729412579198143,
+                  "p50_estimate": 0.020008722567002285,
+                  "p5_estimate": 0.0,
+                  "p75_estimate": 0.07587848350012308,
+                  "p90_estimate": 0.30224999999999996,
+                  "p95_estimate": 0.5,
+                  "p99_estimate": 0.6001328725852074,
+                  "sum": 9.62238010764122,
+                  "sum_rate": 0.4049428818777465
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:request_success": {
+            "description": "Count of successfully processed requests.",
+            "series": [
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "stop",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "length",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 5.386680665336712,
+                  "total": 128.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "abort",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "error",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine": "0",
+                  "finished_reason": "repetition",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "vllm:request_time_per_output_token_seconds": {
+            "description": "Histogram of time_per_output_token_seconds per request.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "0.01": 0,
+                  "0.025": 128,
+                  "0.05": 128,
+                  "0.075": 128,
+                  "0.1": 128,
+                  "0.15": 128,
+                  "0.2": 128,
+                  "0.3": 128,
+                  "0.4": 128,
+                  "0.5": 128,
+                  "0.75": 128,
+                  "1.0": 128,
+                  "10.0": 128,
+                  "2.5": 128,
+                  "20.0": 128,
+                  "40.0": 128,
+                  "5.0": 128,
+                  "7.5": 128,
+                  "80.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.02210635911697849,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 0.02140546494620396,
+                  "p1_estimate": 0.02124776375777969,
+                  "p25_estimate": 0.021668300260244407,
+                  "p50_estimate": 0.02210635911697849,
+                  "p5_estimate": 0.021317853174857144,
+                  "p75_estimate": 0.02254441797371257,
+                  "p90_estimate": 0.022807253287753015,
+                  "p95_estimate": 0.022894865059099833,
+                  "p99_estimate": 0.022964954476177288,
+                  "sum": 2.8296139669732465,
+                  "sum_rate": 0.11907989723641797
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "vllm:time_to_first_token_seconds": {
+            "description": "Histogram of time to first token in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 128,
+                  "0.001": 0,
+                  "0.005": 0,
+                  "0.01": 0,
+                  "0.02": 0,
+                  "0.04": 0,
+                  "0.06": 0,
+                  "0.08": 4,
+                  "0.1": 9,
+                  "0.25": 101,
+                  "0.5": 111,
+                  "0.75": 121,
+                  "1.0": 128,
+                  "10.0": 128,
+                  "160.0": 128,
+                  "2.5": 128,
+                  "20.0": 128,
+                  "2560.0": 128,
+                  "40.0": 128,
+                  "5.0": 128,
+                  "640.0": 128,
+                  "7.5": 128,
+                  "80.0": 128
+                },
+                "labels": {
+                  "engine": "0",
+                  "model_name": "/lus/eagle/projects/datascience_collab/avasyu/ALCFBenchmark/.hf-cache/hub/models--meta-llama--Llama-3.1-8B-Instruct/snapshots/0e9e39f249a16976918f6564b8830bc894c89659"
+                },
+                "stats": {
+                  "avg": 0.2493899129331112,
+                  "count": 128,
+                  "count_rate": 5.386680665336712,
+                  "p10_estimate": 0.13431577675133233,
+                  "p1_estimate": 0.06661285327052559,
+                  "p25_estimate": 0.1510834698334286,
+                  "p50_estimate": 0.17902962497025565,
+                  "p5_estimate": 0.08852366849067574,
+                  "p75_estimate": 0.20697578010708273,
+                  "p90_estimate": 0.5750254756296926,
+                  "p95_estimate": 0.7386339164703921,
+                  "p99_estimate": 0.889045368078602,
+                  "sum": 31.921908855438232,
+                  "sum_rate": 1.3433838221267962
+                }
+              }
+            ],
+            "type": "histogram"
+          }
+        }
+      }
+    },
+    "endpoints_configured": [
+      "http://localhost:8000/metrics"
+    ],
+    "endpoints_successful": [
+      "http://localhost:8000/metrics"
+    ],
+    "error_summary": [],
+    "start_ns": 1787177119253512958,
+    "warmup_end_ns": 1787177119278932442
+  },
+  "phase": {
+    "end_ns": 1787177143014110850,
+    "phase_index": 1,
+    "phase_kind": "profiling",
+    "phase_name": "profiling",
+    "profiling_index": 0,
+    "start_ns": 1787177119253521383,
+    "was_cancelled": false
+  },
+  "schema_version": 1,
+  "warnings": []
+}

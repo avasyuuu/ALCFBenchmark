@@ -1,0 +1,31 @@
+{
+  "kind": "aiperf_run_meta",
+  "machine": "sophia",
+  "hostname": "sophia-gpu-12",
+  "pbs_jobid": "175767.sophia-pbs-01.lab.alcf.anl.gov",
+  "git_commit": "b94007f",
+  "vllm": "0.22.2.dev0+g0decac0d9.d20260616.cu132",
+  "torch": "2.12.0",
+  "aiperf": "0.12.0",
+  "model": "google/gemma-3-27b-it",
+  "tensor_parallel": 8,
+  "isl": 1024,
+  "osl": 256,
+  "shapes": [
+    {
+      "isl": 1024,
+      "osl": 256
+    }
+  ],
+  "requests_per_level": 128,
+  "concurrencies": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "enforce_eager": true,
+  "dtype": "bfloat16"
+}
