@@ -498,10 +498,17 @@ def table(headers: list, rows: list, caption: str = "") -> str:
 # know, since tokens/joule and samples/joule share no denominator and comparing
 # across them is meaningless. The power page keeps its name because it is the
 # one page that is deliberately both, sectioned per machine.
+# Order is the reading order, not the build order: the overview says what the
+# project is, the three middle pages carry every measurement, and conclusions
+# says what they came to. index.html is the overview because it is the front
+# door -- the training data it used to hold now has a name of its own, so a link
+# to it says which page it means.
 PAGES = [
-    ("index.html", "Training data"),
+    ("index.html", "Overview"),
+    ("training.html", "Training data"),
     ("power.html", "Power profiles"),
     ("dashboard.html", "Inference dashboard"),
+    ("conclusions.html", "Conclusions"),
 ]
 
 
@@ -573,6 +580,38 @@ def nav(current: str) -> str:
         else:
             links += f'<a href="{href}">{html.escape(label)}</a>'
     return f'<nav class="nav">{links}</nav>'
+
+
+def anchored(markup: str) -> str:
+    """Give every plain h2 and h3 a stable id, so another page can link to it.
+
+    The conclusions page states a finding and then points at the chart it came
+    from, which needs somewhere to point. Deriving the ids here rather than at
+    each of the several dozen places a heading is written keeps one rule in one
+    place, and means a section added later is linkable without anyone
+    remembering to make it so.
+
+    Only headings that are plain text are touched; one carrying markup is left
+    alone rather than guessed at. Duplicates -- "Serving under load" appears
+    once per machine -- are numbered in document order, so the first keeps the
+    bare slug and later ones are suffixed.
+
+    The id comes from the text, which means renaming a heading breaks links to
+    it. That is the trade for not maintaining a second list of names by hand,
+    and check_links() in this file is what catches it when it happens.
+    """
+    seen: dict = {}
+
+    def add_id(match):
+        tag, text = match.group(1), match.group(2)
+        base = re.sub(r"[^a-z0-9]+", "-", html.unescape(text).lower()).strip("-")
+        if not base:
+            return match.group(0)
+        seen[base] = seen.get(base, 0) + 1
+        ident = base if seen[base] == 1 else f"{base}-{seen[base]}"
+        return f'<{tag} id="{ident}">{text}</{tag}>'
+
+    return re.sub(r"<(h[23])>([^<]+)</\1>", add_id, markup)
 
 
 def shell(*, title: str, heading: str, lede: str, body: str, footer: str,
@@ -765,6 +804,19 @@ code {{ font-size:.85em; background:var(--tag); padding:.1rem .3rem;
    area of a radar means nothing -- it depends on the order of the axes -- so
    the outline is the figure and the wash is only there to tell it from the
    ghosts. */
+/* Overview page: the four ways into the site. Cards rather than a list
+   because this is the one page whose job is to send you somewhere else, and a
+   grid that collapses to one column keeps the order the reading order. */
+.doors {{ display:grid; gap:.7rem; margin:1.1rem 0 1.4rem;
+  grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); }}
+.door {{ display:block; padding:.85rem 1rem; border:1px solid var(--line);
+  border-radius:8px; background:var(--card); text-decoration:none;
+  color:inherit; transition:border-color .12s ease; }}
+.door:hover {{ border-color:var(--accent); }}
+.door-t {{ display:block; font-weight:650; color:var(--accent);
+  font-size:.92rem; margin-bottom:.25rem; }}
+.door-d {{ display:block; font-size:.8rem; color:var(--dim);
+  line-height:1.5; }}
 .chart.radar {{ max-width:460px; margin-inline:auto; }}
 .rdr {{ fill:var(--c); fill-opacity:.12; stroke:var(--c); stroke-width:2;
   stroke-linejoin:round; }}
@@ -920,7 +972,7 @@ a:hover {{ border-bottom-color:var(--accent); }}
 {identity(logo_uri)}
 </header>
 {nav(here)}
-{mark_tools(body)}
+{anchored(mark_tools(body))}
 
 <footer>
 {footer}
@@ -1315,7 +1367,7 @@ def serving_comparison(sweeps: list) -> str:
     return f"""
 <h2>What the numbers say</h2>
 <p class="fineprint">A second benchmark on the same nodes and the same energy
-counters as the <a href="index.html">training</a> page: vLLM answering requests
+counters as the <a href="training.html">training</a> page: vLLM answering requests
 instead of a model being trained. Tokens per joule and samples per joule share
 no denominator and never belong in one table, which is why these are two pages
 rather than two sections. On NVIDIA,
@@ -2641,8 +2693,388 @@ are excluded from every total, as everywhere on this site, since they cover
 silicon the per-tile counters already report. Specifications are per node;
 sources are in the <code>_source</code> fields of
 <code>configs/machines.json</code>. The cross-machine comparison lives on the
-<a href="index.html">training</a> page.</p>
+<a href="training.html">training</a> page.</p>
 {sections}"""
+
+
+# --- Overview and conclusions -------------------------------------------------
+# The two pages that carry no charts. Everything below states a number and then
+# points at the page that measured it, so a finding and its evidence never drift
+# apart: the numbers here are computed from results/ on every build, exactly
+# like the charts they link to, and check_links() fails the build if a link
+# stops resolving.
+
+
+def _sweep(sweeps: list, machine: str, model_ends: str, tp, isl=1024.0):
+    """One sweep by machine, model and sharding, or None.
+
+    Matched on the shape as well, because a machine can have two sweeps of the
+    same model and TP -- the concurrency sweep and the prompt-shape sweep -- and
+    they are different experiments.
+    """
+    return next(
+        (s for s in sweeps
+         if s["machine"] == machine and (s["model"] or "").endswith(model_ends)
+         and s.get("tp") == tp and s["isl"] == isl),
+        None,
+    )
+
+
+def _at(sweep, concurrency: int = 32):
+    """One concurrency level of a sweep, or None."""
+    if not sweep:
+        return None
+    return next((r for r in sweep["rows"]
+                 if r.get("concurrency") == concurrency), None)
+
+
+def _ratio(a, b):
+    """a/b, or None if either is missing -- so a sentence can drop itself
+    rather than print a dash in the middle of a claim."""
+    return (a / b) if (a and b) else None
+
+
+def intro_body(runs: list, sweeps: list, specs: dict | None = None) -> str:
+    """The front door: what this is, how it measures, and where to look.
+
+    Deliberately the shortest page on the site and deliberately carries no
+    chart. A reader arriving cold needs the question before the answers, and
+    every number here is on another page with its evidence attached.
+    """
+    machines = sorted({r.get("machine") for r in runs if r.get("machine")})
+    served = sorted({s["machine"] for s in sweeps})
+    models = sorted({(s["model"] or "").split("/")[-1] for s in sweeps if s["model"]})
+
+    cards = "".join(
+        f'<a class="door" href="{href}"><span class="door-t">{html.escape(label)}</span>'
+        f'<span class="door-d">{html.escape(blurb)}</span></a>'
+        for href, label, blurb in (
+            ("training.html", "Training data",
+             "ResNet-20 on CIFAR-10, run identically everywhere: throughput, "
+             "time-to-accuracy and energy per sample."),
+            ("power.html", "Power profiles",
+             "One page per machine — what it is, what it drew, and how it "
+             "behaves as load rises."),
+            ("dashboard.html", "Inference dashboard",
+             "Every serving run measured so far, filtered in the browser."),
+            ("conclusions.html", "Conclusions",
+             "What all of it came to, stated once, with a link to the chart "
+             "behind each claim."),
+        )
+    )
+
+    return f"""
+<h2>The question</h2>
+<p>Which ALCF machine turns a watt into the most useful work — and does the
+answer change depending on whether you are choosing an accelerator or paying
+for a node?</p>
+
+<p>Every machine here runs the <em>same</em> two workloads: ResNet-20 on
+CIFAR-10 for training, and vLLM serving real models for inference. Identical
+code, identical flags, identical amounts of work per measurement. What differs
+is the silicon underneath, which is the only way a comparison means anything.</p>
+
+<h2>How it is measured</h2>
+<p>Energy comes from <strong>cumulative hardware counters</strong>, not sampled
+estimates: NVML&#39;s millijoule register on the NVIDIA machines, the i915
+driver&#39;s hwmon counters on Aurora, and Cray&#39;s <code>pm_counters</code>
+on Crux. Two reads and a subtraction, so the figure carries no integration
+error.</p>
+
+<p>Every run measures <strong>its own idle floor</strong> first — 30 seconds on
+a quiet node, before the server starts — and dynamic power is total draw minus
+that floor. Both numbers are reported, because they answer different questions:
+dynamic power is what the silicon spent on the work, and total is what the
+allocation billed. Figures are whole-node on an exclusive allocation.</p>
+
+<p>For inference, the counters are read by a sidecar process running
+<em>beside</em> the benchmark rather than inside it, since neither the load
+generator nor the server belongs to this project. That is also what puts Aurora
+in the comparison at all: the load generator&#39;s own power collection has no
+Intel path.</p>
+
+<h2>What has been measured</h2>
+<p>Training on <strong>{html.escape(", ".join(machines))}</strong>. Serving on
+<strong>{html.escape(", ".join(served))}</strong>, across
+{len(models)} model(s): {html.escape(", ".join(models))}. Every sweep holds the
+request count fixed and forces an exact output length, so each row is the same
+amount of work and joules compare in absolute terms rather than only as
+ratios.</p>
+
+<h2>Where to look</h2>
+<div class="doors">{cards}</div>
+<p class="fineprint">Pages are generated from <code>results/</code> by
+<code>analysis/build_site.py</code> and are never edited by hand, so every
+figure on the site traces back to a JSON record produced by a run. The
+conclusions page states each finding once and links to the chart that measured
+it; the three data pages hold the charts.</p>"""
+
+
+def _conclusion_inversion(sweeps: list) -> str:
+    """Node energy against silicon energy: the two answers to one question."""
+    au = _at(_sweep(sweeps, "aurora", "Llama-3.1-8B-Instruct", 1))
+    po = _at(_sweep(sweeps, "polaris", "Llama-3.1-8B-Instruct", 1))
+    if not (au and po):
+        return ""
+    node = _ratio(po["tok_per_joule"], au["tok_per_joule"])
+    dyn = _ratio(au["tok_per_joule_dynamic"], po["tok_per_joule_dynamic"])
+    if not (node and dyn):
+        return ""
+    return f"""
+<h2>The same comparison has two opposite winners</h2>
+<p class="takeaway">Serving Llama-3.1-8B at concurrency 32, Polaris delivers
+<strong>{node:.1f}&#215;</strong> the tokens per joule of node energy that
+Aurora does. On the same runs, Aurora delivers <strong>{dyn:.2f}&#215;</strong>
+the tokens per joule its accelerators actually spent.</p>
+<p>Both are true and they are not in tension. Aurora&#39;s tile converts energy
+into tokens more efficiently than an A100 does; Aurora&#39;s <em>node</em> does
+not, because the job is billed for twelve tiles and this configuration uses
+one. Which number matters depends on the question. Choosing silicon, read the
+second. Paying for an allocation, read the first — the node bills either
+way.</p>
+<p class="fineprint">Evidence: <a href="power.html#aurora">Aurora</a> and
+<a href="power.html#polaris">Polaris</a> power profiles; every configuration is
+on the <a href="dashboard.html">inference dashboard</a>.</p>"""
+
+
+def _conclusion_idle(sweeps: list) -> str:
+    """Polaris against Sophia: the closest thing here to a controlled test."""
+    po_s = _sweep(sweeps, "polaris", "Llama-3.1-8B-Instruct", 1)
+    so_s = _sweep(sweeps, "sophia", "Llama-3.1-8B-Instruct", 1)
+    po, so = _at(po_s), _at(so_s)
+    if not (po and so and po_s.get("idle_w") and so_s.get("idle_w")):
+        return ""
+    gap = _ratio(po["tok_per_joule"], so["tok_per_joule"])
+    return f"""
+<h2>The gap is the idle floor, not the chip</h2>
+<p class="takeaway">Polaris and Sophia draw within
+<strong>{abs(so["dynamic_w"] - po["dynamic_w"]):.0f} W</strong> of each other
+doing identical work — {po["dynamic_w"]:,.0f} W against
+{so["dynamic_w"]:,.0f} W — and still differ <strong>{gap:.2f}&#215;</strong> on
+tokens per joule. Their idle floors are {po_s["idle_w"]:,.0f} W and
+{so_s["idle_w"]:,.0f} W.</p>
+<p>This is as close to a controlled experiment as the fleet allows: the same
+accelerator generation, the same model, the same sharding, the same load, and
+dynamic power that agrees to within a percent. Everything separating the two
+numbers is what the node costs before any work arrives. An idle floor is not
+overhead you can optimise away in software — it is a property of the node you
+were given.</p>
+<p class="fineprint">Evidence: <a href="power.html#polaris">Polaris</a> and
+<a href="power.html#sophia">Sophia</a> power profiles — the radar at the top of
+each shows this as the one axis where the machines are not nearly
+identical.</p>"""
+
+
+def _conclusion_fill(sweeps: list) -> str:
+    """gemma at TP=4: the bound on the idle-floor story."""
+    au = _at(_sweep(sweeps, "aurora", "gemma-3-27b-it", 4))
+    po = _at(_sweep(sweeps, "polaris", "gemma-3-27b-it", 4))
+    if not (au and po):
+        return ""
+    dyn = _ratio(au["tok_per_joule_dynamic"], po["tok_per_joule_dynamic"])
+    node = _ratio(po["tok_per_joule"], au["tok_per_joule"])
+    if not (dyn and node):
+        return ""
+    return f"""
+<h2>Filling the node does not close it</h2>
+<p class="takeaway">gemma-3-27b at TP=4 leaves no idle GPU on a Polaris node.
+Aurora&#39;s lead per joule of silicon <em>widens</em> to
+<strong>{dyn:.2f}&#215;</strong>, and Polaris still wins per joule of node
+energy by <strong>{node:.1f}&#215;</strong>.</p>
+<p>So the idle floor explains the headline number without being the whole
+story. Even with every accelerator working, the two machines convert energy
+into tokens at genuinely different rates — the PVC tile is the better converter,
+and it is still attached to a node that costs a kilowatt to keep switched
+on.</p>
+<p class="fineprint">Evidence: gemma-3-27b at TP=4 on
+<a href="power.html#aurora">Aurora</a> and
+<a href="power.html#polaris">Polaris</a>.</p>"""
+
+
+def _conclusion_tp(sweeps: list) -> str:
+    """The sharding penalty, and the second machine that confirms it."""
+    rows = []
+    for machine in ("aurora", "sophia"):
+        base = _at(_sweep(sweeps, machine, "Llama-3.1-8B-Instruct", 1))
+        top = _at(_sweep(sweeps, machine, "Llama-3.1-8B-Instruct", 8))
+        if not (base and top):
+            continue
+        rows.append((
+            machine,
+            _ratio(top["out_tok_per_s"], base["out_tok_per_s"]),
+            _ratio(top["dynamic_w"], base["dynamic_w"]),
+            _ratio(top["tok_per_joule_dynamic"], base["tok_per_joule_dynamic"]),
+        ))
+    rows = [r for r in rows if all(r[1:])]
+    if not rows:
+        return ""
+    body = "".join(
+        f'<tr><td class="m s{SERIES_SLOT.get(m, 8)}">{html.escape(m)}</td>'
+        f"<td>{tput:.2f}&#215;</td><td>{power:.2f}&#215;</td>"
+        f"<td>{eff:.2f}&#215;</td></tr>"
+        for m, tput, power, eff in rows
+    )
+    worst = min(rows, key=lambda r: r[3])
+    return f"""
+<h2>Tensor parallelism divides time, not joules</h2>
+<p class="takeaway">Going from one accelerator to eight on the same model, at
+the same load — what it bought, and what it cost.</p>
+{table(["", "throughput", "dynamic power", "energy efficiency"], body,
+       "Llama-3.1-8B at concurrency 32, TP=8 relative to TP=1 on the same "
+       "machine. Efficiency is tokens per joule of dynamic energy.")}
+<p>Sharding a model buys latency and capacity, and it costs energy on both
+vendors measured. That answers the question the curve raised on Aurora: the
+penalty is not an artifact of Intel silicon or of one vLLM build.
+{html.escape(worst[0].capitalize())} is the steeper of the two, keeping only
+<strong>{worst[3]:.2f}&#215;</strong> its single-accelerator efficiency while
+drawing <strong>{worst[2]:.2f}&#215;</strong> the power.</p>
+<p>The practical reading: shard because a model does not fit, or because a
+latency target demands it — not because more accelerators sounded faster. For a
+model that fits on one, replicas are the efficient way to fill a node.</p>
+<p class="fineprint">Evidence: the TP curves under
+<a href="power.html#aurora">Aurora</a> and
+<a href="power.html#sophia">Sophia</a>; on the training side the same shape
+appears as
+<a href="training.html#same-accelerator-different-count">same accelerator,
+different count</a>.</p>"""
+
+
+def _conclusion_workload(sweeps: list) -> str:
+    """Power against concurrency: a property of the model, not the machine."""
+    rises = []
+    for sweep in sweeps:
+        if len(sweep["rows"]) < 6 or sweep["isl"] is None:
+            continue
+        first, last = sweep["rows"][0], sweep["rows"][-1]
+        rise = _ratio(last.get("dynamic_w"), first.get("dynamic_w"))
+        if rise:
+            rises.append((rise, sweep, first, last))
+    if len(rises) < 2:
+        return ""
+    rises.sort(key=lambda r: r[0])
+    flat, steep = rises[0], rises[-1]
+
+    def name(entry):
+        _rise, sweep, _f, _l = entry
+        model = (sweep["model"] or "?").split("/")[-1]
+        tp = f" at TP={sweep['tp']}" if sweep.get("tp") else ""
+        return f"{model}{tp} on {sweep['machine']}"
+
+    return f"""
+<h2>The workload sets the power curve, not the machine</h2>
+<p class="takeaway">Across a concurrency sweep, dynamic power moves
+<strong>{flat[0]:.2f}&#215;</strong> for {html.escape(name(flat))} and
+<strong>{steep[0]:.2f}&#215;</strong> for {html.escape(name(steep))} —
+a range of {steep[0] / flat[0]:.0f}&#215; in how much a machine reacts to
+being loaded, on the same hardware.</p>
+<p>An early sweep suggested that serving more requests at once was nearly free
+in watts, because a bandwidth-bound tile draws what it draws. That turned out
+to describe a dense 8B model on one accelerator rather than the silicon: a
+mixture-of-experts routes each additional request to more experts, which is
+real extra work, and its draw climbs steeply with load.</p>
+<p>The consequence for capacity planning is that a machine has no single power
+number. What it draws under load is a property of the model you are serving and
+the width you sharded it to, and it has to be measured per configuration.</p>
+<p class="fineprint">Evidence: the serving-under-load charts on every
+<a href="power.html">power profile</a>; all configurations side by side on the
+<a href="dashboard.html">inference dashboard</a>.</p>"""
+
+
+def _conclusion_method() -> str:
+    """What the numbers rest on, stated before anyone has to ask."""
+    return """
+<h2>What these numbers rest on</h2>
+<p>Energy is read from cumulative counters and differenced, so no figure here
+depends on a sampling rate. Every run measures its own idle floor on a quiet
+node before the server starts, because a floor taken afterwards reads high
+while clocks and fans settle. All figures are whole-node on an exclusive
+allocation — on a shared node they would be this job plus whatever else was
+resident.</p>
+<p>Polaris is the only machine where two independent instruments read the same
+devices, and where they disagree the disagreement is reported rather than
+averaged: two instruments on the same silicon that differ mean one is wrong,
+not that the truth lies between them. Aurora has no second opinion available at
+all, which is the single largest assumption on this site.</p>
+<p>The machines do not run identical software. vLLM versions differ between
+them, which is recorded in each run&#39;s <code>run_meta.json</code> and treated
+as a stated confound rather than smoothed over. Run-to-run noise is a few
+percent on dynamic watts and well under one percent on throughput, so
+differences of that size are not findings.</p>
+<p class="fineprint">Per-machine detail, including which counter each one reads
+and what it cannot read, is on the <a href="power.html">power profiles</a>
+page.</p>"""
+
+
+def _conclusion_open(sweeps: list, runs: list) -> str:
+    """The gaps, named on the page rather than left as blank cells."""
+    served = {s["machine"] for s in sweeps}
+    trained = {r.get("machine") for r in runs if r.get("machine")}
+    no_serving = sorted(trained - served)
+    gap = ""
+    if no_serving:
+        gap = (f" {html.escape(', '.join(no_serving))} "
+               f"{'has' if len(no_serving) == 1 else 'have'} training numbers "
+               f"but no serving numbers.")
+    return f"""
+<h2>What is not answered</h2>
+<p>Stated rather than left as empty cells, because a gap a reader has to
+discover reads as an oversight.{gap} Cerebras and Graphcore are in the plan and
+not yet started; both need their own stacks rather than a portable script, so
+neither is a matter of finding queue time.</p>
+<p>The energy comparison is between three machines that expose per-device
+counters. A machine that exposes none can still contribute throughput and
+latency, and would appear here with an energy column that stays empty — which
+is a limit of the instrument, not of the machine.</p>
+<p class="fineprint">Coverage, configuration by configuration, is the matrix on
+the <a href="dashboard.html">inference dashboard</a>.</p>"""
+
+
+def conclusions_body(runs: list, sweeps: list, specs: dict | None = None) -> str:
+    """Every finding, stated once, each pointing at the page that measured it.
+
+    Written to be read start to finish by someone who has not seen the rest of
+    the site: each section states its numbers in full rather than assuming a
+    chart is open in another tab. The charts stay where they are -- this page
+    adds no plots of its own, so there is exactly one place each measurement
+    is drawn and exactly one place it is interpreted.
+    """
+    sections = "".join(part for part in (
+        _conclusion_inversion(sweeps),
+        _conclusion_idle(sweeps),
+        _conclusion_fill(sweeps),
+        _conclusion_tp(sweeps),
+        _conclusion_workload(sweeps),
+        _conclusion_method(),
+        _conclusion_open(sweeps, runs),
+    ) if part)
+    return f"""
+<p class="fineprint">Every number below is computed from
+<code>results/</code> on each build, the same as the charts it links to. Nothing
+on this page is plotted here — each finding names the page that measured
+it.</p>
+{sections}"""
+
+
+def check_links(pages: dict) -> list:
+    """Internal hrefs that point at a page or anchor which does not exist.
+
+    Cheap, and it catches the failure this site is most exposed to: anchors are
+    derived from heading text by anchored(), so renaming a heading silently
+    breaks every link aimed at it. A build that prints nothing here is a build
+    where every cross-reference resolved.
+    """
+    ids = {name: set(re.findall(r'id="([^"]+)"', text))
+           for name, text in pages.items()}
+    broken = []
+    for name, text in pages.items():
+        for href in re.findall(r'href="([^"#:]*\.html)?(?:#([^"]+))?"', text):
+            target, anchor = href
+            page = target or name
+            if page not in pages:
+                broken.append(f"{name}: no such page {page}")
+            elif anchor and anchor not in ids[page]:
+                broken.append(f"{name}: {page}#{anchor} does not exist")
+    return sorted(set(broken))
 
 
 def footer_text(runs: list, generated: str) -> str:
@@ -2650,7 +3082,7 @@ def footer_text(runs: list, generated: str) -> str:
     return (
         f'Generated {generated} from {len(runs)} run(s) · machines: '
         f'{html.escape(", ".join(machines)) or "none"}<br>\n'
-        "Rebuild both pages with <code>python analysis/build_site.py</code> after\n"
+        "Rebuild the site with <code>python analysis/build_site.py</code> after\n"
         "<code>git pull</code>. Numbers come from <code>results/*.json</code>; the\n"
         "pages are never edited by hand."
     )
@@ -2686,6 +3118,17 @@ def main() -> None:
     sweeps = load_aiperf(args.results_dir)
     pages = {
         "index.html": shell(
+            title="Power and Performance Across ALCF Machines",
+            heading="Power and Performance Across ALCF Machines",
+            lede="One benchmark, every ALCF machine the project can reach, "
+                 "compared on throughput, accuracy and energy — measured from "
+                 "hardware counters rather than estimated.",
+            body=intro_body(runs, sweeps, specs),
+            footer=footer,
+            logo_uri=logo,
+            here="index.html",
+        ),
+        "training.html": shell(
             title="Training — Power and Performance Across ALCF Machines",
             heading="Training Across ALCF Machines",
             lede="ResNet-20 on CIFAR-10, run identically on every ALCF system "
@@ -2696,7 +3139,7 @@ def main() -> None:
             body=index_body(runs, specs, curves),
             footer=footer,
             logo_uri=logo,
-            here="index.html",
+            here="training.html",
         ),
         "power.html": shell(
             title="Power Profiles — ALCF Machines",
@@ -2723,8 +3166,27 @@ def main() -> None:
         logo_uri=logo,
         here="dashboard.html",
     )
+    # Last, because it links into every page above and check_links() below can
+    # only verify anchors that have already been rendered.
+    pages["conclusions.html"] = shell(
+        title="Conclusions — Power and Performance Across ALCF Machines",
+        heading="Conclusions",
+        lede="What the measurements came to, stated once each, with a link to "
+             "the chart behind every claim. No plots of its own — the data "
+             "pages keep those.",
+        body=conclusions_body(runs, sweeps, specs),
+        footer=footer,
+        logo_uri=logo,
+        here="conclusions.html",
+    )
     for name, text in pages.items():
         (out_dir / name).write_text(text, encoding="utf-8")
+
+    # A broken cross-reference is the one failure this site cannot show you:
+    # the page still renders, the link just goes nowhere. Loud on stdout rather
+    # than fatal, so a build during a rename still produces pages to look at.
+    for problem in check_links(pages):
+        print(f"BROKEN LINK  {problem}")
 
     # Pages runs Jekyll over the publishing folder unless told not to. Nothing
     # here starts with an underscore today, but the cost of being wrong later is
