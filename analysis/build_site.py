@@ -1239,6 +1239,7 @@ def load_aiperf(results_dir: str) -> list:
             "name": path.parent.name,
             "machine": path.parent.name.split("-")[0],
             "idle_w": blob.get("idle_w"),
+            "vllm": _run_meta(path.parent).get("vllm"),
             "rows": [_with_latency_split(r)
                      for r in sorted(rows, key=lambda r: r["concurrency"])],
             **_aiperf_config(path.parent),
@@ -1306,6 +1307,21 @@ def _aiperf_config(sweep_dir: Path) -> dict:
         "streaming": (first.get("endpoint") or {}).get("streaming"),
         "tp": _tensor_parallel(sweep_dir),
     }
+
+
+def _run_meta(sweep_dir: Path) -> dict:
+    """A sweep's own provenance, or an empty dict for one that predates it.
+
+    Separate from _aiperf_config because that reads the AIPerf export -- what
+    the client asked for -- and this reads what the machine actually had. The
+    serving stack's version is the case that matters: it is nowhere in the
+    export, differs by machine, and is the confound every cross-machine claim
+    on this site carries.
+    """
+    try:
+        return json.loads((sweep_dir / "run_meta.json").read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError):
+        return {}
 
 
 def _tensor_parallel(sweep_dir: Path):
@@ -2845,6 +2861,27 @@ def _conclusion_idle(sweeps: list) -> str:
     if not (po and so and po_s.get("idle_w") and so_s.get("idle_w")):
         return ""
     gap = _ratio(po["tok_per_joule"], so["tok_per_joule"])
+
+    # A second model on the same pair, if one has been run on both. One
+    # controlled pair is an anecdote about a model; two is about the machines.
+    second = ""
+    po2_s = _sweep(sweeps, "polaris", "gemma-3-27b-it", 4)
+    so2_s = _sweep(sweeps, "sophia", "gemma-3-27b-it", 4)
+    po2, so2 = _at(po2_s), _at(so2_s)
+    if po2 and so2:
+        gap2 = _ratio(po2["tok_per_joule"], so2["tok_per_joule"])
+        spread = abs(po2["dynamic_w"] - so2["dynamic_w"]) / max(
+            po2["dynamic_w"], so2["dynamic_w"]) * 100
+        if gap2:
+            second = (
+                f"<p>It is not a property of one model. gemma-3-27b at TP=4, "
+                f"which fills four accelerators on both machines, puts them "
+                f"within <strong>{spread:.0f}%</strong> of each other on "
+                f"dynamic power — {po2['dynamic_w']:,.0f} W against "
+                f"{so2['dynamic_w']:,.0f} W — and "
+                f"<strong>{gap2:.2f}&#215;</strong> apart on tokens per joule. "
+                f"Different model, different width, same explanation.</p>"
+            )
     return f"""
 <h2>The gap is the idle floor, not the chip</h2>
 <p class="takeaway">Polaris and Sophia draw within
@@ -2859,6 +2896,7 @@ dynamic power that agrees to within a percent. Everything separating the two
 numbers is what the node costs before any work arrives. An idle floor is not
 overhead you can optimise away in software — it is a property of the node you
 were given.</p>
+{second}
 <p class="fineprint">Evidence: <a href="power.html#polaris">Polaris</a> and
 <a href="power.html#sophia">Sophia</a> power profiles — the radar at the top of
 each shows this as the one axis where the machines are not nearly
@@ -2917,6 +2955,28 @@ def _conclusion_tp(sweeps: list) -> str:
         for m, tput, power, eff in rows
     ]
     worst = min(rows, key=lambda r: r[3])
+
+    # A model too large for one accelerator makes the same point harder: the
+    # comparison is 4 to 8 rather than 1 to 8, so nobody can put the penalty
+    # down to a first shard being unusually cheap.
+    wide = ""
+    narrow_s = _sweep(sweeps, "sophia", "gemma-3-27b-it", 4)
+    wide_s = _sweep(sweeps, "sophia", "gemma-3-27b-it", 8)
+    narrow, broad = _at(narrow_s), _at(wide_s)
+    if narrow and broad:
+        tput = _ratio(broad["out_tok_per_s"], narrow["out_tok_per_s"])
+        power = _ratio(broad["dynamic_w"], narrow["dynamic_w"])
+        if tput and power:
+            wide = (
+                f"<p>The sharpest case is a model that never fit on one "
+                f"accelerator to begin with. gemma-3-27b on Sophia, going from "
+                f"four GPUs to eight, returned <strong>{tput:.2f}&#215;</strong> "
+                f"the throughput for <strong>{power:.2f}&#215;</strong> the "
+                f"dynamic power. Doubling the silicon bought "
+                f"{(tput - 1) * 100:.0f}% more tokens per second and cost half "
+                f"as much again in watts — so this is not an artifact of the "
+                f"first accelerator being unusually cheap to add.</p>"
+            )
     return f"""
 <h2>Tensor parallelism divides time, not joules</h2>
 <p class="takeaway">Going from one accelerator to eight on the same model, at
@@ -2930,6 +2990,7 @@ penalty is not an artifact of Intel silicon or of one vLLM build.
 {html.escape(worst[0].capitalize())} is the steeper of the two, keeping only
 <strong>{worst[3]:.2f}&#215;</strong> its single-accelerator efficiency while
 drawing <strong>{worst[2]:.2f}&#215;</strong> the power.</p>
+{wide}
 <p>The practical reading: shard because a model does not fit, or because a
 latency target demands it — not because more accelerators sounded faster. For a
 model that fits on one, replicas are the efficient way to fill a node.</p>
@@ -2982,9 +3043,33 @@ the width you sharded it to, and it has to be measured per configuration.</p>
 <a href="dashboard.html">inference dashboard</a>.</p>"""
 
 
-def _conclusion_method() -> str:
-    """What the numbers rest on, stated before anyone has to ask."""
-    return """
+def _conclusion_method(sweeps: list) -> str:
+    """What the numbers rest on, stated before anyone has to ask.
+
+    The serving-stack versions are read from the runs rather than written down,
+    because a confound someone has to take on trust is not much of a disclosure
+    -- and because the spread grew from two versions to three the moment a
+    third machine started serving, without anyone editing a sentence.
+    """
+    versions: dict = {}
+    for sweep in sweeps:
+        if sweep.get("vllm"):
+            # Shortened to major.minor.patch: the build metadata after the plus
+            # is per-machine noise, and the point here is the distance between
+            # them, which the release number already carries.
+            versions.setdefault(sweep["machine"], set()).add(
+                sweep["vllm"].split("+")[0])
+    spread = ""
+    if len(versions) > 1:
+        named = "; ".join(
+            f"{html.escape(machine)} on "
+            f"{html.escape(', '.join(sorted(seen)))}"
+            for machine, seen in sorted(versions.items())
+        )
+        spread = (f" The versions in play are {named} — recorded in each "
+                  f"run&#39;s <code>run_meta.json</code> and carried by every "
+                  f"cross-machine claim here.")
+    return f"""
 <h2>What these numbers rest on</h2>
 <p>Energy is read from cumulative counters and differenced, so no figure here
 depends on a sampling rate. Every run measures its own idle floor on a quiet
@@ -2997,11 +3082,15 @@ devices, and where they disagree the disagreement is reported rather than
 averaged: two instruments on the same silicon that differ mean one is wrong,
 not that the truth lies between them. Aurora has no second opinion available at
 all, which is the single largest assumption on this site.</p>
-<p>The machines do not run identical software. vLLM versions differ between
-them, which is recorded in each run&#39;s <code>run_meta.json</code> and treated
-as a stated confound rather than smoothed over. Run-to-run noise is a few
-percent on dynamic watts and well under one percent on throughput, so
-differences of that size are not findings.</p>
+<p>The machines do not run identical software, and this is the largest stated
+confound on the site.{spread} A serving stack changes how requests are batched
+and scheduled between releases, so a throughput gap between two machines is
+partly a gap between two versions. It bears less on the energy findings than it
+might appear: the central result turns on two machines drawing the same watts
+and differing on what the node costs at idle, and no scheduler change
+manufactures a difference in idle draw.</p>
+<p>Run-to-run noise is a few percent on dynamic watts and well under one
+percent on throughput, so differences of that size are not findings.</p>
 <p class="fineprint">Per-machine detail, including which counter each one reads
 and what it cannot read, is on the <a href="power.html">power profiles</a>
 page.</p>"""
@@ -3046,7 +3135,7 @@ def conclusions_body(runs: list, sweeps: list, specs: dict | None = None) -> str
         _conclusion_fill(sweeps),
         _conclusion_tp(sweeps),
         _conclusion_workload(sweeps),
-        _conclusion_method(),
+        _conclusion_method(sweeps),
         _conclusion_open(sweeps, runs),
     ) if part)
     return f"""

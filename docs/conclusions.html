@@ -388,6 +388,7 @@ dynamic power that agrees to within a percent. Everything separating the two
 numbers is what the node costs before any work arrives. An idle floor is not
 overhead you can optimise away in software — it is a property of the node you
 were given.</p>
+<p>It is not a property of one model. gemma-3-27b at TP=4, which fills four accelerators on both machines, puts them within <strong>3%</strong> of each other on dynamic power — 526 W against 507 W — and <strong>1.54&#215;</strong> apart on tokens per joule. Different model, different width, same explanation.</p>
 <p class="fineprint">Evidence: <a href="power.html#polaris">Polaris</a> and
 <a href="power.html#sophia">Sophia</a> power profiles — the radar at the top of
 each shows this as the one axis where the machines are not nearly
@@ -415,6 +416,7 @@ penalty is not an artifact of Intel silicon or of one <span class="tool">vLLM</s
 Sophia is the steeper of the two, keeping only
 <strong>0.43&#215;</strong> its single-accelerator efficiency while
 drawing <strong>2.86&#215;</strong> the power.</p>
+<p>The sharpest case is a model that never fit on one accelerator to begin with. gemma-3-27b on Sophia, going from four GPUs to eight, returned <strong>1.03&#215;</strong> the throughput for <strong>1.52&#215;</strong> the dynamic power. Doubling the silicon bought 3% more tokens per second and cost half as much again in watts — so this is not an artifact of the first accelerator being unusually cheap to add.</p>
 <p>The practical reading: shard because a model does not fit, or because a
 latency target demands it — not because more accelerators sounded faster. For a
 model that fits on one, replicas are the efficient way to fill a node.</p>
@@ -453,11 +455,15 @@ devices, and where they disagree the disagreement is reported rather than
 averaged: two instruments on the same silicon that differ mean one is wrong,
 not that the truth lies between them. Aurora has no second opinion available at
 all, which is the single largest assumption on this site.</p>
-<p>The machines do not run identical software. <span class="tool">vLLM</span> versions differ between
-them, which is recorded in each run&#39;s <code>run_meta.json</code> and treated
-as a stated confound rather than smoothed over. Run-to-run noise is a few
-percent on dynamic watts and well under one percent on throughput, so
-differences of that size are not findings.</p>
+<p>The machines do not run identical software, and this is the largest stated
+confound on the site. The versions in play are aurora on 0.15.0; polaris on 0.11.0rc2.dev147; sophia on 0.22.2.dev0 — recorded in each run&#39;s <code>run_meta.json</code> and carried by every cross-machine claim here. A serving stack changes how requests are batched
+and scheduled between releases, so a throughput gap between two machines is
+partly a gap between two versions. It bears less on the energy findings than it
+might appear: the central result turns on two machines drawing the same watts
+and differing on what the node costs at idle, and no scheduler change
+manufactures a difference in idle draw.</p>
+<p>Run-to-run noise is a few percent on dynamic watts and well under one
+percent on throughput, so differences of that size are not findings.</p>
 <p class="fineprint">Per-machine detail, including which counter each one reads
 and what it cannot read, is on the <a href="power.html">power profiles</a>
 page.</p>
@@ -474,7 +480,7 @@ is a limit of the instrument, not of the machine.</p>
 the <a href="dashboard.html">inference dashboard</a>.</p>
 
 <footer>
-Generated 2026-08-20 21:01 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
+Generated 2026-08-20 21:15 UTC from 19 run(s) · machines: aurora, crux, polaris, sophia<br>
 Rebuild the site with <code>python analysis/build_site.py</code> after
 <code>git pull</code>. Numbers come from <code>results/*.json</code>; the
 pages are never edited by hand.
