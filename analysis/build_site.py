@@ -2908,12 +2908,14 @@ def _conclusion_tp(sweeps: list) -> str:
     rows = [r for r in rows if all(r[1:])]
     if not rows:
         return ""
-    body = "".join(
-        f'<tr><td class="m s{SERIES_SLOT.get(m, 8)}">{html.escape(m)}</td>'
-        f"<td>{tput:.2f}&#215;</td><td>{power:.2f}&#215;</td>"
-        f"<td>{eff:.2f}&#215;</td></tr>"
+    # A list of rows, each a list of cells: table() writes the tr and td itself.
+    # Handing it one pre-joined string instead makes it iterate the characters
+    # and emit a row per character, which is what it did here until 2026-08-20.
+    body = [
+        [machine_tag(m), f"{tput:.2f}&#215;", f"{power:.2f}&#215;",
+         f"{eff:.2f}&#215;"]
         for m, tput, power, eff in rows
-    )
+    ]
     worst = min(rows, key=lambda r: r[3])
     return f"""
 <h2>Tensor parallelism divides time, not joules</h2>
